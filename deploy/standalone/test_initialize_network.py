@@ -28,6 +28,13 @@ RECORD = (ROOT / 'development/decisions/FRESH-NETWORK-CP.md').read_text(encoding
 PROFILE_CODE = (ROOT / 'prototypes/lp4-execution/src/p1_profile.rs').read_text(encoding='utf-8')
 BIN = Path(os.environ.get('POCOLD_BIN_DIR', ROOT / 'prototypes/pocold/target/release'))
 EXE = '.exe' if os.name == 'nt' else ''
+INSTALL = (HERE / 'install-linux.sh').read_text(encoding='utf-8')
+README = (HERE / 'README.md').read_text(encoding='utf-8')
+RUNBOOK = (ROOT / 'deploy/mainnet/README.md').read_text(encoding='utf-8')
+REHEARSAL = (ROOT / 'development/public-network/REHEARSAL.md').read_text(encoding='utf-8')
+NODE = (ROOT / 'prototypes/pocold/src/node.rs').read_text(encoding='utf-8')
+POCOL = (ROOT / 'prototypes/pocold/src/bin/pocol.rs').read_text(encoding='utf-8')
+GIB = 1 << 30
 
 
 def placeholders(value, path=''):
@@ -316,7 +323,9 @@ class InitializeNetwork(unittest.TestCase):
         filters = re.findall(r'^    paths: \[(.*)\]$', workflow, re.M)
         self.assertEqual(len(filters), 2)
         for read in ('deploy/standalone/**', 'prototypes/**', 'deploy/mainnet/v3-*profile.json',
-                     'deploy/mainnet/retired-networks.json', 'development/decisions/FRESH-NETWORK-CP.md'):
+                     'deploy/mainnet/retired-networks.json', 'deploy/mainnet/README.md',
+                     'development/decisions/FRESH-NETWORK-CP.md', 'development/public-network/REHEARSAL.md',
+                     'development/public-network/OPERATIONS.md'):
             for paths in filters:
                 self.assertIn(f"'{read}'", paths)
 
@@ -399,6 +408,157 @@ class RealRunExpectations(unittest.TestCase):
         for item in ps_list('ExperimentalPending'):
             self.assertIn(item, pending)
         self.assertEqual((summary['networkEnvironment'], summary['networkScope']), ('devnet', 'experimental-devnet'))
+
+
+def runbook_steps():
+    """deploy/mainnet/README.md's numbered runbook steps, as test_release_signing.py reads them."""
+    return dict(re.findall(r'(?ms)^(\d)\. \*\*(.*?)(?=^\d\. \*\*|^## )', RUNBOOK))
+
+
+def unit_settings():
+    """install-linux.sh's systemd unit (the UNIT heredoc): {key: [values]}."""
+    body = re.search(r"<<'UNIT'\n(.*?)\nUNIT\n", INSTALL, re.S).group(1)
+    settings = {}
+    for line in body.splitlines():
+        m = re.match(r'^([A-Za-z]+)=(.*)$', line)
+        if m:
+            settings.setdefault(m.group(1), []).append(m.group(2))
+    return settings
+
+
+def systemd_bytes(value):
+    """A systemd memory size (bytes, or K/M/G/T with base 1024)."""
+    m = re.fullmatch(r'(\d+)([KMGT]?)', value)
+    assert m, value
+    return int(m.group(1)) << {'': 0, 'K': 10, 'M': 20, 'G': 30, 'T': 40}[m.group(2)]
+
+
+def memory_budget(settings):
+    """The node's memory budget under the unit: its POCOL_MEMORY_BUDGET_BYTES, else node.rs MEM_BUDGET."""
+    for env in settings.get('Environment', []):
+        m = re.fullmatch(r'"?POCOL_MEMORY_BUDGET_BYTES=(\d+)"?', env)
+        if m:
+            return int(m.group(1))
+    m = re.search(r'^pub const MEM_BUDGET:u64=(\d+)<<(\d+);$', NODE, re.M)
+    assert m, 'node.rs MEM_BUDGET'
+    return int(m.group(1)) << int(m.group(2))
+
+
+class Rehearsal(unittest.TestCase):
+    """The rehearsal's server unit, hash rate measurement and runbook texts agree with the code they describe."""
+
+    def test_the_server_unit_leaves_the_node_its_memory_budget(self):
+        unit = unit_settings()
+        budget = memory_budget(unit)
+        self.assertEqual(budget, 6 * GIB, 'the default budget the docs quote')
+        self.assertEqual(len(unit.get('MemoryMax', [])), 1, unit)
+        cap = systemd_bytes(unit['MemoryMax'][0])
+        # The A13 model leaves out allocator overhead: the cap is the budget plus 1 GiB the budget does not count.
+        self.assertGreaterEqual(cap, budget + GIB, 'MemoryMax below the budget would OOM-kill a node its gate admits')
+        for high in unit.get('MemoryHigh', []):
+            self.assertGreaterEqual(systemd_bytes(high), budget, 'MemoryHigh below the budget throttles the node')
+        self.assertEqual(unit.get('MemorySwapMax'), ['0'])
+        # The README's thread inventory fits the unit's task limit (the node also refuses to start otherwise).
+        tasks = max(int(n) for n in re.findall(r'(\d+) tasks with', README))
+        self.assertGreaterEqual(int(unit['TasksMax'][0]), tasks)
+
+    def test_the_docs_quote_the_units_memory_limits(self):
+        cap = unit_settings()['MemoryMax'][0]
+        host = systemd_bytes(cap) // GIB + 1
+        for name, text in (('deploy/standalone/README.md', README), ('REHEARSAL.md', REHEARSAL)):
+            self.assertIn(f'`MemoryMax={cap}`', text, name)
+            self.assertIn(f'at least {host} GiB of RAM', text, name)
+            for gone in ('MemoryMax=3G', 'MemoryHigh=2560M', '4 GiB server', '4 GiB host'):
+                self.assertNotIn(gone, text, name)
+        self.assertNotIn('4 GiB', INSTALL)
+        self.assertIn(f'at least {host} GiB of RAM', INSTALL.replace('\n# ', ' '))
+
+    def test_the_docs_quote_the_pinned_store_model(self):
+        # The A13 store-mode total the unit comment and the docs quote is the one network_budget.rs pins (run by
+        # full-nonce-upgrade.yml), so a moved model fails here as well as there.
+        budget = (ROOT / 'prototypes/pocold/tests/network_budget.rs').read_text(encoding='utf-8')
+        total = int(re.search(r'^const V3_MAINNET_STORE_TOTAL:u128=([0-9_]+);$', budget, re.M).group(1).replace('_', ''))
+        quoted = f'{total:,} B'
+        operations = (ROOT / 'development/public-network/OPERATIONS.md').read_text(encoding='utf-8')
+        for name, text in (('install-linux.sh', INSTALL), ('deploy/standalone/README.md', README),
+                           ('REHEARSAL.md', REHEARSAL), ('OPERATIONS.md', operations)):
+            self.assertIn(quoted, text, name)
+
+    def test_the_late_start_check_on_the_filled_profile_is_a_record(self):
+        # The ceremony fills the profile and admits the genesis in one run (no pause between them, on either network),
+        # so the ignored launch_delay_asert test on the filled profile runs after the genesis: the runbook says so.
+        asert = (ROOT / 'prototypes/pocold/tests/launch_delay_asert.rs').read_text(encoding='utf-8')
+        self.assertIn('#[ignore = "ceremony record: POCOL_FILLED_PROFILE=<path>', asert)
+        rates = re.search(r'let rates: \[u64; (\d+)\]', asert).group(1)
+        fill = SCRIPT.index('$Config = Set-Ceremony $ProfileText $Values')
+        admit = SCRIPT.index('& $Daemon init-testnet --config $ConfigFile')
+        self.assertNotRegex(SCRIPT[fill:admit], r'Read-Host|PromptForChoice|launch_delay_asert')
+        step = ' '.join(runbook_steps()['4'].split())
+        self.assertIn('--test launch_delay_asert -- --ignored --nocapture', step)
+        self.assertIn('for the mainnet as for the rehearsal', step)
+        self.assertIn('it is a record, not a gate', step)
+        # CI checks sampled rates, not every rate: the docs give the count the test has.
+        words = {'8': 'eight'}[rates]
+        for name, text in (('runbook step 4', step), ('launch_delay_asert.rs', ' '.join(asert.replace('//!', '').replace('///', '').split()))):
+            self.assertIn(f'{words} rates spanning', text, name)
+            self.assertNotIn('every admissible', text, name)
+            self.assertNotIn('whole admissible range', text, name)
+
+    def test_the_hash_rate_is_measured_on_each_device_and_summed(self):
+        # pocol hashrate exists, before any home is opened, and the ceremony and both READMEs point to it.
+        self.assertIn('"hashrate" => &["--seconds"]', POCOL)
+        self.assertLess(POCOL.index('if command == "hashrate"'), POCOL.index('let home_path = get("--home")'))
+        self.assertIn('hashrate [--seconds 1..600]', POCOL)
+        param = SCRIPT[:SCRIPT.index('Mandatory=$true)][uint64]$HashesPerSecond')]
+        self.assertIn('`pocol hashrate`', param[param.rindex('param('):], 'the parameter comment names the command')
+        steps = runbook_steps()
+        for name, text in (('deploy/mainnet/README.md step 4', steps['4']), ('deploy/standalone/README.md', README)):
+            self.assertIn('pocol hashrate --seconds 60', text, name)
+            self.assertIn('pocol.exe hashrate --seconds 60', text, name)
+            self.assertRegex(text, r'sum of the four|add the four medians', name)
+            self.assertIn('networkHashrateEst', text, name)
+        self.assertIn('`pocol hashrate`', REHEARSAL)
+
+    def test_the_miner_key_comes_from_pocol_identity_on_each_device(self):
+        self.assertIn('runuser -u pocol-standalone -- /opt/pocol-standalone/pocol identity --home /var/lib/pocol-standalone', INSTALL)
+        self.assertIn('$Desktop = (& $Node identity | ConvertFrom-Json)', SCRIPT)
+        step = runbook_steps()['3']
+        self.assertIn('pocol identity --home /var/lib/pocol-standalone', step)
+        self.assertIn('pocol.exe identity', step)
+        self.assertNotIn('independent-key flow', step)
+        miner = step[:step.index('Only the public miner ID leaves the device.')]
+        self.assertNotIn('pocol-key', miner, 'pocol-key makes the reward keys, not the miner keys')
+
+    def test_the_rehearsal_runs_the_four_founders_the_ceremony_makes(self):
+        step = runbook_steps()['6']
+        self.assertIn('four founding devices', step)
+        self.assertIn("owner's PC (founder 4)", step)
+        self.assertNotIn('three US servers only', RUNBOOK)
+        self.assertIn("Write-Host \"Creates the $($Selected.Name) genesis (chain id $($Selected.ChainId)) with four founders: the three servers and this PC.\"", SCRIPT)
+        self.assertNotIn('The host set is the owner', REHEARSAL)
+
+    def test_the_compared_invitation_value_is_the_file_sha256(self):
+        self.assertIn('$NetworkHash = (Get-FileHash -LiteralPath $Target -Algorithm SHA256).Hash.ToLowerInvariant()', SCRIPT)
+        self.assertIn('Write-Host "Invitation: $Target (SHA-256 $NetworkHash)"', SCRIPT)
+        self.assertIn("printf '%s  %s\\n' '$NetworkHash' network.pocol.json | sha256sum -c -", SCRIPT)
+        for name, text in (('deploy/mainnet/README.md step 5', runbook_steps()['5']), ('deploy/standalone/README.md', README)):
+            self.assertIn('file SHA-256', text, name)
+            self.assertIn('`networkFingerprint`, a different', text, name)
+        self.assertNotIn('Publish the invitation fingerprint', README)
+
+    def test_the_server_and_clock_preparation_matches_the_script(self):
+        # Every requirement the README lists is one the script or the installer applies.
+        for in_script in ("$ServerUser = 'pocol-admin'", "'.ssh\\id_ed25519_pocol'", 'timedatectl show -p NTPSynchronized --value',
+                          'sudo ufw allow $P2pPort/tcp', "'-F','none','-o','IdentitiesOnly=yes'",
+                          '& w32tm.exe /stripchart "/computer:$TimePeer" /samples:1 /dataonly', "($TimeSource -split ',')[0]"):
+            self.assertIn(in_script, SCRIPT)
+        self.assertNotIn('ufw enable', SCRIPT, 'the script never enables ufw')
+        for in_readme in ('`pocol-admin`', 'id_ed25519_pocol', 'SSH on port 22', 'timedatectl show -p NTPSynchronized --value',
+                          'sudo ufw allow 30300/tcp', 'never enables ufw', 'sudo ufw allow OpenSSH',
+                          'w32tm /stripchart /computer:NTP_HOST /samples:1 /dataonly', 'w32tm /query /source',
+                          'Local CMOS Clock', 'systemd\n    250 or later'):
+            self.assertIn(in_readme, README)
+        self.assertNotIn('tested on 24.04', README)
 
 
 if __name__ == '__main__':

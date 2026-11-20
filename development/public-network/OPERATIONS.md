@@ -458,11 +458,19 @@ out and let the next open rebuild it.
 **LOCAL CAPACITY.** Every 256 records the node observes its files and rechecks the
 bound. It logs `LOCAL CAPACITY warning: …` once the bound with its 1/8 reserve
 reaches 15/16 of the budget. Past the budget it stops with `LOCAL CAPACITY: …; raise
---memory-budget-bytes or POCOL_MEMORY_BUDGET_BYTES`. With eviction on, either message
-now means terabytes of history files, not days of blocks: raise the budget (each
-extra GiB of budget admits about 3.5 TiB more history) or move to a host with more
-memory. At open, `LOCAL CAPACITY at open: the journal's N records need … B of replay
-tables …` means the journal's replay tables (about 160 B a record counted) do not fit
+--memory-budget-bytes or POCOL_MEMORY_BUDGET_BYTES`. With eviction on, the stop
+means terabytes of history files, not days of blocks: raise the budget (each extra
+GiB of budget admits about 3.5 TiB more history) or move to a host with more memory.
+The warning does not: at the fresh network's v3 profile a new founder node's bound is
+already 5,512,153,289 B (`prototypes/pocold/tests/network_budget.rs`), which needs
+6,299,603,759 B with its reserve, above 15/16 of the 6 GiB default (6,039,797,760 B).
+So every founder at the default budget logs the warning at its first recheck, 256
+records after it opens (about 43 minutes at `T_blk` 10 s); it is expected there, and
+the stop is still about 1,137.6 GiB of state.redb or 577.5 GiB of history.redb away
+([REHEARSAL.md](REHEARSAL.md), section 5). A larger budget (`POCOL_MEMORY_BUDGET_BYTES`,
+with the host's memory and the unit's `MemoryMax` raised to match) moves the warning
+later; that is the owner's choice of server size. At open, `LOCAL CAPACITY at open:
+the journal's N records need … B of replay tables …` means the journal's replay tables (about 160 B a record counted) do not fit
 beside the bound; raise the budget. Status reports `canonicalBase`, `blocksIndexed`,
 `anchors`, `evictStalls` (always 0 on a healthy node), `evictDepth`, `diskObserved`
 and `resourceDiskBytes`. `resourceDiskBytes` replaces `resourceProjectionRecords`.

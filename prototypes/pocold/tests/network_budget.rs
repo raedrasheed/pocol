@@ -318,6 +318,11 @@ fn at_open(cp:&pocol_lp4_execution::profile::ConsensusParams,l:pocold::node::Lim
     let r=pocold::resources::check(cp,local.k_hist,local.side_max,&lim,2);
     assert_eq!(r.is_ok(),need<=u128::from(lim.mem_budget));
     assert!(r.is_ok(),"a new founder node opens the fresh network in store mode within the 6 GiB budget: {:?}",r.err());
+    // OPERATIONS.md ("LOCAL CAPACITY"): the node warns once the bound with its reserve reaches 15/16 of the budget
+    // (node.rs capacity_recheck), which a new founder node at the default budget already does, so the warning is
+    // expected at its first recheck. If this fails, the model moved below the warning: correct OPERATIONS.md.
+    assert_eq!(lim.mem_budget,pocold::node::MEM_BUDGET);
+    assert!(need.saturating_mul(16)>=u128::from(lim.mem_budget).saturating_mul(15),"the bound {need} B is below 15/16 of the budget");
     for k in ["history/first-import index cache and allocator","history/first-import journal lookup scratch","history/resident window: logs"]{
         assert!(b.items.iter().any(|x|x.0==k),"the v3 term {k}");
     }

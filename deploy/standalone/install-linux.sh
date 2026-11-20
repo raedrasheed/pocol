@@ -45,9 +45,12 @@ ReadWritePaths=/var/lib/pocol-standalone
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 TasksMax=256
 LimitNOFILE=4096
-# A bounded pilot on the owner's 4 GiB VPS, not a proof of worst-case capacity.
-MemoryHigh=2560M
-MemoryMax=3G
+# A13: the node's model at the v3 profile is 5,512,153,289 B (prototypes/pocold/tests/network_budget.rs), which its
+# gate keeps, with a 1/8 reserve, inside the 6 GiB budget (POCOL_MEMORY_BUDGET_BYTES, default node::MEM_BUDGET). The
+# model leaves out allocator overhead, so the cap adds 1 GiB the budget does not count (binary, page tables, socket
+# buffers, page cache). No MemoryHigh: throttling below the budget would slow a node with 10 s blocks. Host: at least
+# 8 GiB of RAM.
+MemoryMax=7G
 MemorySwapMax=0
 
 [Install]

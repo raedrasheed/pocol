@@ -587,6 +587,8 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
   readiness, the public-network admission and a launch in which every value is computed.
 - **Design objectives.** PoW-equivalent security, fairness and Sybil resistance are not proven.
 - **No external audit.** No independent external human security audit has been done.
+- **Unresolved findings and public limitations.** They are listed, with their scope and sources, in
+  [FINDINGS.md](development/public-network/FINDINGS.md) (gate Q1).
 
 The deployment designation does not close these engineering or security conditions.
 Read the admission report and rollout prerequisites before operating this release.
