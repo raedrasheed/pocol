@@ -57,8 +57,10 @@ fn command() -> Result<(), String> {
         "export-key" => &["--home", "--out", "--key-credential"], "inspect-key-backup" => &["--home", "--backup"],
         "import-key" => &["--home", "--backup", "--replace"],
         "network" => &["--from", "--seed", "--bootstrap", "--seeds-retired", "--out"], "inspect" => &["--network"],
+        // This device's mining rate (R25d input for the genesis ceremony's -HashesPerSecond); reads and writes nothing.
+        "hashrate" => &["--seconds"],
         "build-info" => { println!("{}", pocold::readiness::build_info()); return Ok(()); }
-        _ => return Err("usage: pocol identity [--home DIR] [--key-credential NAME] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] [--peer IP:PORT]... [--key-credential NAME] | network --from GENESIS_DIR --seed IP:PORT... [--bootstrap IP:PORT]... [--seeds-retired true|false] --out FILE | inspect --network FILE | upgrade [--home DIR] --network FILE [--key-credential NAME] | inspect-upgrade [--home DIR] --network FILE [--key-credential NAME] | export-key [--home DIR] --out FILE [--key-credential NAME] | inspect-key-backup [--home DIR] --backup FILE | import-key [--home DIR] --backup FILE [--replace CURRENT_ADDRESS] (key backup passphrases are read from stdin: export-key reads it twice; --key-credential NAME reads the key from the systemd credential NAME in $CREDENTIALS_DIRECTORY, never from the key file)".into()),
+        _ => return Err("usage: pocol identity [--home DIR] [--key-credential NAME] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] [--peer IP:PORT]... [--key-credential NAME] | network --from GENESIS_DIR --seed IP:PORT... [--bootstrap IP:PORT]... [--seeds-retired true|false] --out FILE | inspect --network FILE | hashrate [--seconds 1..600] | upgrade [--home DIR] --network FILE [--key-credential NAME] | inspect-upgrade [--home DIR] --network FILE [--key-credential NAME] | export-key [--home DIR] --out FILE [--key-credential NAME] | inspect-key-backup [--home DIR] --backup FILE | import-key [--home DIR] --backup FILE [--replace CURRENT_ADDRESS] (key backup passphrases are read from stdin: export-key reads it twice; --key-credential NAME reads the key from the systemd credential NAME in $CREDENTIALS_DIRECTORY, never from the key file)".into()),
     };
     let mut values = std::collections::BTreeMap::<String, Vec<String>>::new();
     if rest.len() % 2 != 0 {
@@ -99,6 +101,21 @@ fn command() -> Result<(), String> {
         println!(
             "{}",
             Invitation::parse(&launcher::read_bounded(Path::new(need("--network")?))?)?.describe()
+        );
+        return Ok(());
+    }
+    if command == "hashrate" {
+        // Before any home is opened: it reads no key and no network and writes nothing. Ctrl-C cancels it (STOP).
+        let seconds = match get("--seconds") {
+            None => 30,
+            Some(v) => v.parse::<u64>().ok().filter(|s| (1..=600).contains(s)).ok_or_else(|| format!("invalid --seconds {v}: expected 1 to 600"))?,
+        };
+        let m = pocold::miner::measure(seconds, &|| STOP.load(Ordering::Relaxed))?;
+        println!(
+            "{}",
+            serde_json::json!({"hashesPerSecond": m.rate, "hashes": m.hashes, "elapsedMs": m.elapsed.as_millis() as u64, "seconds": seconds,
+                "threads": pocold::miner::MEASURE_THREADS,
+                "note": "this device, on the one miner thread pocol start and the wallet mine with; -HashesPerSecond is the sum of the four founders' values"})
         );
         return Ok(());
     }

@@ -24,8 +24,9 @@ ordinary reviewed change. A node-local declaration (Δ2 instead of Δ1) changes 
   `POCOL_RELEASE=1` from a pinned tree ([PLAN.md](PLAN.md), "Launch order"), with fresh keys on every founder's device.
 - **Duration.** At least 24 h, plus the M1 fill (about 2,500 blocks, about 7 h).
 - **Founders.** The design runs the rehearsal with all 4 founders mining: the three servers and the owner's home PC.
-  [deploy/mainnet/README.md](../../deploy/mainnet/README.md) (step 6) describes the closed rehearsal on the three US
-  servers. The host set is the owner's choice, made when the owner approves the step.
+  The ceremony (`deploy/standalone/Initialize-PoColNetwork.ps1`) makes exactly these four founders, the PC as founder
+  4, and refuses any other set ([deploy/mainnet/README.md](../../deploy/mainnet/README.md), step 6). The owner
+  approves the step before it runs.
 - **Home-PC steps.** A home-PC off/on step of 10 min, and a near-BODY_MAX site publish while the PC is the proposer.
 - **If the PC cannot join,** use `tc netem` with 150 ± 30 ms and a 1-5 Mbit/s upload limit.
 - **After the rehearsal** the devices are re-provisioned and every founder key is made fresh again for the mainnet
@@ -52,7 +53,7 @@ ordinary reviewed change. A node-local declaration (Δ2 instead of Δ1) changes 
 | S1 | Sites | **the real explorer bundle** and a synthetic 4 MiB site published (≤ 70 + 10 and ≤ 175 + 10 blocks); base-fee drift recorded; `pocol-site fetch` digests identical on all 4 nodes before and after restart; the Chrome viewer, Studio and IDE open both through the gateway within the rate budget; `pocol_getCaps` matches the state; the publisher refuses before signing at a near-full cap (cap-test build) | Fix the gateway caching or publisher fees. |
 | S2 | Cap raise (cap-test build) | fill ACCT_CAP; `register` and new accounts fail; activate C10 at a height; both succeed; replay and reorg across the height are consistent | Fix C10 and run S2 again. |
 
-Reading the measures on the node:
+Reading the measures on the node (section 8's collector records T1, T2, T5 and T6 over the whole run):
 - **T5.** The design's `reorgs_ge_k_safe` counter was renamed: since owner decision 12 the node counts
   reorganizations of `k_alarm` (default 60) blocks or more as `reorgsGeKAlarm`, and reports the deepest one as
   `maxReorgDepth` (`pocol_finality`, and `pocol_status.retention`; `development/m1/reference/network.md`, the
@@ -78,8 +79,8 @@ Reading the measures on the node:
 | 1. Node memory and history at 10,000 members | Corrected in [FN-3C-C6-EVIDENCE](../decisions/FN-3C-C6-EVIDENCE-2026-11-14.md) §1: closed by FN-3 (evidence FN-3c) and FN-1b. A13 admits the node at the design's §1a CP at 5,485,767,089 B, 151,377,487 B (144 MiB) inside the usable 5.25 GiB; the membership part of history.redb projects to 8.0 MB a day idle and 12.1 MB a day with every block at \|Δ\| = 24. | M1, section 5 |
 | 2. Cap fill with no creation fee | The account cap fills first: 10^6 new-account transfers at 21,000 gas = 2.1·10^10 gas, about 0.21 PCOL at the 10^7 wei floor, about 14.6 h at about 190 per block. After that a newcomer without an account cannot register. All three caps fill for about 3.2-3.3 PCOL over about 9.5 days; consensus and mining continue. The design's mitigations: C10 (the cap-raise path, FN-5), C9's occupancy report (`pocol_getCaps`), Q1(b). Drafted for the launch disclosures ([deploy/standalone/README.md](../../deploy/standalone/README.md), "Launch disclosures", State caps; wording awaiting owner review). | S1 (near-full cap), S2 |
 | 3. 10 s latency | Needs measured Δ ≤ 2 s and φ ≤ 1 s. The withholding gain is 1.6× the 30 s value (+0.105 at f = 0.2); natural forks about 0.8-1.4 %; the home PC's latency tax about 1-2.5 %. | T1, T2, T5, T7 |
-| 4. Calibration | A wrong target_g gives a burst of 1 s blocks or slow blocks for 75+ blocks. Measure the founders' aggregate hashrate. | T6 |
-| 5. Launch synchronization | A founder starting more than D_att (90 s) after g_ts produces fallback-only blocks. | T8 |
+| 4. Calibration | A wrong target_g gives a burst of 1 s blocks or slow blocks for 75+ blocks. Measure the founders' aggregate hashrate: `pocol hashrate` on each founder's device, summed ([deploy/mainnet/README.md](../../deploy/mainnet/README.md), step 4). | T6 |
+| 5. Launch synchronization | A founder starting more than D_att (90 s) after g_ts produces fallback-only blocks. If every founder starts hours late, the difficulty collapses to the maximum target after a lateness that grows with the hash rate (3 h at 26,214 H/s), and a burst of near-free blocks follows (`prototypes/pocold/tests/launch_delay_asert.rs`). | T8 |
 | 6. Sybil seats and eviction at a full set | A zero-work seat costs only gas (about 2·10^-6 PCOL); M_max fills in about 6.9 h at R_max 4. At a full set of equal small miners (11,520 shares/h over 10,000 members, about 1.15 each) about 31.6 % are removable at any moment; newcomers can evict up to 1,440 per hour. Below a full set nobody can be removed. | M1, M3 |
 | 7. Founders' seats | At a full set a founder offline for more than 1 h can lose its seat to `registerReplacing`; it registers again with 20 PCOL (HELD at once) after U, if a removable seat exists. | R-off |
 | 8. V3-16 exposure (C2) | ACCRUING winners can make a whole pot INVALID under type-2 evidence, and low-bond (≥ 5 PCOL) members can propose. | M4 |
@@ -174,13 +175,19 @@ RSS and disk are recorded on every founder over the whole run, M1 included, and 
 ([A13-DERIVATION](../audit-2026-10-22/A13-DERIVATION.md), sections "FN-3c" and "FN-1b";
 [FN-3C-C6-EVIDENCE](../decisions/FN-3C-C6-EVIDENCE-2026-11-14.md)).
 
-- **Memory.** The A13 model admits the node at the design's §1a CP at 5,485,767,089 B (5.11 GiB) after FN-1b, under
-  the usable 5,637,144,576 B (7/8 of the 6 GiB budget). Sample the node's RSS, for example
-  `ps -o rss= -p "$(systemctl show -p MainPID --value pocol-standalone)"`. Pass: peak RSS stays within that bound and
-  does not grow with height across the run (A13 §2g, windowed history). The server unit also sets `MemoryHigh=2560M`
-  and `MemoryMax=3G` (`install-linux.sh`, a bounded pilot on a 4 GiB host), so record RSS against those limits too; a
-  node stopped by `MemoryMax` shows as a service restart. Remedy: size the host's memory and the unit's limits (owner
-  approval), or reduce the node's memory use in code with A13 re-derived.
+- **Memory.** The A13 model admits the node at the design's §1a CP at 5,485,767,089 B (5.11 GiB) after FN-1b, and at
+  the committed v3 profile, as a founder opens it in store mode, at 5,512,153,289 B (5.13 GiB,
+  `prototypes/pocold/tests/network_budget.rs`), under the usable 5,637,144,576 B (7/8 of the 6 GiB default budget,
+  `POCOL_MEMORY_BUDGET_BYTES`). The model leaves out allocator overhead and fragmentation, so it is not a ceiling on
+  RSS. The server unit sets `MemoryMax=7G` and `MemorySwapMax=0` and no `MemoryHigh` (`install-linux.sh`), so each
+  server needs at least 8 GiB of RAM. Sample the node's RSS, for example
+  `ps -o rss= -p "$(systemctl show -p MainPID --value pocol-standalone)"`, the unit's
+  `systemctl show -p MemoryCurrent pocol-standalone` (which includes page cache) and `pocol_status` `a13.boundBytes`
+  and `a13.budgetBytes`. Pass: peak RSS stays within the bound and does not grow with height across the run (A13 §2g,
+  windowed history), and no service restart is caused by `MemoryMax` (a node stopped by it shows as a restart, which
+  is a miss). The `LOCAL CAPACITY warning` is expected at the default budget ([OPERATIONS.md](OPERATIONS.md), "LOCAL
+  CAPACITY"); the stop is not. Remedy: size the host's memory and the unit's limits (owner approval), or reduce the
+  node's memory use in code with A13 re-derived.
 - **Disk (D1).** Record the daily growth of the journal, history.redb and state.redb, and the node's `diskObserved` and
   `resourceDiskBytes` ([OPERATIONS.md](OPERATIONS.md)). The membership part of history.redb was projected at 8.0 MB a
   day idle and 12.1 MB a day at \|Δ\| = 24, against C6's 100 MB; the journal's worst case is about 1.7 GB a day. At the
@@ -197,7 +204,8 @@ RSS and disk are recorded on every founder over the whole run, M1 included, and 
 Record each measure with its value, its threshold, pass or miss, and any remedy applied, under
 [evidence/](evidence/) for the rehearsal run. The evidence holds only public data: addresses, hashes, heights,
 timings and counters, never a key file, a backup or a passphrase. A gate in [PLAN.md](PLAN.md) changes its status only
-with that evidence.
+with that evidence. Section 8's collector writes only such data: it never stores a node's peer list or discovery state,
+which name the peers' IP addresses (the PC's home address among them).
 
 ## 7. The registration fill harness (M1, M3, R-off)
 
@@ -443,3 +451,87 @@ hold only public data and go to [evidence/](evidence/).
 limits, refusals, reason inference, keys, and the fill and M3 loops against an in-process registry model). With
 `POCOL_REHEARSAL_E2E=1` and `POCOLD_BIN_DIR` set to the release binaries, the same command also fills a local devnet to
 M_max 8 and runs M3 on it, about 1 to 2 minutes (CI: `.github/workflows/full-nonce-upgrade.yml`, Linux).
+
+## 8. The measure collector (T1, T2, T5, T6)
+
+`deploy/rehearsal/collect_measures.py` records T1, T2, T5 and T6 over the run and grades them mechanically. It is
+tooling: it changes no consensus rule or CP value and closes no gate; its report is read against section 2 and recorded
+as section 6 says. It uses the Python standard library only, so the one file can be copied to each server (it is not
+part of the release package). It reads the node's loopback RPC and the host's clock and service status, as an ordinary
+user (not root, not `pocol-standalone`); it signs, sends and asks for nothing secret. It refuses any `--rpc` other than
+`http://127.0.0.1:PORT` (or `[::1]`), and ignores proxy variables.
+
+**On each server**, for the whole run (in a `tmux` or `screen` session, or a user service), one sample a minute:
+
+```sh
+python3 collect_measures.py sample --rpc http://127.0.0.1:8545 --label s1 --out ~/measures --every 60 \
+  --expect-chain-id 1656550731
+```
+
+Each sample is one JSON line in `~/measures/measures-s1-<startUTC>.jsonl`, written and synced at once: the service's
+`MainPID`, `NRestarts` and start time (`systemctl show`, unprivileged), the node's RSS, the host's offset from its own
+NTP source (`chronyc -c tracking`, else `timedatectl timesync-status`), all of `pocol_finality` and
+`pocol_templateLatency` (proposer addresses are public miner IDs), and a whitelisted part of `pocol_status` (identity,
+head, miner, the `stats` counters, `retention`, `diskObserved`, `resourceDiskBytes`, `a13.boundBytes` and
+`a13.budgetBytes`, `evictStalls`). `peers`, `discovery` and `lastIncompatibleReason` are never stored. A failed read (a
+node restarting, say) is an `error` line, and sampling goes on; the node's busy answer is retried. Ctrl-C or SIGTERM
+stops it.
+
+**On the PC**, which runs the wallet engine without an RPC port, only the clock can be recorded, with
+`deploy/rehearsal/Collect-PoColClock.ps1` copied from the repository (it is not in the Windows package):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Collect-PoColClock.ps1 -Out .\measures -Every 60
+```
+
+It measures as `Initialize-PoColNetwork.ps1` does (`w32tm /stripchart` against the first entry of `w32tm /query
+/source`) and writes `clock-PC-<startUTC>.jsonl` in the same clock schema.
+
+**At the end**, on one server (a second server's copy cross-checks it), the canonical blocks:
+
+```sh
+python3 collect_measures.py blocks --rpc http://127.0.0.1:8545 --out ~/blocks.jsonl --expect-chain-id 1656550731
+```
+
+Then, wherever the files are gathered, with the drill windows of section 4 and the home-PC off/on window in
+`windows.json` (`{"windows": [{"name": "partition", "start": "2026-12-01T10:00:00Z", "end": "2026-12-01T10:30:00Z"}]}`,
+times as unix seconds or ISO 8601 UTC ending in `Z`):
+
+```sh
+python3 deploy/rehearsal/collect_measures.py merge --in measures-*.jsonl clock-PC-*.jsonl --blocks blocks.jsonl \
+  --windows windows.json --declared delta1 --address pc=0xPC_MINER_ID --out report.json
+```
+
+`--address LABEL=0x...` names a founder's miner ID; each server's own is named by its label. `--step-height H` asks for
+the blocks the difficulty needs to come back within 5 % of its trailing mean after a hash-rate step at height H. The
+merge refuses files of different chains (`chainId`, `genesisHash` or `consensusIdentity`) and never replaces a file.
+
+What the report grades, and how:
+- **T1**, per ordered pair (receiver server, proposer): `late` 0, `sinceParentMs.p99` at most 1,000 ms (`delta1`) or
+  2,000 ms (`delta2`), and `max` below (Δ_rel − 2) s from the node's own `deltaRel`. The counters are cumulative since
+  the node's start, so each restart starts a segment; a segment's last sample is its total, and the segments are added
+  (the worst p99 and max are kept). `missing`, `early` and the receiver's fallback templates are reported beside them. A
+  pair with nothing received is not measured. p99 is the upper bound of its histogram bucket, so a pass is sound and a
+  miss may be up to one bucket above the true value. The drill windows cannot be left out of these counters.
+- **T2**, clocks: for each pair of hosts, samples within 120 s of each other are compared on |o_i| + |o_j|, at most
+  500 ms. Each host measures only against its own NTP source, so this bounds the pair only when their sources agree.
+  Future templates: a receiver whose `beforeStampMs.max` is at most Φ·1,000 ms (Φ = 2φ) rejected no timed template as
+  future; above that the report says it cannot exclude one.
+- **T5**, in the intervals of section 2: between consecutive samples that no window overlaps, cut at every restart. An
+  interval passes when its `reorgsGeKAlarm` increase is 0 and, if `reorgs` rose, `maxReorgDepth` at its end is at most 2.
+  Each restart is listed with its gap and whether a window covers it; the time between the last sample and the restart
+  (up to one sampling interval) is not measured.
+- **T6**, from the blocks file: the first 100 blocks' mean, (ts[100] − ts[0]) / 100, in 5-20 s, and each full day's mean
+  interval from genesis in 9.5-10.5 s.
+
+What it does not measure or grade: the three pairs with the PC as receiver (listed as not observable); future-queued
+blocks and templates that were never timed (not exposed by the node); siblings, which have no counter and are estimated
+as (Δimported − Δrefetched − Δhead) / Δhead per interval (reported against 2 % as an estimate); T6's "difficulty noise"
+and "re-converges", which this repository does not define (design §4b is kept outside it), reported against the trailing
+60-block mean (τ / T_blk) and marked "definition to confirm"; and T4, whose raw counts outside the windows (attempt 0 with
+no transaction, attempt 1 or more, unsigned) are reported, not graded.
+
+**Tests.** `python3 -B -m unittest discover -s deploy/rehearsal -p 'test_*.py' -v` (`test_collect_measures.py`: a fake
+RPC, the URL and privacy rules, the clock parsers and each rule at its thresholds; with `POCOL_REHEARSAL_E2E=1`, also
+`sample --once`, `blocks` and `merge` against a real `pocol start` node). `test_collect_clock.ps1` runs the PC script
+against a fake `w32tm` (CI: `.github/workflows/full-nonce-upgrade.yml`, Windows).

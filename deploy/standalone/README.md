@@ -62,10 +62,14 @@ evict within its own range; `0` turns the limit off. Both are local P2P policy a
 not change consensus. Every inbound place counts against the memory budget, about
 3.73 MiB each: an operator who lowers `POCOL_MEMORY_BUDGET_BYTES` should lower
 `POCOL_PEERS_MAX` with it.
-The default model uses 6 GiB; a 4 GiB server with a 3 GiB service cgroup remains a
-small pilot, not a worst-case capacity proof. The service's `MemoryMax=3G` was already
-below the model's bound, and the 32 established inbound places add about 126 MB of
-budget to it (110 MB of model) over the earlier 8. The unit's `TasksMax=256` holds the
+The default memory budget is 6 GiB. At the v3 profile the node's A13 model is
+5,512,153,289 B (`prototypes/pocold/tests/network_budget.rs`), which the node's gate keeps,
+with a 1/8 reserve, inside that budget (the 32 established inbound places add about
+126 MB of budget, 110 MB of model, over the earlier 8). The model leaves out allocator
+overhead, so the server unit (`install-linux.sh`) sets `MemoryMax=7G` (the budget plus 1 GiB for the binary,
+page tables, socket buffers and page cache), `MemorySwapMax=0` and no `MemoryHigh`: each
+server needs at least 8 GiB of RAM, plus the limits of any other service on the host. A
+node stopped by `MemoryMax` restarts as a service failure. The unit's `TasksMax=256` holds the
 thread inventory (164 tasks with 7 configured peers and automatic outbound, 144 with 2). Disk sizing, compaction and long-term
 load qualification remain operational work. Numeric heights retain the format's
 u64 representation; zero disables scheduled expiry, not hardware arithmetic.
@@ -97,15 +101,61 @@ reactivate, deregister or claimBond). Founder 4 (this PC) is its own reward addr
 default, and can register as a miner later (see *Mining* below).
 
 Before the run:
-- Provision three fresh Ubuntu servers with the `pocol-admin` account, the local key
-  `%USERPROFILE%\.ssh\id_ed25519_pocol` and NTP-synchronized clocks. Configure a w32time
-  NTP peer on this PC (every founder within 0.5 s). The script refuses a local or
-  free-running time source and measures this PC's offset against that peer.
+- Provision three fresh Ubuntu servers (no PoCol install, no `/opt/pocol-standalone`, no
+  `pocol-standalone` unit or user: `install-linux.sh` refuses them), each with:
+  - an admin user `pocol-admin` (the script's `-ServerUser` default) with sudo rights, a
+    writable home and SSH on port 22 (the script takes bare IPv4 addresses and no port), and
+    the public half of `%USERPROFILE%\.ssh\id_ed25519_pocol` in its `authorized_keys`.
+    Generate that key on this PC (in PowerShell,
+    `ssh-keygen -t ed25519 -f "$env:USERPROFILE\.ssh\id_ed25519_pocol"`); its private half and
+    passphrase never leave this PC. The script connects with
+    `-F none -o IdentitiesOnly=yes` and keeps host-key checking on, so verify each new host
+    fingerprint in the provider console. Each server's sudo may ask for its password twice,
+    at the install and at the start (two separate SSH sessions).
+  - a synchronized clock: `timedatectl show -p NTPSynchronized --value` prints `yes`
+    (systemd-timesyncd or chrony). The script checks only that; the 0.5 s limit between
+    founders is measured during the rehearsal (T2).
+  - `ufw` installed. The script runs `sudo ufw allow 30300/tcp` before it starts the
+    service and fails there if ufw is missing; it never enables ufw, so an inactive ufw
+    stores the rule and filters nothing. To enable it, first allow SSH
+    (`sudo ufw allow OpenSSH`), then `sudo ufw enable`. The rehearsal's partition drill needs
+    an active host firewall.
+  - the provider's firewall open for inbound TCP 22 from this PC and TCP 30300 from the
+    other founders (RPC stays on 127.0.0.1:8545).
+  - at least 8 GiB of RAM (the unit's `MemoryMax=7G`, above) and disk for the run: the
+    journal's worst case is about 1.7 GB a day (development/public-network/REHEARSAL.md,
+    risk 11 and D1).
+  - Ubuntu: no release is tested by CI for the server install (the remote path has never run
+    in CI). The Linux binaries are built on ubuntu-24.04 (the CI build host) and link the
+    system C library, and the encrypted server key (`encrypt-server-key.sh`) needs systemd
+    250 or later.
+- Configure Windows Time on this PC with an NTP peer (every founder within 0.5 s). Start the
+  Windows Time service, then, in an elevated prompt,
+  `w32tm /config /manualpeerlist:"NTP_HOST,0x8" /syncfromflags:manual /update` and
+  `w32tm /resync` (`NTP_HOST` a placeholder for the NTP server, for example the servers'
+  source). Check with `w32tm /query /source` (not `Local CMOS Clock` or `Free-running System
+  Clock`) and `w32tm /stripchart /computer:NTP_HOST /samples:1 /dataonly`. The script refuses
+  a stopped service or a local or free-running source, takes the first comma-separated entry
+  of the source as the peer and measures this PC's offset against it over NTP (UDP 123): at
+  most 0.5 s. The `w32tm /config` and `/resync` commands are standard Windows usage, which
+  the script neither runs nor tests.
 - This PC needs a fresh wallet home: if `%LOCALAPPDATA%\PoCol` exists, back up its key
   (`pocol.exe export-key --out FILE`), close PoCol and move the folder aside (never delete
   it). The script refuses to start otherwise.
-- Measure the founders' aggregate hash rate (the rehearsal's `networkHashrateEst` in
-  `pocold status` feeds the mainnet run), and choose the launch second, or a delay.
+- Measure the founders' aggregate hash rate, `-HashesPerSecond`: on each of the four
+  devices, with that device's own release binary, run `pocol hashrate --seconds 60` three
+  times and take the median, then add the four medians. On a server, extract the verified
+  Linux package into a new folder in the admin's home, check it with
+  `sha256sum --check SHA256SUMS`, run `./pocol hashrate --seconds 60` there and delete the
+  folder afterwards (`install-linux.sh` checks only `/opt/pocol-standalone`, its unit and
+  its service user). On this PC, run `.\pocol.exe hashrate --seconds 60` from the extracted
+  package with PoCol closed. The command measures the one miner thread `pocol start` and
+  the wallet mine with, opens no home, key or network, and writes nothing; each device
+  measures itself because the rate depends on its CPU. The value sets only the starting
+  difficulty, which ASERT then corrects (`deploy/mainnet/README.md`, step 4). For the
+  mainnet run, the rehearsal's `networkHashrateEst` (`pocol_finality`) is the measured
+  aggregate.
+- Choose the launch second, or a delay.
 
 Download the CI artifacts of the pinned release commit and check them against that CI run's `SHA256SUMS`
 (integrity only: the ceremony runs before the identity switch, so there is no signed release yet; the first one,
@@ -169,7 +219,10 @@ update checks in the release guide (`deploy/release/README.md`), install the cor
 open **PoCol Wallet → Settings → Import network file**, select that file, and
 connect. Windows imports the adjacent shared file automatically; Settings also
 supports explicit import while disconnected. All devices use the same invitation.
-Publish the invitation fingerprint through a trusted channel, and sign the invitation with the release key
+Publish the invitation's file SHA-256 (the value the script prints, and that each server
+checked before installing it) through a trusted channel. `pocol inspect --network FILE`
+prints `networkFingerprint`, a different value: the SHA-256 of the parsed invitation, which
+reformatting the JSON leaves unchanged. Sign the invitation with the release key
 (`deploy/release`); a checksum is not publisher authentication, the release signature is. The websites take their identity and the explorer's seed list
 from this invitation, in the repository (W15 for the rehearsal, W16 for the mainnet):
 `python3 deploy/websites/tools/site_identity.py --to network.pocol.json --commit RELEASE_COMMIT --gateway-host explorer.pocol.net`.

@@ -2,10 +2,10 @@ name: PoCol Mainnet native release packages
 on:
   pull_request:
     branches: [main]
-    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/mainnet/v3-*profile.json', 'deploy/mainnet/retired-networks.json', 'development/decisions/FRESH-NETWORK-CP.md', 'deploy/release/**', '.github/workflows/five-device-build.yml']
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/mainnet/v3-*profile.json', 'deploy/mainnet/retired-networks.json', 'deploy/mainnet/README.md', 'development/decisions/FRESH-NETWORK-CP.md', 'development/public-network/REHEARSAL.md', 'development/public-network/OPERATIONS.md', 'deploy/release/**', '.github/workflows/five-device-build.yml']
   push:
     branches: [main]
-    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/mainnet/v3-*profile.json', 'deploy/mainnet/retired-networks.json', 'development/decisions/FRESH-NETWORK-CP.md', 'deploy/release/**', '.github/workflows/five-device-build.yml']
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/mainnet/v3-*profile.json', 'deploy/mainnet/retired-networks.json', 'deploy/mainnet/README.md', 'development/decisions/FRESH-NETWORK-CP.md', 'development/public-network/REHEARSAL.md', 'development/public-network/OPERATIONS.md', 'deploy/release/**', '.github/workflows/five-device-build.yml']
   workflow_dispatch:
 permissions:
   contents: read
