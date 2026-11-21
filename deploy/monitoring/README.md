@@ -180,12 +180,12 @@ Approval first: this is a deployment step on the founder servers and needs the o
    it upgrades the script and the units and keeps both files. It does not touch PoCol's install, data, unit or the
    firewall.
 3. `sudoedit /etc/pocol-disk-monitor/monitor.conf`: set `SERVER_NAME` (`founder-1`, `founder-2`, `founder-3`) and
-   `SERVER_IP` (the server's address), and the SMTP settings if email is used. Once PoCol is installed (by the
-   ceremony, step 6 of [deploy/mainnet/README.md](../mainnet/README.md)), set `POCOL_DATA_REQUIRED=1` and check with
-   `--status` (below) that the line `PoCol data /var/lib/pocol-standalone:` shows its size on disk, not
-   `not present`; the next daily report shows it too. With it set, a missing or unreadable data directory raises a
-   CRITICAL alert. Before PoCol is installed leave it unset: the directory is then reported as absent, without an
-   alert.
+   `SERVER_IP` (the server's address), and the SMTP settings if email is used. Once the ceremony has installed PoCol
+   (step 3 of [deploy/mainnet/README.md](../mainnet/README.md)) and the founders have booted (its step 6), set
+   `POCOL_DATA_REQUIRED=1` and check with `--status` (below) that the line `PoCol data /var/lib/pocol-standalone:` shows
+   its size on disk, not `not present`; the next daily report shows it too. With it set, a missing or unreadable data
+   directory raises a CRITICAL alert. Before PoCol is installed leave it unset: the directory is then reported as
+   absent, without an alert.
 4. `sudoedit /etc/pocol-disk-monitor/secret.env`: the channel secrets (above).
 5. Run the acceptance test below.
 

@@ -114,9 +114,10 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    ([deploy/monitoring/README.md](../monitoring/README.md), "Acceptance test"). The owner reports this passed on all
    three servers on 2026-11-21 and approves that D7's condition is met. The monitor's post-install step of step 6
    (`POCOL_DATA_REQUIRED=1`, the PoCol data directory reported present) remains: it follows PoCol's install by the
-   ceremony. At the journal's worst case, about 1.7 GB a day, a 35 GB disk fills in about three weeks; the monitor
-   warns 30, 7 and 2 days ahead, and a disk expansion is a separate owner decision. Then publish the invitation on pocol.net, signed with the release key like
-   every download (`deploy/release`), and open the seeds. The launch evidence
+   ceremony (step 3) and the founders' boot (step 6). At the journal's worst case, about 1.7 GB a day, a 35 GB disk
+   fills in about three weeks; the monitor warns 30, 7 and 2 days ahead, and a disk expansion is a separate owner
+   decision. Then publish the invitation on pocol.net, signed with the release key like every download
+   (`deploy/release`), and open the seeds. The launch evidence
    ([REHEARSAL.md](../../development/public-network/REHEARSAL.md)) is measured on PoCol Mainnet after the launch.
 
 ## Tools

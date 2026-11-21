@@ -74,8 +74,8 @@ What the owner reports, recorded as reported:
 - **Date and servers.** On 2026-11-21 the owner installed the disk monitor of `deploy/monitoring`, from the version
   merged in `main` (the report names no commit), on the three founder servers: founder-1 `108.165.128.89`, founder-2
   `108.165.128.90` and founder-3 `108.165.128.91`.
-- **Channel.** One channel type, Telegram, is configured. Its bot, chat and token are not recorded here (they live
-  only in each server's `secret.env`).
+- **Channel.** A Telegram channel is configured. Its bot, chat id and token are not recorded here (by the monitor's
+  design they go in each server's `/etc/pocol-disk-monitor/secret.env`).
 - **The seven checks, passed on each of the three servers:**
   1. `--status`: the monitoring runs and the channel is configured;
   2. `--test-alert`: a `[TEST]` message was actually received;
@@ -90,11 +90,11 @@ What the owner reports, recorded as reported:
   is opened to the public, is met.
 - **Not done (the state of the report).** No PoCol node is installed on the servers, the final genesis has not been
   created and port 30300 has not been opened.
-- **What remains of D7 (the owner's requirement).** After the ceremony installs PoCol on the three servers (step 6
-  of [deploy/mainnet/README.md](../../deploy/mainnet/README.md)), set `POCOL_DATA_REQUIRED=1` on each of them
-  (`sudoedit /etc/pocol-disk-monitor/monitor.conf`) and verify that the monitoring of the chain's data directory
-  works: `--status`, and then the daily report, report the PoCol data directory `/var/lib/pocol-standalone` as
-  present, with its size.
+- **What remains of D7 (the owner's requirement).** Once the ceremony has installed PoCol on the three servers (step 3
+  of [deploy/mainnet/README.md](../../deploy/mainnet/README.md)) and the founders have booted (its step 6), set
+  `POCOL_DATA_REQUIRED=1` on each of them (`sudoedit /etc/pocol-disk-monitor/monitor.conf`) and verify that the
+  monitoring of the chain's data directory works: `--status`, and then the daily report, report the PoCol data directory
+  `/var/lib/pocol-standalone` as present, with its size.
 - **No action on the servers without the owner's explicit approval,** this step included.
 
 What the acceptance does not change: the risk stays an accepted risk (F-94). The disks are still 35 GB; the monitor
