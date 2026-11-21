@@ -1,0 +1,84 @@
+# /etc/pocol-disk-monitor/monitor.conf: the PoCol disk monitor's non-secret settings (root:root 0644).
+# Secrets (Telegram token and chat id, SMTP password, heartbeat URL) go in secret.env, never here.
+# A bad value is replaced by its default and reported by --status, --test-alert and the daily report.
+
+# How messages name this server. Empty: the hostname and the address of the default route. On the founder servers:
+# founder-1 108.165.128.89, founder-2 108.165.128.90, founder-3 108.165.128.91 (the hostname is shown too when it
+# differs from SERVER_NAME).
+SERVER_NAME=
+SERVER_IP=
+
+# PoCol's data directory (deploy/standalone/install-linux.sh). Set POCOL_DATA_REQUIRED=1 once PoCol is installed:
+# a missing directory is then a CRITICAL alert.
+POCOL_DATA_DIR=/var/lib/pocol-standalone
+POCOL_DATA_REQUIRED=0
+
+# Usage thresholds (percent of the space usable without the root reserve, as df reports), for every disk and for its
+# inodes. A level clears PERCENT_HYSTERESIS points below its threshold.
+DISK_WARNING_PERCENT=70
+DISK_CRITICAL_PERCENT=85
+DISK_EMERGENCY_PERCENT=95
+INODE_WARNING_PERCENT=70
+INODE_CRITICAL_PERCENT=85
+INODE_EMERGENCY_PERCENT=95
+PERCENT_HYSTERESIS=2
+
+# Estimated days until full, at the faster of the 24 h and 7 d growth rates. A level clears above its threshold
+# times ETA_HYSTERESIS_FACTOR.
+ETA_WARNING_DAYS=30
+ETA_CRITICAL_DAYS=7
+ETA_EMERGENCY_DAYS=2
+ETA_HYSTERESIS_FACTOR=1.2
+
+# Accelerating growth: the 24 h rate at least ACCEL_FACTOR times the rate of the days before and at least
+# ACCEL_MIN_BYTES_PER_DAY, with each 12 h half of the last 24 h at least half that minimum (a one-off step is not
+# acceleration).
+ACCEL_FACTOR=3
+ACCEL_MIN_BYTES_PER_DAY=500000000
+
+# While a level persists, it is sent again after this many hours.
+REALERT_WARNING_HOURS=24
+REALERT_CRITICAL_HOURS=6
+REALERT_EMERGENCY_HOURS=1
+# A monitor that keeps failing (OnFailure=) is reported again after this many hours, not at every failed check.
+REALERT_MONITOR_FAILED_HOURS=1
+
+# A MONITORING GAP warning when the previous successful check is older than this (the timer runs every 15 minutes).
+GAP_ALERT_MINUTES=45
+
+# The daily report, at the first check at or after this hour (0-23) in DAILY_REPORT_TZ (UTC or local).
+DAILY_REPORT_HOUR=8
+DAILY_REPORT_TZ=UTC
+
+# Channels to use (telegram, email); a channel without its settings and secrets is skipped.
+CHANNELS=telegram,email
+
+# Email over SMTP with STARTTLS (port 587) or SMTPS (SMTP_SECURITY=ssl, port 465); certificates are always verified.
+# Leave SMTP_HOST empty to use Telegram only.
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_SECURITY=starttls
+SMTP_USER=
+SMTP_FROM=
+SMTP_TO=
+
+# Leave empty: the system's CA bundle verifies Telegram, SMTP and the heartbeat. A file here replaces it (for a
+# private CA); verification is never turned off.
+CA_FILE=
+
+# Delivery limits: at most this many messages per channel per hour; at most QUEUE_MAX undelivered messages kept per
+# channel (the lowest severity is dropped first).
+MAX_MESSAGES_PER_HOUR=12
+QUEUE_MAX=50
+
+# A short Arabic line at the end of every message.
+ARABIC_LINE=1
+
+# Mount points never measured (comma separated).
+EXCLUDE_MOUNTS=
+
+# After the launch: check TCP reachability of the other two founders' P2P port and alert after PEER_FAIL_RUNS
+# consecutive failures. Off by default. On founder-1, for example: PEERS=108.165.128.90:30300,108.165.128.91:30300
+PEER_CHECK=0
+PEERS=
+PEER_FAIL_RUNS=3

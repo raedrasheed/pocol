@@ -21,8 +21,12 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    already has a PoCol install). Each has 4 GB of RAM, a risk the owner accepted (D2; 8 GB is recommended): that
    is below the unit's `MemoryMax=7G`, so if a node outgrows its host the kernel, not the unit, stops it and
    systemd restarts it, at most 5 times in 300 s ([FINDINGS.md](../../development/public-network/FINDINGS.md), F-23,
-   F-93). The owner's computer
-   runs the fourth founding miner; the phone is a wallet.
+   F-93). Each keeps its 35 GB disk, a risk the owner accepted on the condition of tested monitoring
+   ([owner decisions, 2026-11-21](../../development/decisions/OWNER-DECISIONS-2026-11-21.md) D7; F-94): the disk
+   monitor of [deploy/monitoring](../monitoring/README.md) is installed on each server, with the owner's approval, at
+   this step or at any time before step 8. It installs only its own files (`install-linux.sh` checks only
+   `/opt/pocol-standalone`, its unit and its service user) and never touches PoCol's data, unit or firewall. The
+   owner's computer runs the fourth founding miner; the phone is a wallet.
 3. **Fresh keys.** Each founding miner generates its miner key on its own device: on each server `install-linux.sh`
    runs `pocol identity --home /var/lib/pocol-standalone` as the `pocol-standalone` user, and on the PC the ceremony
    runs `pocol.exe identity` in the wallet's home `%LOCALAPPDATA%\PoCol`. Only the public miner ID leaves the device.
@@ -96,9 +100,15 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    pocol.net extension and download pages the two values users compare: the extension ID
    `gggcoflmedlhlkcdhebmoepmggdnafmp` (`prototypes/pocol-extension/release/manifest-key.pub`) and the release key
    fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` (`deploy/release/allowed_signers`).
-8. **Public launch.** Publish the invitation on pocol.net, signed with the release key like every download
-   (`deploy/release`), and open the seeds. The launch evidence ([REHEARSAL.md](../../development/public-network/REHEARSAL.md))
-   is measured on PoCol Mainnet after the launch.
+8. **Public launch.** Before the network is opened to the public, the disk monitor is active on the three founder
+   servers and a real test notification from each has been received (D7 of 2026-11-21): on each server
+   `--test-alert` delivered and received on every configured channel, a `--simulate-usage 96` alert received,
+   `systemctl list-timers pocol-disk-monitor.timer` listing the timer and a forced failure reported
+   ([deploy/monitoring/README.md](../monitoring/README.md), "Acceptance test"). At the journal's worst case, about
+   1.7 GB a day, a 35 GB disk fills in about three weeks; the monitor warns 30, 7 and 2 days ahead, and a disk
+   expansion is a separate owner decision. Then publish the invitation on pocol.net, signed with the release key like
+   every download (`deploy/release`), and open the seeds. The launch evidence
+   ([REHEARSAL.md](../../development/public-network/REHEARSAL.md)) is measured on PoCol Mainnet after the launch.
 
 ## Tools
 

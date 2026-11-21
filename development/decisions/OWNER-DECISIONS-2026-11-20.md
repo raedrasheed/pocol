@@ -151,7 +151,9 @@ and the resource facts.
 | `plan-gate-N1` | Internet exposure: ingress acceptance, the remaining RpcGuard controls | [PLAN.md](../public-network/PLAN.md) N1 | F-11, F-12, F-25, F-35, F-36, F-38 to F-41 |
 | `plan-gate-Q1` | Release review: the release candidate's exact-commit full CI and the independent security review (after the launch, decision 7 of 2026-11-18) | [PLAN.md](../public-network/PLAN.md) Q1 | F-01 to F-04, F-06, F-50, F-62, F-63, F-67, F-68, F-70, F-74 to F-76, F-82 to F-87, F-89, F-91 |
 
-`plan-gate-L1` also covers the L1 entries F-09, F-23, F-26, F-27, F-31, F-64, F-65, F-66, F-78, F-81, F-88 and F-93, and
+`plan-gate-L1` also covers the L1 entries F-09, F-23, F-26, F-27, F-31, F-64, F-65, F-66, F-78, F-81, F-88, F-93 and
+F-94 (the founder servers' 35 GB disks, accepted by owner decision
+[2026-11-21](OWNER-DECISIONS-2026-11-21.md) D7, which records its own condition), and
 `plan-gate-E1` the E1 entries F-19, F-34 and F-92. F-10 records the D5 admission; its earlier text (Q3 = a, a Simnet
 profile in ExperimentalDevnet scope for both fresh-network chains) is marked there as superseded by D5 for the mainnet
 chain. `deploy/websites/tests/test_owner_decision_record.py` keeps this section listing every pending id the node

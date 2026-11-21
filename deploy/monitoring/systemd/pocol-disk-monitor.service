@@ -1,0 +1,73 @@
+# PoCol founder disk monitor: one read-only check (OWNER-DECISIONS-2026-11-21 D7). It measures and notifies only; it
+# never deletes data, prunes the chain, stops or restarts a service or changes the firewall.
+# Installed by deploy/monitoring/install-disk-monitor.sh; started by pocol-disk-monitor.timer every 15 minutes.
+[Unit]
+Description=PoCol founder disk monitor (read-only check and alerts)
+Documentation=file:///opt/pocol-disk-monitor/README.md
+# time-sync.target: when systemd-time-wait-sync is enabled, the first check after boot waits for the clock.
+After=network-online.target time-sync.target
+Wants=network-online.target
+OnFailure=pocol-disk-monitor-failure.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I -B /opt/pocol-disk-monitor/pocol_disk_monitor.py --once
+TimeoutStartSec=180
+# Low priority and tiny limits: a 4 GB, 35 GB founder server runs a PoCol node beside it.
+Nice=19
+CPUWeight=20
+CPUQuota=20%
+IOSchedulingClass=idle
+MemoryMax=64M
+MemorySwapMax=0
+TasksMax=16
+# Root, but with one capability only: CAP_DAC_READ_SEARCH lets it list and stat /var/lib/pocol-standalone (0700,
+# owned by the pocol-standalone user, install-linux.sh). Its own secret.env (root, 0600) needs no capability: the
+# service runs as its owner. The capability also bypasses read permission on other files; the code never opens a
+# PoCol file, the paths below are masked, and it cannot write anywhere but its state directory.
+User=root
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=
+NoNewPrivileges=yes
+ProtectSystem=strict
+StateDirectory=pocol-disk-monitor
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/pocol-disk-monitor
+# Defense in depth (the code opens none of these): the live and the staged miner key, the encrypted key credential
+# and the host key that decrypts it, the faucet's key directory, the testnet operator files, backups and root's home.
+# Old keys kept as identity.pocol-key.replaced-<address> have no fixed name and cannot be masked here; they stay
+# readable to this process (CAP_DAC_READ_SEARCH): move them off the server (KEYS.md, encrypt-server-key.sh).
+InaccessiblePaths=-/var/lib/pocol-standalone/identity.pocol-key
+InaccessiblePaths=-/var/lib/pocol-standalone/identity.pocol-key.restoring
+InaccessiblePaths=-/etc/credstore.encrypted
+InaccessiblePaths=-/etc/credstore
+InaccessiblePaths=-/var/lib/systemd/credential.secret
+InaccessiblePaths=-/var/lib/pocol-faucet
+InaccessiblePaths=-/etc/pocol-testnet
+InaccessiblePaths=-/var/backups
+InaccessiblePaths=-/root
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateIPC=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+KeyringMode=private
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+UMask=0077

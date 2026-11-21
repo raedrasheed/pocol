@@ -1,0 +1,66 @@
+# Started by OnFailure= when pocol-disk-monitor.service fails: sends a MONITOR FAILED alert off the host (queued for
+# the next successful run if no channel answers). It has no OnFailure= of its own.
+[Unit]
+Description=PoCol founder disk monitor: report a failed check
+Documentation=file:///opt/pocol-disk-monitor/README.md
+# time-sync.target: when systemd-time-wait-sync is enabled, the first check after boot waits for the clock.
+After=network-online.target time-sync.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I -B /opt/pocol-disk-monitor/pocol_disk_monitor.py --notify-failure pocol-disk-monitor.service
+TimeoutStartSec=180
+Nice=19
+CPUWeight=20
+CPUQuota=20%
+IOSchedulingClass=idle
+MemoryMax=64M
+MemorySwapMax=0
+TasksMax=16
+User=root
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=
+NoNewPrivileges=yes
+ProtectSystem=strict
+StateDirectory=pocol-disk-monitor
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/pocol-disk-monitor
+# Defense in depth (the code opens none of these): the live and the staged miner key, the encrypted key credential
+# and the host key that decrypts it, the faucet's key directory, the testnet operator files, backups and root's home.
+# Old keys kept as identity.pocol-key.replaced-<address> have no fixed name and cannot be masked here; they stay
+# readable to this process (CAP_DAC_READ_SEARCH): move them off the server (KEYS.md, encrypt-server-key.sh).
+InaccessiblePaths=-/var/lib/pocol-standalone/identity.pocol-key
+InaccessiblePaths=-/var/lib/pocol-standalone/identity.pocol-key.restoring
+InaccessiblePaths=-/etc/credstore.encrypted
+InaccessiblePaths=-/etc/credstore
+InaccessiblePaths=-/var/lib/systemd/credential.secret
+InaccessiblePaths=-/var/lib/pocol-faucet
+InaccessiblePaths=-/etc/pocol-testnet
+InaccessiblePaths=-/var/backups
+InaccessiblePaths=-/root
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateIPC=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+KeyringMode=private
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+UMask=0077
