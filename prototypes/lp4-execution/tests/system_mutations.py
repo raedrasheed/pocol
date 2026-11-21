@@ -1,5 +1,6 @@
 """Compiled SYS-01 primitive controls. Build failures never count as kills."""
 import os,pathlib,shutil,subprocess,json,sys
+from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 prefix_test='system::tests::'
 controls=[
@@ -29,6 +30,7 @@ for name,old,new,test in controls:
  folder=out/name
  if folder.exists():raise RuntimeError(f'Preserve previous attempt; choose a new output: {folder}')
  shutil.copytree(root,folder,ignore=shutil.ignore_patterns('target','work','__pycache__'))
+ anchor_outside(root,folder)
  identity='pocol-lp4-execution-system-'+name
  manifest=folder/'Cargo.toml';s=manifest.read_text();assert s.count('name = "pocol-lp4-execution"')==1
  manifest.write_text(s.replace('name = "pocol-lp4-execution"',f'name = "{identity}"')+'\n[lib]\nname = "pocol_lp4_execution"\n')

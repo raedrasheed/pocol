@@ -2,6 +2,7 @@
 Test names select actual compiled Solidity invocation and state assertions.
 """
 import os,pathlib,shutil,subprocess,json,sys
+from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 cases=[
  ('disable','collision.rs','if storage_nonempty(context,target)','if false && storage_nonempty(context,target)','create_and_create2_block_unloaded_nonzero_and_allow_zero'),
@@ -18,6 +19,7 @@ for name,file,old,new,test in cases:
  folder=out/name
  if folder.exists():shutil.rmtree(folder)
  shutil.copytree(root,folder,ignore=shutil.ignore_patterns('target','work','__pycache__'))
+ anchor_outside(root,folder)
  manifest=folder/'Cargo.toml';text=manifest.read_text();assert text.count('name = "pocol-lp4-execution"')==1
  manifest.write_text(text.replace('name = "pocol-lp4-execution"',f'name = "pocol-lp4-execution-create-{name}"')+'\n[lib]\nname = "pocol_lp4_execution"\n')
  lock=folder/'Cargo.lock';lock.write_text(lock.read_text().replace('name = "pocol-lp4-execution"',f'name = "pocol-lp4-execution-create-{name}"'))

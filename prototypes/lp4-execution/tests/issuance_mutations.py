@@ -2,6 +2,7 @@
 Solidity mutants rebuild the actual manifest/root before semantic word checks.
 """
 import pathlib,os,sys,shutil,subprocess,json
+from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 base='system::issuance_tests::';positive=base+'signed_user_cannot_see_current_issuance_exact_pending_and_replay_rollback';negative=base+'real_phase2_oog_and_late_commitment_error_erase_user_and_credit';supply=base+'actual_root_matching_supply_overflow_and_r23_bound_reject_before_acceptance'
 controls=[
@@ -11,7 +12,7 @@ controls=[
  ('final-credit','src/system.rs','if !self.final_block{','if true{',base+'derived_final_host_credit_zero_observed_by_compiled_witness_not_real_finalization',1),
  ('wrong-recipient','src/system.rs','get_mut(&crate::pay::escrow_address()).ok_or(SystemError::Genesis)?','get_mut(&crate::pay::registry_address()).ok_or(SystemError::Genesis)?',positive,1),
  ('phase-guard-off','src/system.rs','if self.stage!=Stage::Ready','if false && self.stage!=Stage::Ready',base+'phase_order_manifest_and_zero_subsidy_fail_closed',1),
- ('manifest-guards-off','src/system.rs','image.verify_candidate(&self.state,self.profile).map_err(|_|SystemError::Genesis)?;','',negative,3),
+ ('manifest-guards-off','src/system.rs','image.verify_candidate_at(&self.state,self.profile,self.block.height_u64()).map_err(|_|SystemError::Genesis)?;','',negative,3),
  ('bad-root-accepted','src/system.rs','if !valid{self.poison();','if false && !valid{self.poison();',negative,1),
  ('r23-bound-off','src/genesis_builder.rs','if supply_bound>=','if false && supply_bound>=',supply,1),
  ('supply-wrapping','src/genesis_builder.rs','a.checked_add(b).ok_or(GenesisError::Supply)','Ok(a.wrapping_add(b))',supply,1),
@@ -24,6 +25,7 @@ for name,file,old,new,test,count in controls:
  folder=out/name
  if folder.exists():raise RuntimeError(f'Preserve previous attempt; use a fresh output: {folder}')
  shutil.copytree(root,folder,ignore=shutil.ignore_patterns('target','work','__pycache__'))
+ anchor_outside(root,folder)
  identity='pocol-lp4-execution-issuance-'+name;p=folder/'Cargo.toml';s=p.read_text();assert s.count('name = "pocol-lp4-execution"')==1;p.write_text(s.replace('name = "pocol-lp4-execution"',f'name = "{identity}"')+'\n[lib]\nname = "pocol_lp4_execution"\n');p=folder/'Cargo.lock';p.write_text(p.read_text().replace('name = "pocol-lp4-execution"',f'name = "{identity}"'))
  p=folder/file;s=p.read_text();assert s.count(old)==count,(name,s.count(old));p.write_text(s.replace(old,new))
  env=dict(os.environ,CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR',str(root/'target')),CARGO_INCREMENTAL='0');env.pop('LP4_ISSUANCE_REPORT_PATH',None)

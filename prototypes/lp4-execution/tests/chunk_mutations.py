@@ -1,5 +1,6 @@
 """Compile actual D27 contract mutations; build errors are never assertion kills."""
 import json,os,pathlib,shutil,subprocess,sys
+from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 prefix='system::chunk_tests::';positive=prefix+'compiled_d27_boundaries_exact_initcode_idempotence_and_no_storage';negative=prefix+'compiled_d27_invalid_lengths_value_and_storage_collision_reject'
 controls=[
@@ -16,6 +17,7 @@ rows=[]
 for name,old,new,test in controls:
  folder=out/name;assert not folder.exists(),'Preserve previous attempt'
  shutil.copytree(root,folder,ignore=shutil.ignore_patterns('target','work','__pycache__'))
+ anchor_outside(root,folder)
  identity='pocol-lp4-execution-chunk-'+name
  p=folder/'Cargo.toml';s=p.read_text();assert s.count('name = "pocol-lp4-execution"')==1;p.write_text(s.replace('name = "pocol-lp4-execution"',f'name = "{identity}"')+'\n[lib]\nname = "pocol_lp4_execution"\n')
  p=folder/'Cargo.lock';p.write_text(p.read_text().replace('name = "pocol-lp4-execution"',f'name = "{identity}"'))

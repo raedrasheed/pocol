@@ -1,5 +1,6 @@
 """Compiled CODE-01 controls. Compile failure is never a detected mutation."""
 import os,pathlib,shutil,subprocess,json,sys
+from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 full='code_caps_engine_tests::independent_engine_limits_against_complete_state_roots'
 fields=[
@@ -8,18 +9,19 @@ fields=[
  ('initcode-coupled','native.rs','.modify_cfg_env(|cfg|cfg.chain_id=chain_id)','.modify_cfg_env(|cfg|{cfg.chain_id=chain_id;if let Some(l)=limits{cfg.limit_contract_code_size=Some(l.runtime as usize);}})',full),
  ('logical-off','code_caps.rs','if proposed>limits.logical','if false && proposed>limits.logical',full),
  ('logical-equality','code_caps.rs','if proposed>limits.logical','if proposed>=limits.logical',full),
- ('journal-overlay-ignored','code_caps.rs','let total=current_total(context)','let total=inventory(&context.evm.db)',full),
- ('physical-dedup','code_caps.rs','db.accounts.values().filter_map(|a|a.info()).try_fold','{let mut hashes=std::collections::HashSet::new(); db.accounts.values().filter_map(|a|a.info()).filter(|info|hashes.insert(info.code_hash)).collect::<Vec<_>>()}.into_iter().try_fold','code_caps_engine_tests::shared_code_charged_per_address'),
- ('early-selfdestruct-credit','code_caps.rs','base.chain(state.values().map(|a|a.info.clone()))','base.chain(state.values().filter(|a|!a.is_selfdestructed()).map(|a|a.info.clone()))',full),
+ ('journal-overlay-ignored','code_caps.rs','let total=current_total(context)','let total=inventory(context.evm.db.local())',full),
+ ('physical-dedup','code_caps.rs','infos.iter().try_fold','{let mut hashes=std::collections::HashSet::new(); infos.iter().filter(|info|hashes.insert(info.code_hash)).collect::<Vec<_>>()}.into_iter().try_fold','code_caps_engine_tests::shared_code_charged_per_address'),
+ ('early-selfdestruct-credit','code_caps.rs','base.into_iter().chain(state.values().map(|a|a.info.clone()))','base.into_iter().chain(state.values().filter(|a|!a.is_selfdestructed()).map(|a|a.info.clone()))',full),
  ('enclosing-rollback-disabled','code_caps.rs','let previous=handler.execution.create_return.clone();','let call=handler.execution.call_return.clone(); handler.execution.call_return=Arc::new(move |context,frame,mut result|{if result.result==InstructionResult::Revert{result.result=InstructionResult::Return;}call(context,frame,result)}); let previous=handler.execution.create_return.clone();',full),
  ('code-hash-unchecked','code_caps.rs','Some(code) if code.hash_slow()==info.code_hash','Some(code) if true','code_caps_engine_tests::missing_hash_or_r9_reject'),
- ('r9-disabled','code_caps.rs','if limits.runtime<24577','if false && limits.runtime<24577','code_caps_engine_tests::missing_hash_or_r9_reject'),
+ ('r9-disabled','code_caps.rs','pub fn validate_snapshot(db:&dyn crate::view::View,limits:CodeLimits)->Result<(),String> {\n    if limits.runtime<24577','pub fn validate_snapshot(db:&dyn crate::view::View,limits:CodeLimits)->Result<(),String> {\n    if false && limits.runtime<24577','code_caps_engine_tests::missing_hash_or_r9_reject'),
 ]
 results=[]
 for name,source,old,new,test in fields:
     folder=out/name
     if folder.exists():raise RuntimeError(f'Preserve existing attempt; choose new output: {folder}')
     shutil.copytree(root,folder,ignore=shutil.ignore_patterns('target','work','__pycache__'))
+    anchor_outside(root,folder)
     identity='pocol-lp4-execution-code-'+name
     manifest=folder/'Cargo.toml';text=manifest.read_text();assert text.count('name = "pocol-lp4-execution"')==1
     manifest.write_text(text.replace('name = "pocol-lp4-execution"',f'name = "{identity}"')+'\n[lib]\nname = "pocol_lp4_execution"\n')
