@@ -1379,8 +1379,10 @@ class FakeHTTPS:
 class FakeSMTP:
     """A minimal local SMTP server: EHLO, STARTTLS (or implicit TLS), AUTH PLAIN, MAIL, RCPT, DATA, QUIT."""
 
-    def __init__(self, case, context, implicit_tls=False, offer_starttls=True, user='monitor', password='pw'):
+    def __init__(self, case, context, implicit_tls=False, offer_starttls=True, user='monitor', password='pw',
+                 refuse_rcpt=(), sessions=1):
         self.context, self.implicit, self.offer = context, implicit_tls, offer_starttls
+        self.refuse_rcpt, self.sessions, self.rcpts = set(refuse_rcpt), sessions, []
         self.user, self.password = user, password
         self.messages, self.auth, self.tls, self.plain_commands = [], [], [], []
         self.sock = socket.socket()
@@ -1393,18 +1395,20 @@ class FakeSMTP:
         case.addCleanup(self.sock.close)
 
     def serve(self):
-        try:
-            conn, _ = self.sock.accept()
-        except OSError:
-            return
-        self.conns = [conn]
-        try:
-            self.session(conn)
-        except (OSError, ssl.SSLError):
-            pass
-        finally:
-            for item in self.conns:
-                item.close()
+        for _ in range(self.sessions):
+            try:
+                conn, _ = self.sock.accept()
+            except OSError:
+                return
+            self.conns = [conn]
+            self.rcpts.append([])
+            try:
+                self.session(conn)
+            except (OSError, ssl.SSLError):
+                pass
+            finally:
+                for item in self.conns:
+                    item.close()
 
     def session(self, conn):
         tls = False
@@ -1449,7 +1453,14 @@ class FakeSMTP:
                 _, user, password = base64.b64decode(data).decode().split('\0')
                 self.auth.append((user, password, tls))
                 send('235 ok' if (user, password) == (self.user, self.password) else '535 bad credentials')
-            elif verb in ('MAIL', 'RCPT', 'RSET', 'NOOP'):
+            elif verb == 'RCPT':
+                address = line.split(':', 1)[1].strip().strip('<>') if ':' in line else ''
+                if address in self.refuse_rcpt:
+                    send('450 mailbox busy, try later')
+                else:
+                    self.rcpts[-1].append(address)
+                    send('250 ok')
+            elif verb in ('MAIL', 'RSET', 'NOOP'):
                 send('250 ok')
             elif verb == 'DATA':
                 send('354 end with .')
@@ -1521,6 +1532,47 @@ class RealChannels(Base):
         self.assertEqual(server.tls, [True])
         self.assertEqual(server.plain_commands, ['EHLO', 'STARTTLS'])
         self.assertIn('Subject: [WARNING] subject', server.messages[0][0])
+
+    def test_email_refusing_some_recipients_is_a_partial_failure_naming_them(self):
+        server = FakeSMTP(self, self.ca.server_context(), refuse_rcpt={'second@example.test'})
+        channel = dm.Email('localhost', server.port, 'starttls', 'monitor', 'pw', 'mon@example.test',
+                           ['owner@example.test', 'second@example.test'], self.ca.ca, 5, 'test.local')
+        with self.assertRaises(dm.PartialDelivery) as caught:
+            channel.send('[CRITICAL] s', 't')
+        server.thread.join(5)
+        self.assertEqual(caught.exception.refused, ['second@example.test'])
+        self.assertIn('1 of 2 recipient(s) refused (SMTP 450)', str(caught.exception))
+        self.assertEqual(server.rcpts, [['owner@example.test']])
+        self.assertEqual(len(server.messages), 1, 'the accepted recipient got it')
+
+    def test_a_partly_refused_alert_stays_queued_and_only_the_refused_recipient_gets_it_again(self):
+        server = FakeSMTP(self, self.ca.server_context(), refuse_rcpt={'second@example.test'}, sessions=2)
+        channel = dm.Email('localhost', server.port, 'starttls', 'monitor', 'pw', 'mon@example.test',
+                           ['owner@example.test', 'second@example.test'], self.ca.ca, 5, 'test.local')
+        mon = self.monitor(channels={'email': channel})
+        self.system.set_percent('/', 96)
+        mon.run_once()
+        queue = self.state()['queue']['email']
+        self.assertEqual(len(queue), 1, 'a partial delivery is not a delivery')
+        self.assertEqual(queue[0]['pending_to'], ['second@example.test'], 'kept across the state file')
+        self.assertIn('partly delivered (1 of 2 recipient(s) refused (SMTP 450))', self.out.getvalue())
+        server.refuse_rcpt.clear()
+        self.system.t += 60
+        mon2 = self.monitor(channels={'email': channel})   # a later run reloads the queue from the state file
+        mon2.run_once()
+        server.thread.join(5)
+        self.assertEqual(server.rcpts, [['owner@example.test'], ['second@example.test']],
+                         'the retry goes to the refused recipient only')
+        self.assertEqual(self.state()['queue']['email'], [])
+
+    def test_test_alert_fails_when_a_recipient_is_refused(self):
+        server = FakeSMTP(self, self.ca.server_context(), refuse_rcpt={'second@example.test'})
+        channel = dm.Email('localhost', server.port, 'starttls', 'monitor', 'pw', 'mon@example.test',
+                           ['owner@example.test', 'second@example.test'], self.ca.ca, 5, 'test.local')
+        mon = self.monitor(channels={'email': channel})
+        self.assertEqual(mon.test_alert(), 1)
+        server.thread.join(5)
+        self.assertIn('email: FAILED (1 of 2 recipient(s) refused (SMTP 450))', self.out.getvalue())
 
     def test_email_smtps(self):
         server = FakeSMTP(self, self.ca.server_context(), implicit_tls=True)

@@ -124,6 +124,15 @@ class DeliveryError(Exception):
     pass
 
 
+class PartialDelivery(DeliveryError):
+    """The mail server accepted the message for some recipients and refused the others (smtplib returns the refusals
+    instead of raising). `refused` lists the addresses still owed the message; only they are retried."""
+
+    def __init__(self, message, refused):
+        super().__init__(message)
+        self.refused = list(refused)
+
+
 # ----------------------------------------------------------------------------------------------------------- config
 
 def parse_env_text(text):
@@ -626,7 +635,9 @@ def sanitize_state(state, base):
                                'group': q.get('group') if q.get('group') in GROUPS else None,
                                'superseded': int(q['superseded']) if is_num(q.get('superseded')) else 0,
                                'superseded_since': q['superseded_since'] if is_num(q.get('superseded_since')) else None,
-                               'superseded_top': q.get('superseded_top') if q.get('superseded_top') in RANK else None}
+                               'superseded_top': q.get('superseded_top') if q.get('superseded_top') in RANK else None,
+                               'pending_to': [r for r in q['pending_to'][:50] if isinstance(r, str) and r][:50]
+                               if isinstance(q.get('pending_to'), list) else None}
                               for q in queue[-1000:]
                               if isinstance(q, dict) and is_num(q.get('t')) and q.get('kind') in RANK
                               and isinstance(q.get('subject'), str) and isinstance(q.get('text'), str)]
@@ -1101,8 +1112,24 @@ class Monitor:
                 dropped = state['dropped'].get(name, 0)
                 if dropped:
                     text += f'\n({dropped} older message(s) were dropped from the full queue)'
+                pending_to = message.get('pending_to')
                 try:
-                    channel.send(message['subject'], text)
+                    if pending_to:
+                        channel.send(message['subject'], text, recipients=pending_to)
+                    else:
+                        channel.send(message['subject'], text)
+                except PartialDelivery as exc:
+                    # Some recipients have it: count the send, keep the message for the refused ones only.
+                    message['pending_to'] = exc.refused
+                    message['attempts'] = message.get('attempts', 0) + 1
+                    sent.append(now)
+                    failures.append(name)
+                    self.log(f'{name}: partly delivered ({self.redact(exc)}); kept queued for the refused '
+                             f'recipient(s) only')
+                    if message['attempts'] >= POISON_ATTEMPTS and not skipped:
+                        skipped = True
+                        continue
+                    break
                 except Exception as exc:  # any failure of a channel is reported and retried, never fatal
                     message['attempts'] = message.get('attempts', 0) + 1
                     failures.append(name)
@@ -1478,7 +1505,7 @@ class Telegram:
     def __init__(self, token, chat_id, base, transport, timeout):
         self.token, self.chat_id, self.base, self.transport, self.timeout = token, chat_id, base.rstrip('/'), transport, timeout
 
-    def send(self, subject, text):
+    def send(self, subject, text, recipients=None):
         url = f'{self.base}/bot{self.token}/sendMessage'
         body = urllib.parse.urlencode({'chat_id': self.chat_id, 'text': text[:4000],
                                        'disable_web_page_preview': 'true'}).encode()
@@ -1503,7 +1530,10 @@ class Email:
         assert context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname
         return context
 
-    def send(self, subject, text):
+    def send(self, subject, text, recipients=None):
+        """Send to `recipients` (default: every configured recipient). A refusal of some recipients raises
+        PartialDelivery naming the refused ones; a refusal of all raises smtplib.SMTPRecipientsRefused."""
+        to_addrs = list(recipients) if recipients else list(self.recipients)
         message = EmailMessage()
         message['Subject'] = subject
         message['From'] = self.sender
@@ -1523,7 +1553,11 @@ class Email:
                 server.ehlo()
             if self.user:
                 server.login(self.user, self.password or '')
-            server.send_message(message)
+            refused = server.send_message(message, to_addrs=to_addrs)
+            if refused:
+                codes = sorted({str(code) for code, _ in refused.values()})
+                raise PartialDelivery(f'{len(refused)} of {len(to_addrs)} recipient(s) refused (SMTP '
+                                      f'{", ".join(codes)})', sorted(refused))
         finally:
             try:
                 server.quit()

@@ -152,7 +152,7 @@ One bot and one chat can serve all three servers; every message names its server
 
 Use an SMTP account that can send mail (a provider's SMTP relay or an app password of a mailbox). In
 `/etc/pocol-disk-monitor/monitor.conf` set `SMTP_HOST`, `SMTP_PORT` (587 with `SMTP_SECURITY=starttls`, or 465 with
-`SMTP_SECURITY=ssl`), `SMTP_USER`, `SMTP_FROM` and `SMTP_TO` (comma separated); put `SMTP_PASSWORD` in `secret.env`.
+`SMTP_SECURITY=ssl`), `SMTP_USER`, `SMTP_FROM` and `SMTP_TO` (comma separated); put `SMTP_PASSWORD` in `secret.env`. If the server accepts the message for some recipients and refuses others (for example SMTP 450), that counts as a failed delivery: the message stays queued for the refused recipients only, and `--test-alert` reports `FAILED`.
 The connection is always encrypted and the server's certificate verified; a server that offers no STARTTLS is refused,
 never used in plain text.
 
