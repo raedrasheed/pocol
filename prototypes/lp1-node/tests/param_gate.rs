@@ -49,12 +49,18 @@ fn v3_rpc_limits_cover_larger_log_bytes_counts_and_encoded_responses() {
     assert!(r.satisfies_r26_for(true));
     r.resp_max -= 1;
     assert!(!r.satisfies_r26_for(true));
-    let mut r = default.clone();r.logs_count_max = 4367;
-    assert!(r.satisfies_r26());assert!(!r.satisfies_r26_for(true));
-    r.logs_count_max = 4368;assert!(r.satisfies_r26_for(true));
-    let mut r = default;r.logs_scan_bytes = 256 * 1024 - 1;
-    assert!(r.satisfies_r26());assert!(!r.satisfies_r26_for(true));
-    r.logs_scan_bytes += 1;assert!(r.satisfies_r26_for(true));
+    let mut r = default.clone();
+    r.logs_count_max = 4367;
+    assert!(r.satisfies_r26());
+    assert!(!r.satisfies_r26_for(true));
+    r.logs_count_max = 4368;
+    assert!(r.satisfies_r26_for(true));
+    let mut r = default;
+    r.logs_scan_bytes = 256 * 1024 - 1;
+    assert!(r.satisfies_r26());
+    assert!(!r.satisfies_r26_for(true));
+    r.logs_scan_bytes += 1;
+    assert!(r.satisfies_r26_for(true));
 }
 
 /// C3-2: a v3 receipt can hold every block log (4,368 logs / 256 KiB), above LIGHT_RESP_MAX, so the v3

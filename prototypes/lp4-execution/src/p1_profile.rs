@@ -154,8 +154,16 @@ impl ConsensusParams {
         })
     }
 
-    pub fn schema_version(&self) -> u8 { self.schema_version }
-    pub fn cp_len(&self) -> usize { if self.schema_version == 1 { CP_LEN } else { CP_V2_LEN } }
+    pub fn schema_version(&self) -> u8 {
+        self.schema_version
+    }
+    pub fn cp_len(&self) -> usize {
+        if self.schema_version == 1 {
+            CP_LEN
+        } else {
+            CP_V2_LEN
+        }
+    }
     pub fn to_values(&self) -> Vec<U256> {
         let mut values = vec![
             U256::from_u64(self.g_ts as u64),
@@ -408,7 +416,9 @@ impl ProfileIdentity {
         };
         Ok(Self { spec, cp, hash: *expected_hash, forks, kind, node_kind, raised })
     }
-    pub fn spec_version(&self) -> u8 { self.spec.spec_version }
+    pub fn spec_version(&self) -> u8 {
+        self.spec.spec_version
+    }
     /// The sole host-rule predicate: the v3 rules hold at every height of a spec-2 genesis. No fork turns them on
     /// (since FN-5 version 3 is the cap raise, which `validate_with_raise` admits only on a spec-2 genesis); the height
     /// stays a parameter, the seam for a future fork.
@@ -462,77 +472,125 @@ impl ProfileIdentity {
 #[cfg(test)]
 mod v3_tests {
     use super::*;
-    fn identity(version:u8,nonce_mode:u8,forks:&[(u16,u64)],max_fork:u16)->ProfileIdentity{
-        let mut values:Vec<U256>=genesis_spec::cp_schema(version).unwrap().iter().map(|f|U256::from_u64(f.lo)).collect();
-        values[4]=U256::from_u64(nonce_mode.into());
-        let raw=genesis_spec::encode(&GenesisSpec{spec_version:version,chain_id:7,cp:values,alloc_root:[0;32],
-            m0_list:vec![genesis_spec::Member{id:[1;20],reward_addr:[2;20]}],sys_code_hash:[0;32]});
+    fn identity(version: u8, nonce_mode: u8, forks: &[(u16, u64)], max_fork: u16) -> ProfileIdentity {
+        let mut values: Vec<U256> = genesis_spec::cp_schema(version).unwrap().iter().map(|f| U256::from_u64(f.lo)).collect();
+        values[4] = U256::from_u64(nonce_mode.into());
+        let raw = genesis_spec::encode(&GenesisSpec {
+            spec_version: version,
+            chain_id: 7,
+            cp: values,
+            alloc_root: [0; 32],
+            m0_list: vec![genesis_spec::Member { id: [1; 20], reward_addr: [2; 20] }],
+            sys_code_hash: [0; 32],
+        });
         // Schema-only test identity. This never constructs an Admitted or bootable profile.
-        let spec=genesis_spec::decode_bounded(&raw,2).unwrap();
-        ProfileIdentity{cp:ConsensusParams::from_values(&spec.cp).unwrap(),spec,hash:genesis_spec::genesis_hash(&raw),
-            forks:ForkSchedule::new_bounded(forks,max_fork).unwrap(),kind:ProfileKind::Simnet,node_kind:NodeKind::Simnet,raised:None}
+        let spec = genesis_spec::decode_bounded(&raw, 2).unwrap();
+        ProfileIdentity {
+            cp: ConsensusParams::from_values(&spec.cp).unwrap(),
+            spec,
+            hash: genesis_spec::genesis_hash(&raw),
+            forks: ForkSchedule::new_bounded(forks, max_fork).unwrap(),
+            kind: ProfileKind::Simnet,
+            node_kind: NodeKind::Simnet,
+            raised: None,
+        }
     }
     /// A spec-1 genesis still decodes here (only pocold's admission refuses it), so the predicate's spec-1 branch is
     /// live: it is false at every height, and no fork schedule (fork 3 included) turns it on.
     #[test]
-    fn v3_predicate_keeps_v1_and_earnin_dormant_at_every_height_boundary(){
-        for nonce_mode in [0,1]{
-            let p=identity(1,nonce_mode,&[(1,0),(2,1000)],2);
-            for h in [0,1,999,1000,1001,u64::MAX]{assert!(!p.v3_active(h));}
-            assert_eq!(p.spec_version(),1);assert_eq!(p.cp().cp_len(),52);
-            assert_eq!((p.cp().H_half,p.cp().R_react,p.cp().C_react,p.cp().rho_bp),(0,0,0,0));
-            assert_eq!(p.cp().baseFeeMin,U256::ZERO);assert!(!p.bootable());
-            let p=identity(1,nonce_mode,&[(1,0),(2,10),(3,20)],3);
-            assert_eq!(p.forks().active_version(20),3);
-            for h in [0,9,10,19,20,21,u64::MAX]{assert!(!p.v3_active(h),"fork 3 is no route to v3 (height {h})");}
+    fn v3_predicate_keeps_v1_and_earnin_dormant_at_every_height_boundary() {
+        for nonce_mode in [0, 1] {
+            let p = identity(1, nonce_mode, &[(1, 0), (2, 1000)], 2);
+            for h in [0, 1, 999, 1000, 1001, u64::MAX] {
+                assert!(!p.v3_active(h));
+            }
+            assert_eq!(p.spec_version(), 1);
+            assert_eq!(p.cp().cp_len(), 52);
+            assert_eq!((p.cp().H_half, p.cp().R_react, p.cp().C_react, p.cp().rho_bp), (0, 0, 0, 0));
+            assert_eq!(p.cp().baseFeeMin, U256::ZERO);
+            assert!(!p.bootable());
+            let p = identity(1, nonce_mode, &[(1, 0), (2, 10), (3, 20)], 3);
+            assert_eq!(p.forks().active_version(20), 3);
+            for h in [0, 9, 10, 19, 20, 21, u64::MAX] {
+                assert!(!p.v3_active(h), "fork 3 is no route to v3 (height {h})");
+            }
         }
     }
     #[test]
-    fn v3_predicate_covers_a_spec_2_genesis_at_every_height(){
-        let p=identity(2,1,&[(1,0)],2);
-        for h in [0,1,u64::MAX]{assert!(p.v3_active(h));}
-        assert_eq!(p.spec_version(),2);assert_eq!(p.cp().cp_len(),59);
-        assert_eq!(p.cp().to_values(),p.spec().cp);assert!(!p.bootable());
+    fn v3_predicate_covers_a_spec_2_genesis_at_every_height() {
+        let p = identity(2, 1, &[(1, 0)], 2);
+        for h in [0, 1, u64::MAX] {
+            assert!(p.v3_active(h));
+        }
+        assert_eq!(p.spec_version(), 2);
+        assert_eq!(p.cp().cp_len(), 59);
+        assert_eq!(p.cp().to_values(), p.spec().cp);
+        assert!(!p.bootable());
     }
     /// FN-5 (C10): a genesis with CODE_CAP 100, SLOT_CAP 200, ACCT_CAP 300 and SYS_SLOT_MAX 400.
-    fn capped(version:u8)->Vec<u8>{
-        let mut values:Vec<U256>=genesis_spec::cp_schema(version).unwrap().iter().map(|f|U256::from_u64(f.lo)).collect();
-        for (i,n) in [(35,100),(38,200),(39,300),(40,400)]{values[i]=U256::from_u64(n);}
-        genesis_spec::encode(&GenesisSpec{spec_version:version,chain_id:7,cp:values,alloc_root:[0;32],
-            m0_list:vec![genesis_spec::Member{id:[1;20],reward_addr:[2;20]}],sys_code_hash:[0;32]})
+    fn capped(version: u8) -> Vec<u8> {
+        let mut values: Vec<U256> = genesis_spec::cp_schema(version).unwrap().iter().map(|f| U256::from_u64(f.lo)).collect();
+        for (i, n) in [(35, 100), (38, 200), (39, 300), (40, 400)] {
+            values[i] = U256::from_u64(n);
+        }
+        genesis_spec::encode(&GenesisSpec {
+            spec_version: version,
+            chain_id: 7,
+            cp: values,
+            alloc_root: [0; 32],
+            m0_list: vec![genesis_spec::Member { id: [1; 20], reward_addr: [2; 20] }],
+            sys_code_hash: [0; 32],
+        })
     }
-    fn raised(bytes:&[u8],forks:&[(u16,u64)],raise:Option<&CapRaise>)->Result<ProfileIdentity,ProfileError>{
-        ProfileIdentity::validate_with_raise(bytes,&genesis_spec::genesis_hash(bytes),7,ProfileKind::Simnet,NodeKind::Simnet,forks,raise)
+    fn raised(bytes: &[u8], forks: &[(u16, u64)], raise: Option<&CapRaise>) -> Result<ProfileIdentity, ProfileError> {
+        ProfileIdentity::validate_with_raise(bytes, &genesis_spec::genesis_hash(bytes), 7, ProfileKind::Simnet, NodeKind::Simnet, forks, raise)
     }
     #[test]
-    fn a_cap_raise_switches_only_the_four_caps_at_its_fork_3_height(){
-        let bytes=capped(2);let r=CapRaise{code_cap:150,slot_cap:200,acct_cap:600,sys_slot_max:401};
-        let p=raised(&bytes,&[(1,0),(2,10),(3,20)],Some(&r)).unwrap();
-        for h in [0,1,10,19]{assert_eq!(p.cp_at(h),p.cp());}
-        for h in [20,21,u64::MAX]{
-            let (base,up)=(p.cp().to_values(),p.cp_at(h).to_values());
-            for i in 0..base.len(){if ![35,38,39,40].contains(&i){assert_eq!(base[i],up[i],"field {i}");}}
-            assert_eq!((p.cp_at(h).CODE_CAP,p.cp_at(h).SLOT_CAP,p.cp_at(h).ACCT_CAP,p.cp_at(h).SYS_SLOT_MAX),(150,200,600,401));
+    fn a_cap_raise_switches_only_the_four_caps_at_its_fork_3_height() {
+        let bytes = capped(2);
+        let r = CapRaise { code_cap: 150, slot_cap: 200, acct_cap: 600, sys_slot_max: 401 };
+        let p = raised(&bytes, &[(1, 0), (2, 10), (3, 20)], Some(&r)).unwrap();
+        for h in [0, 1, 10, 19] {
+            assert_eq!(p.cp_at(h), p.cp());
         }
-        assert_eq!(p.cap_raise(),Some((20,r)));assert_eq!(p.cp().to_values(),p.spec().cp,"the genesis CP is unchanged");
-        assert_eq!(p.genesis_hash(),genesis_spec::genesis_hash(&bytes));assert!(p.v3_active(0));assert!(!p.bootable());
+        for h in [20, 21, u64::MAX] {
+            let (base, up) = (p.cp().to_values(), p.cp_at(h).to_values());
+            for i in 0..base.len() {
+                if ![35, 38, 39, 40].contains(&i) {
+                    assert_eq!(base[i], up[i], "field {i}");
+                }
+            }
+            assert_eq!((p.cp_at(h).CODE_CAP, p.cp_at(h).SLOT_CAP, p.cp_at(h).ACCT_CAP, p.cp_at(h).SYS_SLOT_MAX), (150, 200, 600, 401));
+        }
+        assert_eq!(p.cap_raise(), Some((20, r)));
+        assert_eq!(p.cp().to_values(), p.spec().cp, "the genesis CP is unchanged");
+        assert_eq!(p.genesis_hash(), genesis_spec::genesis_hash(&bytes));
+        assert!(p.v3_active(0));
+        assert!(!p.bootable());
         // Dormant: without a fork-3 entry and a raise the profile is `validate`'s, at every height.
-        let d=raised(&bytes,&[(1,0),(2,10)],None).unwrap();
-        assert_eq!(d,ProfileIdentity::validate(&bytes,&genesis_spec::genesis_hash(&bytes),7,ProfileKind::Simnet,NodeKind::Simnet,&[(1,0),(2,10)]).unwrap());
-        for h in [0,20,u64::MAX]{assert_eq!(d.cp_at(h),d.cp());}assert_eq!(d.cap_raise(),None);
+        let d = raised(&bytes, &[(1, 0), (2, 10)], None).unwrap();
+        assert_eq!(
+            d,
+            ProfileIdentity::validate(&bytes, &genesis_spec::genesis_hash(&bytes), 7, ProfileKind::Simnet, NodeKind::Simnet, &[(1, 0), (2, 10)]).unwrap()
+        );
+        for h in [0, 20, u64::MAX] {
+            assert_eq!(d.cp_at(h), d.cp());
+        }
+        assert_eq!(d.cap_raise(), None);
     }
     #[test]
-    fn a_cap_raise_is_refused_when_unscheduled_lowering_empty_or_on_a_spec_1_genesis(){
-        let bytes=capped(2);let ok=CapRaise{code_cap:100,slot_cap:200,acct_cap:301,sys_slot_max:400};
-        let e=|m:&'static str|Err(ProfileError::CapRaise(m));
-        assert_eq!(raised(&bytes,&[(1,0),(2,10),(3,20)],None),e("fork version 3 is a cap raise and needs its values"));
-        assert_eq!(raised(&bytes,&[(1,0),(2,10)],Some(&ok)),e("a cap raise needs a fork version 3 activation"));
-        assert_eq!(raised(&capped(1),&[(1,0),(2,10),(3,20)],Some(&ok)),e("a cap raise needs a v3 genesis (spec version 2)"));
-        for low in [CapRaise{acct_cap:299,..ok},CapRaise{code_cap:99,..ok},CapRaise{slot_cap:199,..ok},CapRaise{sys_slot_max:399,..ok}]{
-            assert_eq!(raised(&bytes,&[(1,0),(2,10),(3,20)],Some(&low)),e("a cap raise may not lower a cap"));
+    fn a_cap_raise_is_refused_when_unscheduled_lowering_empty_or_on_a_spec_1_genesis() {
+        let bytes = capped(2);
+        let ok = CapRaise { code_cap: 100, slot_cap: 200, acct_cap: 301, sys_slot_max: 400 };
+        let e = |m: &'static str| Err(ProfileError::CapRaise(m));
+        assert_eq!(raised(&bytes, &[(1, 0), (2, 10), (3, 20)], None), e("fork version 3 is a cap raise and needs its values"));
+        assert_eq!(raised(&bytes, &[(1, 0), (2, 10)], Some(&ok)), e("a cap raise needs a fork version 3 activation"));
+        assert_eq!(raised(&capped(1), &[(1, 0), (2, 10), (3, 20)], Some(&ok)), e("a cap raise needs a v3 genesis (spec version 2)"));
+        for low in [CapRaise { acct_cap: 299, ..ok }, CapRaise { code_cap: 99, ..ok }, CapRaise { slot_cap: 199, ..ok }, CapRaise { sys_slot_max: 399, ..ok }] {
+            assert_eq!(raised(&bytes, &[(1, 0), (2, 10), (3, 20)], Some(&low)), e("a cap raise may not lower a cap"));
         }
-        assert_eq!(raised(&bytes,&[(1,0),(2,10),(3,20)],Some(&CapRaise{acct_cap:300,..ok})),e("a cap raise must raise at least one cap"));
-        assert!(raised(&bytes,&[(1,0),(2,10),(3,20)],Some(&ok)).is_ok());
-        assert_eq!(raised(&bytes,&[(1,0),(2,10),(3,20),(4,30)],Some(&ok)),Err(ProfileError::UnsupportedVersion(4)));
+        assert_eq!(raised(&bytes, &[(1, 0), (2, 10), (3, 20)], Some(&CapRaise { acct_cap: 300, ..ok })), e("a cap raise must raise at least one cap"));
+        assert!(raised(&bytes, &[(1, 0), (2, 10), (3, 20)], Some(&ok)).is_ok());
+        assert_eq!(raised(&bytes, &[(1, 0), (2, 10), (3, 20), (4, 30)], Some(&ok)), Err(ProfileError::UnsupportedVersion(4)));
     }
 }

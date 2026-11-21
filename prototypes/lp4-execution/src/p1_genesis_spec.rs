@@ -138,14 +138,24 @@ const CP_V2_EXTRA: [CpField; CP_V2_LEN - CP_LEN] = [
 const fn schema_v2() -> [CpField; CP_V2_LEN] {
     let mut fields = [f("", 0, 0, Upper::None); CP_V2_LEN];
     let mut i = 0;
-    while i < CP_LEN { fields[i] = CP_SCHEMA[i]; i += 1; }
-    while i < CP_V2_LEN { fields[i] = CP_V2_EXTRA[i - CP_LEN]; i += 1; }
+    while i < CP_LEN {
+        fields[i] = CP_SCHEMA[i];
+        i += 1;
+    }
+    while i < CP_V2_LEN {
+        fields[i] = CP_V2_EXTRA[i - CP_LEN];
+        i += 1;
+    }
     fields
 }
 pub const CP_SCHEMA_V2: [CpField; CP_V2_LEN] = schema_v2();
 /// Known schemas only; a future wire version never silently inherits v2's layout.
 pub fn cp_schema(version: u8) -> Option<&'static [CpField]> {
-    match version { 1 => Some(&CP_SCHEMA), 2 => Some(&CP_SCHEMA_V2), _ => None }
+    match version {
+        1 => Some(&CP_SCHEMA),
+        2 => Some(&CP_SCHEMA_V2),
+        _ => None,
+    }
 }
 pub fn cp_index_for(version: u8, name: &str) -> Option<usize> {
     cp_schema(version)?.iter().position(|field| field.name == name)
@@ -653,28 +663,38 @@ mod tests {
     #[test]
     fn v2_schema_preserves_the_entire_v1_prefix() {
         assert_eq!(&CP_SCHEMA_V2[..CP_LEN], &CP_SCHEMA);
-        assert_eq!(CP_SCHEMA_V2[CP_LEN..].iter().map(|f|f.name).collect::<Vec<_>>(), [
-            "H_half","S_tail","gamma_tip_bp","baseFeeMin","R_react","C_react","rho_bp"]);
-        assert_eq!(cp_index_for(1,"H_half"),None);
-        assert_eq!(cp_index_for(2,"rho_bp"),Some(58));
-        assert_eq!(cp_index_for(2,"gamma_tip_bp"),Some(54));
-        assert_eq!((cp_index_for(2,"baseFeeMin"),cp_index_for(2,"R_react"),cp_index_for(2,"C_react")),(Some(55),Some(56),Some(57)));
-        for gone in ["F0_acct","F0_slot","F0_code","P_MAX","T_PROB","E_epoch","theta_bp","k_sigma"]{assert_eq!(cp_index_for(2,gone),None);}
+        assert_eq!(
+            CP_SCHEMA_V2[CP_LEN..].iter().map(|f| f.name).collect::<Vec<_>>(),
+            ["H_half", "S_tail", "gamma_tip_bp", "baseFeeMin", "R_react", "C_react", "rho_bp"]
+        );
+        assert_eq!(cp_index_for(1, "H_half"), None);
+        assert_eq!(cp_index_for(2, "rho_bp"), Some(58));
+        assert_eq!(cp_index_for(2, "gamma_tip_bp"), Some(54));
+        assert_eq!((cp_index_for(2, "baseFeeMin"), cp_index_for(2, "R_react"), cp_index_for(2, "C_react")), (Some(55), Some(56), Some(57)));
+        for gone in ["F0_acct", "F0_slot", "F0_code", "P_MAX", "T_PROB", "E_epoch", "theta_bp", "k_sigma"] {
+            assert_eq!(cp_index_for(2, gone), None);
+        }
         assert!(cp_schema(3).is_none());
     }
 
     #[test]
     fn the_release_ceiling_does_not_accept_unknown_future_schemas() {
-        let mut spec=GenesisSpec{spec_version:2,chain_id:7,cp:CP_SCHEMA_V2.iter().map(|f|U256::from_u64(f.lo)).collect(),
-            alloc_root:[0;32],m0_list:vec![Member{id:[1;20],reward_addr:[2;20]}],sys_code_hash:[0;32]};
-        let bytes=encode(&spec);
-        assert_eq!(decode_bounded(&bytes,1).unwrap_err().code,"gsVersion");
-        assert_eq!(decode_bounded(&bytes,2).unwrap(),spec);
-        assert_eq!(decode(&bytes).unwrap(),spec);
-        spec.spec_version=3;
-        assert_eq!(decode_bounded(&encode(&spec),u8::MAX).unwrap_err(),GsError{code:"gsVersion",detail:"3".into()});
-        spec.spec_version=1;
-        assert_eq!(decode(&encode(&spec)).unwrap_err(),GsError{code:"gsCount",detail:"CP 59".into()});
+        let mut spec = GenesisSpec {
+            spec_version: 2,
+            chain_id: 7,
+            cp: CP_SCHEMA_V2.iter().map(|f| U256::from_u64(f.lo)).collect(),
+            alloc_root: [0; 32],
+            m0_list: vec![Member { id: [1; 20], reward_addr: [2; 20] }],
+            sys_code_hash: [0; 32],
+        };
+        let bytes = encode(&spec);
+        assert_eq!(decode_bounded(&bytes, 1).unwrap_err().code, "gsVersion");
+        assert_eq!(decode_bounded(&bytes, 2).unwrap(), spec);
+        assert_eq!(decode(&bytes).unwrap(), spec);
+        spec.spec_version = 3;
+        assert_eq!(decode_bounded(&encode(&spec), u8::MAX).unwrap_err(), GsError { code: "gsVersion", detail: "3".into() });
+        spec.spec_version = 1;
+        assert_eq!(decode(&encode(&spec)).unwrap_err(), GsError { code: "gsCount", detail: "CP 59".into() });
     }
 
     #[test]
