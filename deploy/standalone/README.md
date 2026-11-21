@@ -144,7 +144,11 @@ Before the run:
     OOM killer, not the unit, stops a node that outgrows its host, and systemd restarts it.
   - disk for at least 2 years of the worst case, or the growth measured and alarmed: the
     journal's worst case is about 1.7 GB a day, about 620 GB a year
-    (development/public-network/REHEARSAL.md, risk 11 and D1).
+    (development/public-network/REHEARSAL.md, risk 11 and D1). PoCol Mainnet's founder
+    servers keep their 35 GB disks (OWNER-DECISIONS-2026-11-21 D7; FINDINGS.md F-94), which
+    the worst case fills in about three weeks: they run the disk monitor of
+    `deploy/monitoring` (alerts off the host, a daily report), active and with a received
+    test notification on each server before the network is opened to the public.
   - Ubuntu: no release is tested by CI for the server install (the remote path has never run
     in CI). The Linux binaries are built on ubuntu-24.04 (the CI build host) and link the
     system C library, and the encrypted server key (`encrypt-server-key.sh`) needs systemd

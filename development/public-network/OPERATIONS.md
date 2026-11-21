@@ -629,3 +629,10 @@ The open gates and the launch order are in [PLAN.md](PLAN.md). For operations:
 5. **Fork tooling.** The seed fork-migration tool (`deploy/public-testnet/nonce_upgrade.py`, G3 above) refuses an
    H2 or H less than 8,640 blocks (the 24 h minimum notice) above the seed's highest stored block, with a test; it
    has not yet been run on real hosts (the upgrade drill of gate L1 remains open).
+6. **Founder disk monitoring.** The founder servers keep their 35 GB disks (OWNER-DECISIONS-2026-11-21 D7). Before
+   the network is opened to the public, install the disk monitor of
+   [deploy/monitoring](../../deploy/monitoring/README.md) on the three servers (with the owner's approval) and pass its
+   acceptance test on each: a real test notification received, a simulated 96% alert received, the timer listed and a
+   forced failure reported. It measures every filesystem and the data directory every 15 minutes and alerts off the
+   host; it never deletes data, prunes the chain or stops the node. Afterwards its daily report and the D1 measurement
+   of [REHEARSAL.md](REHEARSAL.md) show the real growth; a disk expansion is a separate owner decision.

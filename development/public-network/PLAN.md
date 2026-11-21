@@ -82,7 +82,9 @@ test and devnet profile).
 4. **Signed release.** Release the clients from the switched tree: the first signed release (release signing is
    owner-held, D6 F). A node of that release booted on PoCol Mainnet reports `publicLaunchApproved` and
    `publicLaunchReady` true, with its `technicalReadiness` still listing what is open.
-5. **Public launch** with the disclosures. The launch evidence of [REHEARSAL.md](REHEARSAL.md) is measured on PoCol
+5. **Public launch** with the disclosures, once the founder servers' disk monitor is active on all three servers
+   and a real test notification from each has been received (OWNER-DECISIONS-2026-11-21 D7: the servers keep their
+   35 GB disks, [deploy/monitoring](../../deploy/monitoring/README.md), "Acceptance test"). The launch evidence of [REHEARSAL.md](REHEARSAL.md) is measured on PoCol
    Mainnet after the launch; a remedy that changes a consensus parameter is then a fork (version 4 or later, announced
    at least 24 h ahead), with the owner's approval and recorded in FRESH-NETWORK-CP. The gates above stay open until
    their evidence exists; an independent security review (Q1) is commissioned after the launch.
@@ -93,6 +95,7 @@ chat, Git or uploaded test artifacts.
 ## Source anchors
 
 - [Owner decisions 2026-11-20: public launch, accepted risks](../decisions/OWNER-DECISIONS-2026-11-20.md)
+- [Owner decisions 2026-11-21: the founder servers' 35 GB disks and their monitoring](../decisions/OWNER-DECISIONS-2026-11-21.md)
 - [Final parameters and genesis contents](../decisions/FRESH-NETWORK-CP.md)
 - [Production boot blockers](../audit-2026-10-22/BOOT-BLOCKERS-2026-10-28.md)
 - [Admission implementation](../../prototypes/lp4-execution/src/admission.rs)
@@ -104,6 +107,7 @@ chat, Git or uploaded test artifacts.
 - [Key recovery runbook](RECOVERY.md)
 - [The launch-evidence plan, measured after the launch](REHEARSAL.md)
 - [Service, gateway, monitoring and recovery runbook](../../deploy/public-testnet/README.md)
+- [Founder servers' disk monitor](../../deploy/monitoring/README.md)
 - [Compatibility and operations](OPERATIONS.md)
 - [Unresolved findings and public limitations](FINDINGS.md)
 - [Key and enrollment results, 29 October 2026](RESULTS.md)

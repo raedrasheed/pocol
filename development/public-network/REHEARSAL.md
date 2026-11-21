@@ -110,7 +110,7 @@ Reading the measures on the node (section 8's collector records T1, T2, T5 and T
 | 8. V3-16 exposure (C2) | ACCRUING winners can make a whole pot INVALID under type-2 evidence, and low-bond (≥ 5 PCOL) members can propose. | M4 |
 | 9. Gas envelope basis | settle has up to 259 payees per pot; at about 32.7k gas per promoted payee that is about 8.5-13M, to be re-measured below the 30M per-call cap; R18 re-verified against the V3-only gas domain. | M2 |
 | 10. Site throughput and lifetime | One full chunk per block is about 2.4 KiB/s. A 4 MiB site takes about 29 min (175 blocks) and pushes the base fee from 0.01 to about 15 gwei (about 1.9 PCOL burned). The explorer bundle (1.66 MB) takes about 70 blocks. The IDE bundle (20.6 MB, one 10.8 MB file) stays hosted. CODE_CAP is the lifetime limit. | S1 |
-| 11. Disk | The journal is never compacted: worst case BODY_MAX × 8,640 ≈ 1.7 GB per day (about 620 GB per year). Size the servers' disks for at least 2 years of worst case, or measure and alarm. | D1, section 5 |
+| 11. Disk | The journal is never compacted: worst case BODY_MAX × 8,640 ≈ 1.7 GB per day (about 620 GB per year). Size the servers' disks for at least 2 years of worst case, or measure and alarm. The founder servers keep 35 GB disks with the alarm, `deploy/monitoring` (OWNER-DECISIONS-2026-11-21 D7). | D1, section 5 |
 | 13. R_KEEP 5.7 h | A longer partition forces a resync. | section 4.1 |
 | 14. Admission label | PoCol Mainnet is admitted in scope public-network (OWNER-DECISIONS-2026-11-20 D5, superseding Q3 = a for its chain), never specification compliance, with its conditions and the owner's R13, R21 and R26 waivers reported in `technicalReadiness`. Launch approval is computed apart from it (D4). Owner decision 2026-11-18: the launch disclosures carry no "not public-launch-ready" item. | (reported, not measured) |
 
@@ -226,7 +226,9 @@ RSS and disk are recorded on every founder over the whole run, and on the devnet
   state.redb empty) (`development/audit-2026-10-22/evidence/fn1b/a13-and-genesis.log`; FN-3C-C6-EVIDENCE §5 and §6).
   Before FN-1b the figures were 1,317.6 and 668.3 GiB, the ones in A13-DERIVATION's FN-3c section. Pass (D1): the
   projected 2-year worst case fits each server's disk. Record also the projected 2-year state.redb and history.redb
-  sizes against these A13 file bounds. Remedy: size the disks or add an alarm.
+  sizes against these A13 file bounds. Remedy: size the disks or add an alarm. The founder servers keep 35 GB disks,
+  which the 2-year worst case does not fit, so the remedy decided is the alarm (OWNER-DECISIONS-2026-11-21 D7): the
+  disk monitor of `deploy/monitoring`, whose stored samples and daily report give the daily growth D1 records.
 
 ## 6. Recording
 
