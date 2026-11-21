@@ -1,5 +1,6 @@
 """Compiled Solidity + Rust actual Registry/bridge controls; no compile-error credit."""
 import os,pathlib,shutil,subprocess,json,sys,hashlib
+from mutant_copy import anchor_outside, outputs_before, release_outputs # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 cases=[
  ('paid-as-held','&& ((w>>16)&255)==1;','&& ((w>>16)&255)!=2;','strict_calldata_status_exclusions_and_maximum_bond_failure_are_atomic'),
@@ -23,6 +24,7 @@ cases=[
 baseline=out/'baseline'
 if baseline.exists():shutil.rmtree(baseline)
 shutil.copytree(root,baseline,ignore=shutil.ignore_patterns('target','work','node_modules','__pycache__'))
+anchor_outside(root,baseline)
 source_hashes={name:hashlib.sha256((baseline/name).read_bytes()).hexdigest() for name in ['contracts/RegistryPayment.sol','tests/registry_payment.rs','src/native.rs','Cargo.lock']}
 results=[]
 for name,old,new,test in cases:
@@ -34,6 +36,7 @@ for name,old,new,test in cases:
  lock=folder/'Cargo.lock';lock.write_text(lock.read_text().replace('name = "pocol-lp4-execution"',f'name = "pocol-lp4-registry-{name}"'))
  compile_sol=subprocess.run(['node',str(folder/'tests/compile_registry.cjs'),str(folder/'tests/data/registry-payment.json')],stdout=subprocess.PIPE,stderr=subprocess.STDOUT);(out/(name+'-solc.log')).write_bytes(compile_sol.stdout)
  env=dict(os.environ,CARGO_TARGET_DIR=str(root/'target'));prefix=['cargo','test','--offline','--locked','--manifest-path',str(manifest),'--test','registry_payment']
+ before=outputs_before(env,folder) # this copy's build outputs are removed once its result is written
  build=subprocess.run(prefix+['--no-run'],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT) if compile_sol.returncode==0 else None
  if build is not None:(out/(name+'-build.log')).write_bytes(build.stdout)
  run=subprocess.run(prefix+[test,'--','--exact','--nocapture'],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT) if build is not None and build.returncode==0 else None
@@ -41,5 +44,6 @@ for name,old,new,test in cases:
  killed=compile_sol.returncode==0 and build is not None and build.returncode==0 and run is not None and run.returncode!=0 and b'assertion' in run.stdout and b'1 test' in run.stdout
  results.append(dict(baselineSHA256=source_hashes,name=name,old=old,new=new,occurrences=count,test=test,solidityBuildExit=compile_sol.returncode,rustBuildExit=None if build is None else build.returncode,testExit=None if run is None else run.returncode,assertionKilled=killed))
  (out/'results.json').write_text(json.dumps(results,indent=2)+'\n')
+ release_outputs(env,folder,before)
 assert all(r['assertionKilled'] for r in results),results
 print(f'PASS {len(results)} separately Solidity/Rust compiled Registry controls; full LP4 NOT PASSED')

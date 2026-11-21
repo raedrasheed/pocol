@@ -2,6 +2,7 @@
 Test names select actual compiled Solidity invocation and state assertions.
 """
 import os,pathlib,shutil,subprocess,json,sys
+from mutant_copy import anchor_outside, outputs_before, release_outputs # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 cases=[
  ('auth','pay.rs','|| ![registry_address(),escrow_address()].contains(&inputs.caller)','', 'auth_modes_value_and_direct_reject'),
@@ -15,7 +16,7 @@ cases=[
  # PAY-02 makes absent-account rejection redundant with PAY-01's emptiness guard.
  # Mutate the new independent eligibility predicates directly; historical R2/R4
  # account-create control remains preserved, not asserted as re-run here.
- ('durability-omitted','pay.rs','|| !context.external.durable(recipient)','','pay02_requires_actual_pretransaction_nonce_or_code_even_for_zero'),
+ ('durability-omitted','pay.rs','|| !durable(context.evm.db.db, recipient)','','pay02_requires_actual_pretransaction_nonce_or_code_even_for_zero'),
  ('durability-balance','pay.rs','account.info.nonce > 0','account.info.balance > U256::ZERO || account.info.nonce > 0','pay02_requires_actual_pretransaction_nonce_or_code_even_for_zero'),
  ('durability-and','pay.rs','|| (account.info.code_hash','&& (account.info.code_hash','pay02_requires_actual_pretransaction_nonce_or_code_even_for_zero'),
  ('zero-address','pay.rs','if recipient==Address::ZERO','if false && recipient==Address::ZERO','recipients_overflow_and_encoding_reject_without_effects'),
@@ -27,26 +28,29 @@ cases=[
 # only the old emptiness guard is now semantically equivalent on valid state;
 # never call a surviving redundant mutant a passing control.
 source=(root/'src/pay.rs').read_text()
-start=source.index('    if recipient==Address::ZERO || !context.external.durable(recipient)')
+start=source.index('    if recipient==Address::ZERO || !durable(context.evm.db.db, recipient)')
 end=source.index(' || source.info.balance<amount',start)
 old=source[start:end]
-new=old.replace(' || !context.external.durable(recipient)','').replace(' || dest.is_empty()','')
+new=old.replace(' || !durable(context.evm.db.db, recipient)','').replace(' || dest.is_empty()','')
 cases.append(('account-create-both-guards','pay.rs',old,new,'recipients_overflow_and_encoding_reject_without_effects'))
 results=[]
 for name,file,old,new,test in cases:
  folder=out/name
  if folder.exists():shutil.rmtree(folder)
  shutil.copytree(root,folder,ignore=shutil.ignore_patterns('target','work','__pycache__'))
+ anchor_outside(root,folder)
  manifest=folder/'Cargo.toml';text=manifest.read_text();assert text.count('name = "pocol-lp4-execution"')==1
  manifest.write_text(text.replace('name = "pocol-lp4-execution"',f'name = "pocol-lp4-execution-pay-{name}"')+'\n[lib]\nname = "pocol_lp4_execution"\n')
  lock=folder/'Cargo.lock';lock.write_text(lock.read_text().replace('name = "pocol-lp4-execution"',f'name = "pocol-lp4-execution-pay-{name}"'))
  path=folder/'src'/file;text=path.read_text();assert text.count(old)==1,(name,old);path.write_text(text.replace(old,new))
  env=dict(os.environ,CARGO_TARGET_DIR=str(root/'target'));prefix=['cargo','test','--offline','--locked','--manifest-path',str(manifest),'--test','pay_boundary']
+ before=outputs_before(env,folder) # this copy's build outputs are removed once its result is written
  build=subprocess.run(prefix+['--no-run'],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT);(out/(name+'-build.log')).write_bytes(build.stdout)
  run=subprocess.run(prefix+[test,'--','--exact','--nocapture'],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT) if build.returncode==0 else None
  if run is not None:(out/(name+'-test.log')).write_bytes(run.stdout)
  killed=build.returncode==0 and run is not None and run.returncode!=0 and b'assertion' in run.stdout and b'1 test' in run.stdout
  results.append(dict(name=name,file=file,old=old,new=new,test=test,buildExit=build.returncode,testExit=None if run is None else run.returncode,assertionKilled=killed))
  (out/'results.json').write_text(json.dumps(results,indent=2)+'\n')
+ release_outputs(env,folder,before)
 assert all(r['assertionKilled'] for r in results),results
 print(f'PASS: {len(results)} compiled PAY assertion controls; full PAY acceptance remains separate')

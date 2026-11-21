@@ -195,7 +195,9 @@ fn accruing_members_are_not_proposer_candidates_unless_all_are() {
     assert_eq!(DrawWeights::new(&plain.clone().with_accruing([id(9)]), 3, &rows).unwrap().weights(), DrawWeights::new(&plain, 3, &rows).unwrap().weights());
     let w = DrawWeights::new(&mixed, 3, &[row(1, 3), row(2, 9), row(3, 1)]).unwrap();
     assert_eq!(w.total(), 4);
-    for i in 0..w.total() { assert_ne!(w.choose(i).unwrap(), id(2), "an ACCRUING member is never drawn"); }
+    for i in 0..w.total() {
+        assert_ne!(w.choose(i).unwrap(), id(2), "an ACCRUING member is never drawn");
+    }
 }
 
 #[test]

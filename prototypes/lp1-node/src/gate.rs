@@ -320,10 +320,11 @@ pub fn check(
     let members = spec.as_ref().map_or(0, |s| s.m0_list.len());
     bad[11] = c.M_min < 1 || members < c.M_min as usize || members > c.M_max as usize;
     // All four zero values explicitly select the continuous protocol; partial zero profiles are invalid.
-    let continuous=c.H_END==0 && c.H_CLOSE==0 && c.T_END==0 && c.T_CLOSE==0;
-    let r13_continuous_kind = continuous && (p.kind!=ProfileKind::Simnet || node!=NodeKind::Simnet);
-    let r13_schedule = !continuous && (c.H_END==0 || c.T_END==0 || c.H_END <= c.Z_close as u64 || c.H_CLOSE as u128 + c.Z_close as u128 > c.H_END as u128 || c.T_CLOSE > c.T_END);
-    bad[12] = if continuous {r13_continuous_kind} else {r13_schedule};
+    let continuous = c.H_END == 0 && c.H_CLOSE == 0 && c.T_END == 0 && c.T_CLOSE == 0;
+    let r13_continuous_kind = continuous && (p.kind != ProfileKind::Simnet || node != NodeKind::Simnet);
+    let r13_schedule = !continuous
+        && (c.H_END == 0 || c.T_END == 0 || c.H_END <= c.Z_close as u64 || c.H_CLOSE as u128 + c.Z_close as u128 > c.H_END as u128 || c.T_CLOSE > c.T_END);
+    bad[12] = if continuous { r13_continuous_kind } else { r13_schedule };
     let binding = p.binding();
     let rf = resource.filter(|r| r.profile_binding == binding && r.model == RESOURCE_MODEL && r.artifact != [0; 32]);
     if rf.is_none() {
@@ -358,8 +359,9 @@ pub fn check(
     });
     bad[18] = phases.map_or(true, |r| r.phases.iter().any(|f| f.duration_ms as u128 > t * 1000));
     bad[19] = reg.as_ref().map_or(true, |r| (c.Z_close as u128) < r.close_blocks_required);
-    let r21_retained = |r: &ResourceFacts| r.retained_blocks < (l.k_hist as u64).min(if continuous{u64::MAX}else{c.H_END});
-    let r21_history = |r: &ResourceFacts| r.historical_trie_bytes > l.hist_trie_budget && !(p.kind == ProfileKind::Simnet && node == NodeKind::Simnet && l.retention_stress);
+    let r21_retained = |r: &ResourceFacts| r.retained_blocks < (l.k_hist as u64).min(if continuous { u64::MAX } else { c.H_END });
+    let r21_history =
+        |r: &ResourceFacts| r.historical_trie_bytes > l.hist_trie_budget && !(p.kind == ProfileKind::Simnet && node == NodeKind::Simnet && l.retention_stress);
     bad[20] = rf.map_or(true, |r| r21_retained(r) || r21_history(r));
     let terms: Vec<&'static str> = [
         (r13_continuous_kind, "R13:continuous-kind"),
@@ -390,8 +392,11 @@ pub fn check(
     // FN-5 no accepted schedule could skip one (MAX_FORK_VERSION 2); with version 3 (the cap raise) this keeps refusing
     // [(1,0),(3,H)] here as `configured_forks` does at run time. The schedule itself (`ForkSchedule`) allows the skip.
     let skips = p.forks.iter().enumerate().any(|(i, &(v, _))| v >= 3 && !p.forks[..i].iter().any(|&(w, _)| w == v - 1));
-    bad[23] = spec.as_ref().map_or(true,|s|s.chain_id!=p.chain_id || s.cp!=c.to_values() || id.map_or(true,|i|s.alloc_root!=i.alloc_root || s.sys_code_hash!=i.sys_code_hash))
-        || ForkSchedule::new(&p.forks).is_err() || skips || p.chain_id==0;
+    bad[23] = spec.as_ref().map_or(true, |s| {
+        s.chain_id != p.chain_id || s.cp != c.to_values() || id.map_or(true, |i| s.alloc_root != i.alloc_root || s.sys_code_hash != i.sys_code_hash)
+    }) || ForkSchedule::new(&p.forks).is_err()
+        || skips
+        || p.chain_id == 0;
     let cal = calibration.filter(|r| r.profile_binding == binding && r.model == RESOURCE_MODEL && r.artifact != [0; 32]);
     if cal.is_none() {
         missing.push("calibrationFacts:missing-or-binding-model-artifact-mismatch");

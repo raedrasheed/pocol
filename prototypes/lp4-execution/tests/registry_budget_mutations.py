@@ -1,11 +1,13 @@
 """Compiled controls for the reproduced write-bound contradiction, not acceptance."""
 import os,pathlib,shutil,subprocess,json,sys
+from mutant_copy import anchor_outside, outputs_before, release_outputs # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 results=[]
 for index,name in enumerate(['omit-register-counter','omit-reward-counter','omit-claim-counter']):
     folder=out/name
     if folder.exists():shutil.rmtree(folder)
     shutil.copytree(root,folder,ignore=shutil.ignore_patterns('target','work','node_modules','__pycache__'))
+    anchor_outside(root,folder)
     source=folder/'contracts/RegistryWriteBudgetWitness.sol';text=source.read_text()
     needle='sstore(3,add(sload(3),1))' if index else 'sstore(3, add(sload(3),1))'
     if index==0:assert text.count(needle)==1;text=text.replace(needle,'',1)
@@ -22,6 +24,7 @@ for index,name in enumerate(['omit-register-counter','omit-reward-counter','omit
     assert compile_sol.returncode==0,(name,'Solidity build failed')
     prefix=['cargo','run','--offline','--locked','--manifest-path',str(manifest),'--example','registry_write_budget']
     env=dict(os.environ,CARGO_TARGET_DIR=str(root/'target'))
+    before=outputs_before(env,folder) # this copy's build outputs are removed once its result is written
     build=subprocess.run(['cargo','build','--offline','--locked','--manifest-path',str(manifest),'--example','registry_write_budget'],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     (out/(name+'-build.log')).write_bytes(build.stdout)
     run=subprocess.run(prefix,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT) if build.returncode==0 else None
@@ -29,5 +32,6 @@ for index,name in enumerate(['omit-register-counter','omit-reward-counter','omit
     killed=build.returncode==0 and run is not None and run.returncode!=0 and b'assertion' in run.stdout and b'left:' in run.stdout
     results.append(dict(name=name,solidityBuildExit=compile_sol.returncode,rustBuildExit=build.returncode,runExit=None if run is None else run.returncode,assertionKilled=killed,meaning='Removing an approved budget write changes the measured lower bound; not a valid resolution'))
     (out/'results.json').write_text(json.dumps(results,indent=2)+'\n')
+    release_outputs(env,folder,before)
 assert all(r['assertionKilled'] for r in results),results
 print('3 compiled assertion controls detected omitted budget writes; original acceptance remains BLOCKED')

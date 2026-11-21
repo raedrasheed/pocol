@@ -1,7 +1,12 @@
 use lp1_node::gate::*;
 use lp1_node::param_gate::RpcLimits;
 use lp1_node::profile::{ConsensusParams, NodeKind, ProfileKind};
-use lp1_node::{fixed::{U256, U512}, genesis_spec as gs, hashes::sha256, hex};
+use lp1_node::{
+    fixed::{U256, U512},
+    genesis_spec as gs,
+    hashes::sha256,
+    hex,
+};
 
 fn profile(end: bool) -> GateProfile {
     let fixture: serde_json::Value = serde_json::from_str(include_str!("../fixtures/profile.json")).unwrap();
@@ -427,8 +432,16 @@ fn exact_supply_calibration_and_timing_boundaries() {
     assert_eq!(check(&p, Some(&r), Some(&i), Some(&c), NodeKind::Node).violations, ["R23"]);
     i.alloc_balances = vec![U256::MAX; 4];
     assert_eq!(check(&p, Some(&r), Some(&i), Some(&c), NodeKind::Node).violations, ["R23"]);
-    for forks in [vec![], vec![(1, 1)], vec![(1, 0), (1, 0)], vec![(1, 0), (1, 10), (1, 9)], vec![(1, 0), (65535, 20)],
-        vec![(1, 0), (3, 20)], vec![(1, 0), (2, 20), (2, 30)], vec![(1, 0), (2, 20), (1, 30)]] {
+    for forks in [
+        vec![],
+        vec![(1, 1)],
+        vec![(1, 0), (1, 0)],
+        vec![(1, 0), (1, 10), (1, 9)],
+        vec![(1, 0), (65535, 20)],
+        vec![(1, 0), (3, 20)],
+        vec![(1, 0), (2, 20), (2, 30)],
+        vec![(1, 0), (2, 20), (1, 30)],
+    ] {
         let mut q = profile(false);
         q.forks = forks;
         assert!(verdict(&q, NodeKind::Node).violations.contains(&"R24".into()));

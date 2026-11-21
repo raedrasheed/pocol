@@ -23,7 +23,11 @@ fallback={
  'ruint-1.20.1':('alloy-rs/ruint','8a242035914783682b9e6a4bc87e0d65221bff77','LICENSE'),
  'ruint-macro-1.2.1':('alloy-rs/ruint','89d58efbd4c6de4994e5e404ed6450b8bb927202','LICENSE'),
  'aurora-engine-modexp-1.3.0':('aurora-is-near/aurora-engine','4173da04948a1b2f0f36760fec9d5cd525d6f245','Cargo.toml')}
-choices={'MIT':'MIT','MIT OR Apache-2.0':'MIT','Apache-2.0 OR MIT':'MIT','MIT/Apache-2.0':'MIT','Apache-2.0':'Apache-2.0','CC0-1.0':'CC0-1.0','Unlicense OR MIT':'MIT','Zlib':'Zlib','Apache-2.0 OR BSL-1.0':'Apache-2.0','BSD-3-Clause':'BSD-3-Clause','(MIT OR Apache-2.0) AND Unicode-3.0':'MIT AND Unicode-3.0','Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT':'MIT'}
+choices={'MIT':'MIT','MIT OR Apache-2.0':'MIT','Apache-2.0 OR MIT':'MIT','MIT/Apache-2.0':'MIT','Apache-2.0':'Apache-2.0','CC0-1.0':'CC0-1.0','Unlicense OR MIT':'MIT','Zlib':'Zlib','Apache-2.0 OR BSL-1.0':'Apache-2.0','BSD-3-Clause':'BSD-3-Clause','(MIT OR Apache-2.0) AND Unicode-3.0':'MIT AND Unicode-3.0','Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT':'MIT','MIT OR Apache-2.0 OR LGPL-2.1-or-later':'MIT'}
+# A package whose license texts and copyright lines are in a file with another name (r-efi's README: "See AUTHORS
+# file for details"; the crate ships no LICENSE file). That file is a notice like any LICENSE file.
+grant_files={'r-efi-6.0.0':'AUTHORS'}
+def notice(name,rel):return any(x in pathlib.PurePosixPath(rel).name.upper()for x in ['LICENSE','COPYING','NOTICE','COPYRIGHT'])or rel==grant_files.get(name)
 files={};packages=[];locked=0
 for package in tomllib.loads((root/'Cargo.lock').read_text())['package']:
  if 'source'not in package:continue
@@ -38,16 +42,18 @@ for package in tomllib.loads((root/'Cargo.lock').read_text())['package']:
    parts=pathlib.PurePosixPath(member.name).parts
    assert parts and parts[0]==name and '..'not in parts
    rel='/'.join(parts[1:])
-   if member.isfile()and(rel in ['Cargo.toml','.cargo_vcs_info.json']or any(x in pathlib.PurePosixPath(rel).name.upper()for x in ['LICENSE','COPYING','NOTICE','COPYRIGHT'])):
+   if member.isfile()and(rel in ['Cargo.toml','.cargo_vcs_info.json']or notice(name,rel)):
     assert member.size<4*1024*1024
     archive_files[rel]=archive.extractfile(member).read()
  assert (base/'Cargo.toml').read_bytes()==archive_files['Cargo.toml']
  meta=tomllib.loads((base/'Cargo.toml').read_text())['package'];license=meta['license'];assert license in choices,(name,license)
  notices=[]
  for f in sorted(base.rglob('*')):
-  if not f.is_file()or not any(x in f.name.upper()for x in ['LICENSE','COPYING','NOTICE','COPYRIGHT']):continue
+  if not f.is_file()or not notice(name,f.relative_to(base).as_posix()):continue
   assert f.resolve().is_relative_to(base.resolve())and f.stat().st_size<4*1024*1024
   b=f.read_bytes();rel=f.relative_to(base).as_posix();assert b==archive_files[rel],(name,rel,'source/archive mismatch');path=name+'/'+rel;files[path]=b;notices.append({'path':path,'sha256':hashlib.sha256(b).hexdigest(),'origin':'checksum-verified crate'})
+ if name in grant_files:
+  grant=name+'/'+grant_files[name];assert grant in[n['path']for n in notices],(name,grant);assert choices[license]=='MIT'and b'Permission is hereby granted, free of charge'in files[grant],(name,'MIT grant text')
  if not notices:
   ref=fallback[name];item=byref[ref];assert (base/'.cargo_vcs_info.json').read_bytes()==archive_files['.cargo_vcs_info.json'];vcs=json.loads(archive_files['.cargo_vcs_info.json']);assert vcs['git']['sha1']==ref[1]
   b=item['content'].encode();path=name+'/UPSTREAM-'+ref[2];files[path]=b;notices.append({'path':path,'sha256':hashlib.sha256(b).hexdigest(),'origin':'https://github.com/'+ref[0]+'/blob/'+ref[1]+'/'+ref[2],'gitBlob':item['actualBlob']})
@@ -55,10 +61,31 @@ for package in tomllib.loads((root/'Cargo.lock').read_text())['package']:
  # Preserve the actual package grant and normalized provenance, not just a label.
  files[name+'/Cargo.toml']= (base/'Cargo.toml').read_bytes()
  packages.append(dict(package=name,crateSHA256=package['checksum'],declaredSPDX=license,selectedBranch=choices[license],notices=notices,nestedNoticesIncluded=any('/depend/'in n['path']for n in notices)))
+# Active path packages other than this crate are the repository's patched forks in prototypes/third-party/evm-crypto
+# (no registry archive). Their files are bound to that directory's MANIFEST.json hashes; NOTICE.txt goes with each.
+vendor=root.parent/'third-party/evm-crypto';vmanifest=json.loads((vendor/'MANIFEST.json').read_text())
+own=tomllib.loads((root/'Cargo.toml').read_text())['package'];own=own['name']+'-'+own['version']
+vnotice=(vendor/'NOTICE.txt').read_bytes();assert hashlib.sha256(vnotice).hexdigest()==vmanifest['additional_file_sha256']['NOTICE.txt']
+for package in tomllib.loads((root/'Cargo.lock').read_text())['package']:
+ name=package['name']+'-'+package['version']
+ if 'source'in package or name==own or name not in active:continue
+ entries=[x for x in vmanifest['packages']if x['directory']==package['name']+'-'+x['upstream_version']and x['local_version']==package['version']];assert len(entries)==1,(name,'not a recorded evm-crypto fork')
+ entry=entries[0];base=vendor/entry['directory'];hashes=entry['current_file_sha256']
+ assert hashlib.sha256((base/'Cargo.toml').read_bytes()).hexdigest()==hashes['Cargo.toml']
+ meta=tomllib.loads((base/'Cargo.toml').read_text())['package'];assert (meta['name'],meta['version'])==(package['name'],package['version']);license=meta['license'];assert license in choices,(name,license)
+ notices=[];local='prototypes/third-party/evm-crypto/'+entry['directory']
+ for f in sorted(base.rglob('*')):
+  rel=f.relative_to(base).as_posix()
+  if not f.is_file()or not notice(name,rel):continue
+  b=f.read_bytes();assert hashlib.sha256(b).hexdigest()==hashes[rel],(name,rel,'file/MANIFEST.json mismatch');path=name+'/'+rel;files[path]=b;notices.append({'path':path,'sha256':hashlib.sha256(b).hexdigest(),'origin':'repository patched fork '+local})
+ assert notices,(name,'no license file')
+ path=name+'/NOTICE.txt';files[path]=vnotice;notices.append({'path':path,'sha256':hashlib.sha256(vnotice).hexdigest(),'origin':'prototypes/third-party/evm-crypto/NOTICE.txt'})
+ files[name+'/Cargo.toml']=(base/'Cargo.toml').read_bytes()
+ packages.append(dict(package=name,crateSHA256=None,localFork=local,upstreamCrateSHA256=entry['registry_archive_sha256'],declaredSPDX=license,selectedBranch=choices[license],notices=notices,nestedNoticesIncluded=False))
 assert len(packages)==len(active)-1,(len(packages),len(active))
 # CC0's unchanged standard legal text is retained as a reference for the workspace grant.
 files['_standard/CC0-1.0.txt']=files['tiny-keccak-2.0.2/LICENSE']
-manifest=dict(scope='Default-feature external runtime/build dependency closure, --target all; no optional-feature or compiler/test-tool distribution claim',status='SOURCE CHECKSUMS AND NOTICE PACK PREPARED; whole P2/LP4 NOT PASSED',lockedArchivesVerified=locked,activePackages=len(packages),selectedBranches=sorted(set(x['selectedBranch']for x in packages)),packages=packages,additionalNotes=['secp256k1-sys bindings declare CC0; embedded secp256k1 MIT COPYING and other bundled notices are included','unicode-ident requires Unicode-3.0 in addition to MIT; LICENSE-UNICODE included','ruint-macro repository alias moved recmo/uint -> alloy-rs/ruint; exact original VCS revision preserved','aurora CC0 grant is the checksum-linked upstream workspace declaration; standard CC0 legal text retained separately','Inactive locked optional packages are not silently counted as linked default runtime packages'])
+manifest=dict(scope='Default-feature external runtime/build dependency closure, --target all; no optional-feature or compiler/test-tool distribution claim',status='SOURCE CHECKSUMS AND NOTICE PACK PREPARED; whole P2/LP4 NOT PASSED',lockedArchivesVerified=locked,activePackages=len(packages),selectedBranches=sorted(set(x['selectedBranch']for x in packages)),packages=packages,additionalNotes=['secp256k1-sys bindings declare CC0; embedded secp256k1 MIT COPYING and other bundled notices are included','unicode-ident requires Unicode-3.0 in addition to MIT; LICENSE-UNICODE included','ruint-macro repository alias moved recmo/uint -> alloy-rs/ruint; exact original VCS revision preserved','aurora CC0 grant is the checksum-linked upstream workspace declaration; standard CC0 legal text retained separately','r-efi ships its MIT, Apache-2.0 and LGPL-2.1+ grants and copyright lines in AUTHORS (no LICENSE file); that file is included and the MIT branch is selected','alloy-primitives, alloy-eip7702 and revm-precompile are the repository-maintained patched forks in prototypes/third-party/evm-crypto (crateSHA256 null; upstreamCrateSHA256 is the original registry archive); their license files and NOTICE.txt are checked against that directory\'s MANIFEST.json','Inactive locked optional packages are not silently counted as linked default runtime packages'])
 files['manifest.json']=(json.dumps(manifest,indent=2)+'\n').encode()
 buffer=io.BytesIO()
 with tarfile.open(fileobj=buffer,mode='w')as tar:
