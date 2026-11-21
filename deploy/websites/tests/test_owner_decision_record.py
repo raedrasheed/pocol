@@ -17,6 +17,10 @@ READINESS = (ROOT / 'prototypes' / 'pocold' / 'src' / 'readiness.rs').read_text(
 IDENTITY = (ROOT / 'deploy' / 'mainnet' / 'set_network_identity.py').read_text(encoding='utf-8')
 FINDINGS = ROOT / 'development' / 'public-network' / 'FINDINGS.md'
 INSTALL = (ROOT / 'deploy' / 'standalone' / 'install-linux.sh').read_text(encoding='utf-8')
+GENESIS_RECORD = ROOT / 'development' / 'public-network' / 'GENESIS-RECORD-2026-11-21.md'
+# Ledger entries recorded after this decision record, from the owner's post-genesis report of 2026-11-21: D1 could
+# not accept them, so this record does not list them; the genesis record cites each one instead.
+POST_GENESIS = 'As reported by the owner on 2026-11-21 (GENESIS-RECORD-2026-11-21.md)'
 
 def accepted_risks(text):
     section = text.split('\n## Accepted risks (D1, D2)\n', 1)
@@ -67,6 +71,10 @@ def cited_ids(text):
     for a, b in re.findall(r'\bF-(\d{2}) to F-(\d{2})\b', text):
         ids |= {f'F-{n:02d}' for n in range(int(a), int(b) + 1)}
     return ids
+
+def post_genesis_ids(rows):
+    """The ledger entries recorded from the owner's post-genesis report, after this decision record."""
+    return {r[0] for r in rows if POST_GENESIS in r[3]}
 
 def unit_setting(name):
     return re.findall(rf'^{name}=(\S+)$', INSTALL, re.M)
@@ -132,10 +140,15 @@ class AcceptedRisksAgainstTheLedger(unittest.TestCase):
         self.assertIn('[FINDINGS.md](../public-network/FINDINGS.md)', section)
         self.assertLessEqual(cited_ids(section), ids, sorted(cited_ids(section) - ids))
         gates = [g[len('plan-gate-'):] for g in pending_ids() if g.startswith('plan-gate-')]
+        later = post_genesis_ids(rows)
         for gate in gates:
             want = {r[0] for r in rows if gate in r[2]}
             self.assertTrue(want, gate)
-            self.assertEqual(sorted(want - cited_ids(section)), [], f'plan-gate-{gate}')
+            self.assertEqual(sorted(want - later - cited_ids(section)), [], f'plan-gate-{gate}')
+        # An entry recorded after this record is an open finding, which no decision of this record accepts or names.
+        self.assertEqual(sorted(later & cited_ids(section)), [])
+        self.assertEqual(sorted(r[0] for r in rows if r[0] in later and r[1] != 'open-finding'), [])
+        self.assertEqual(sorted(later - cited_ids(GENESIS_RECORD.read_text(encoding='utf-8'))), [])
         self.assertEqual(cited_ids('F-42 to F-44, F-50'), {'F-42', 'F-43', 'F-44', 'F-50'})
 
     def test_d1_d2_and_d5_each_have_an_accepted_risk_entry_citing_this_record(self):

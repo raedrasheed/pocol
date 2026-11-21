@@ -37,7 +37,7 @@ from a rustfmt-only layout change in `prototypes/lp1-node`.
 | Ceremony packages | built from commit `cecb8e703018ea8d7fd6e6430945306ce1b281a5`; Windows and Linux packages compatible, both `consensusPinned=true` |
 | Founders | 4 |
 | Measured total hash rate (`-HashesPerSecond`) | 8,403,430 H/s |
-| Seeds | 108.165.128.89:30300, 108.165.128.90:30300, 108.165.128.91:30300 |
+| Seeds | the three servers 108.165.128.89, .90 and .91 (compared on the four devices, as reported); the port 30300 is the script's, not the report's ([Initialize-PoColNetwork.ps1:63](../../deploy/standalone/Initialize-PoColNetwork.ps1), [Initialize-PoColNetwork.ps1:351](../../deploy/standalone/Initialize-PoColNetwork.ps1)) |
 
 The invitation file SHA-256 and the `networkFingerprint` differ by design: the file is written pretty-printed
 ([launcher.rs:410](../../prototypes/pocold/src/launcher.rs)) and the fingerprint is the SHA-256 of the compact
@@ -110,8 +110,7 @@ founder 3, and the same on the others. Chain ID and genesis matched, but the ser
 
 **Cause (as diagnosed by the owner).** ARP fails between the servers inside `108.165.128.0/24`, while the gateway
 `108.165.128.1` is reachable and its MAC address known: direct layer-2 reach between the servers is not available.
-The likely explanation is isolation by the provider between its customers' servers in one subnet, with the gateway
-still routing between them; the provider has not confirmed this.
+Why it is not available is not established; the report names no cause beyond this.
 
 **Three branches.** Block 16 before the fix:
 
@@ -127,7 +126,7 @@ No branch was deleted by hand, no node's data was wiped and the genesis was not 
 F2-F3. The final live set: on F1 (`ens3`) `108.165.128.90` and `108.165.128.91` via `108.165.128.1 dev ens3`; on F2
 (`ens3`) `.89` and `.91` via `108.165.128.1`; on F3 (`eth0`) `.89` and `.90` via `108.165.128.1`. Checked with
 `ip -4 route get` and `ip -4 route show table main`, with TCP tests passing. On F3 `RTNETLINK answers: File exists`
-appeared and the route was replaced with `ip route replace`; an attempt with `eth0` on F1 failed because its
+appeared and the route was deleted and added again with `ip route replace`; an attempt with `eth0` on F1 failed because its
 interface is `ens3`. The default route and UFW were not changed and no node was restarted. All six routes were
 correct at the final checks.
 
@@ -183,7 +182,10 @@ change. A non-blocking warning about `gateway4` came from the provider's file. *
 `netplan try`, a restart of systemd-networkd, a reboot. **Whether the routes come back after a reboot is untested.**
 Not established from the report: the ethernets id that `50-cloud-init.yaml` uses (the 90 file merges into the
 provider's definition only if it is the same id, `ens3` or `eth0`), and whether exactly one generated networkd file
-holds both the address and gateway and the two routes. Recorded as F-95.
+holds both the address and gateway and the two routes. Since `netplan generate` already wrote the networkd files
+under `/run`, they take effect on any start or reload of systemd-networkd (a package upgrade that restarts it,
+`networkctl reload`, `netplan apply`), not only at a reboot; this is systemd-networkd's behaviour, not repository
+code. Recorded as F-95.
 
 ## Monitoring state
 
@@ -196,7 +198,7 @@ messages, and no active alert. Data directory: F1 33.0 MB, F2 21.0 MB, F3 31.9 M
 
 `--status` shows `heartbeat: not configured` and `peer check: off`. The disk monitor measures disk; it does not see
 a P2P outage, a stalled chain or a reorganization. No monitoring of node health (height progress, peers,
-reorganizations) is in place. Recorded as F-97.
+reorganizations) is in place on the servers; F-40 records that the repository ships none. Recorded as F-97.
 
 ## Windows wallet state (founder 4)
 
@@ -222,24 +224,30 @@ Founder 4's key has no encrypted backup yet (the owner's P0). Recorded as F-96.
 
 ## Open items
 
-Every step below needs the owner's explicit approval; the owner runs it. In the owner's order of priority:
+Every step below needs the owner's explicit approval; the owner runs it. The items and their order are the owner's
+(report section 11); sub-steps marked *(proposed by this review)* are not in the owner's report and are suggestions
+only.
 
 1. **P0, founder 4's key backup (F-96).** Check first that the chain progresses without the PC; with approval,
-   disconnect the wallet, make the encrypted backup, check it and its address, store it offline, reconnect and switch
-   mining back on (it starts off).
-2. **P0, read-only stability checks.** On each server's `127.0.0.1:8545`: `pocol_status` (head height and hash,
-   `compatiblePeers`, peers, the readiness fields of runbook step 6) and `pocol_finality`; block hashes at common
-   recent heights on all three servers, read within the same minute; blocks mined by founder 4's ID in the servers'
-   chain, which shows the PC's blocks are adopted; service, memory and disk state.
-3. **P1, route persistence after a reboot (F-95).** First read-only: the provider's netplan id and the generated
-   networkd files. Then a controlled test: provider console ready, one server at a time, state saved, checks after,
-   and a rollback plan.
+   disconnect the wallet temporarily, make the encrypted backup, check it and match its address, store it offline and
+   start the wallet again. *(Proposed by this review: switch mining back on after reconnecting, since it starts off.)*
+2. **P0, read-only stability checks.** `head.height`, `compatiblePeers`, recent block hashes, no deep
+   reorganizations (`maxReorgDepth`, `reorgsGeKAlarm`), and the state of the services, memory and disk.
+   *(Proposed by this review: read them from each server's `127.0.0.1:8545` with `pocol_status`, including the
+   readiness fields of runbook step 6, and `pocol_finality`; compare hashes at common heights read within the same
+   minute; look for blocks mined by founder 4's ID in the servers' chain, which shows the PC's blocks are adopted.)*
+3. **P1, route persistence after a reboot (F-95).** A controlled test: console, one server at a time, state saved,
+   checks after, and a rollback plan. *(Proposed by this review: first, read-only, the provider's netplan id and the
+   generated networkd files; the generated files in `/run` take effect on any restart or reload of systemd-networkd,
+   not only on a reboot.)*
 4. **P1, network health monitoring (F-97).**
-5. **P1, the founders' keys** (server miner key backups are an owner decision; RECOVERY.md).
+5. **P1, securing the founders' keys.** *(Proposed by this review: server miner key backups are an owner decision;
+   RECOVERY.md.)*
 6. **P2, identity pin and signed release** (runbook step 7), updates of the clients and sites, publication of the
    invitation (step 8) and the remaining tests.
-7. **P2, less dependence on the founder servers (F-98):** volunteer listeners in other /16s and a bootstrap list
-   ([OPERATIONS.md:335-349](OPERATIONS.md)); stopping the seeds needs those prerequisites first, and the servers have
-   not been stopped to test production without them.
+7. **P2, less dependence on the founder servers (F-98).** The owner reports that the operations guide requires 8
+   volunteer nodes in 4 /16 groups before the seeds stop, that this is not done yet, and that the servers have not
+   been stopped to test production without them. *(Proposed by this review: volunteer listeners in other /16s and a
+   bootstrap list, [OPERATIONS.md:335-349](OPERATIONS.md).)*
 
 The new ledger entries are F-95 to F-98 in [FINDINGS.md](FINDINGS.md).
