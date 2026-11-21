@@ -4,3 +4,6 @@
 # exact bytes): never convert their line endings on checkout (Git for Windows defaults to core.autocrlf=true).
 /deploy/release/allowed_signers -text
 /deploy/release/testdata/** -text
+# The disk monitor is copied from a checkout to the Linux founder servers (bash scripts, systemd units, Python): keep LF
+# on every checkout, Windows included.
+/deploy/monitoring/** text eol=lf
