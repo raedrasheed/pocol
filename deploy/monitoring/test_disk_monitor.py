@@ -675,7 +675,7 @@ class SelfFailure(Base):
 # --------------------------------------------------------------------------------- queue, retry and state file
 
 class QueueAndState(Base):
-    def test_failed_delivery_is_queued_and_retried_in_order_without_losing_the_level(self):
+    def test_failed_delivery_is_queued_and_retried_without_losing_the_level(self):
         down = FakeChannel(fail=True)
         mon = self.monitor(channels={'telegram': down})
         self.system.set_percent('/', 96)
@@ -686,13 +686,20 @@ class QueueAndState(Base):
         self.system.set_percent('/', 50)
         self.system.t += 900
         mon.run_once()
-        self.assertEqual(len(self.state()['queue']['telegram']), 2)
+        queue = self.state()['queue']['telegram']
+        self.assertEqual(len(queue), 1, 'the newer alert message replaces the undelivered one')
+        self.assertEqual((queue[0]['superseded'], queue[0]['superseded_top']), (1, 'EMERGENCY'))
         down.fail = False
         self.system.t += 900
         mon.run_once()
         self.assertEqual(self.state()['queue']['telegram'], [])
-        self.assertTrue(down.sent[0][1].startswith('[EMERGENCY]'))
-        self.assertTrue(down.sent[1][1].startswith('[RECOVERED]'))
+        self.assertEqual(len(down.sent), 1)
+        text = down.sent[0][1]
+        self.assertTrue(text.startswith('[RECOVERED]'))
+        self.assertIn('RECOVERED (was EMERGENCY since', text)
+        self.assertIn('replaces 1 earlier undelivered message(s)', text)
+        self.assertIn('the most severe was EMERGENCY', text)
+        self.assertIn('Active now: none', text)
 
     def test_queue_is_bounded_and_drops_the_lowest_severity_first(self):
         mon = self.monitor('QUEUE_MAX=3\n', channels={'telegram': FakeChannel(fail=True)})
@@ -739,7 +746,8 @@ class QueueAndState(Base):
         mon.run_once()
         st = os.stat(os.path.join(self.state_dir, dm.STATE_NAME))
         self.assertEqual(st.st_mode & 0o777, 0o600)
-        self.assertEqual(sorted(os.listdir(self.state_dir)), ['lock', 'state.json'])
+        self.assertEqual(sorted(os.listdir(self.state_dir)), ['lock', 'state.json', 'state.reserve'])
+        self.assertEqual(os.path.getsize(os.path.join(self.state_dir, dm.STATE_RESERVE_NAME)), dm.RESERVE_BYTES)
 
     def test_corrupt_state_file_is_set_aside_and_reported(self):
         with open(os.path.join(self.state_dir, dm.STATE_NAME), 'w') as handle:
@@ -939,9 +947,10 @@ class Commands(Base):
 
 class NothingDestructive(Base):
     SOURCE = os.path.join(HERE, 'pocol_disk_monitor.py')
-    ALLOWED_IMPORTS = {'argparse', 'fcntl', 'json', 'os', 're', 'smtplib', 'socket', 'ssl', 'stat', 'sys', 'time',
+    ALLOWED_IMPORTS = {'argparse', 'errno', 'fcntl', 'json', 'os', 're', 'smtplib', 'socket', 'ssl', 'stat', 'sys', 'time',
                        'urllib.error', 'urllib.parse', 'urllib.request', 'email.message', 'email.utils'}
-    ALLOWED_OS = {'open', 'close', 'write', 'fsync', 'replace', 'stat', 'lstat', 'statvfs', 'scandir', 'major',
+    ALLOWED_OS = {'open', 'close', 'write', 'pwrite', 'pread', 'fsync', 'fstat', 'replace', 'stat', 'lstat',
+                  'statvfs', 'scandir', 'major',
                   'minor', 'path', 'environ', 'O_RDWR', 'O_CREAT', 'O_WRONLY', 'O_TRUNC', 'O_RDONLY', 'sep'}
     FORBIDDEN_TEXT = ('systemctl', 'ufw', 'iptables', 'nft ', 'rm -', 'kill', 'prune', 'truncate ', 'truncate(',
                       'pocol-standalone.service', 'shutdown', 'reboot')
@@ -969,8 +978,8 @@ class NothingDestructive(Base):
                 self.assertNotIn(node.id, ('eval', 'exec', '__import__', 'compile', 'subprocess', 'shutil'))
 
     def test_every_write_goes_to_the_state_directory(self):
-        """os.open for writing and os.replace appear only in lock/load_state/save_state, on paths built by
-        state_path(); builtins.open is only ever called to read."""
+        """os.open for writing and os.replace appear only in lock/load_state/save_state and the reserve copy's two
+        functions, on paths built by state_path(); builtins.open is only ever called to read."""
         for func in ast.walk(self.tree()):
             if not isinstance(func, ast.FunctionDef):
                 continue
@@ -981,7 +990,8 @@ class NothingDestructive(Base):
                 name = getattr(call.func, 'attr', getattr(call.func, 'id', ''))
                 owner = getattr(getattr(call.func, 'value', None), 'id', None)
                 if owner == 'os' and name in ('replace', 'open'):
-                    self.assertIn(func.name, ('lock', 'load_state', 'save_state'), f'line {call.lineno}')
+                    self.assertIn(func.name, ('lock', 'load_state', 'save_state', 'prepare_reserve', 'save_reserve'),
+                                  f'line {call.lineno}')
                     for arg in call.args[:2 if name == 'replace' else 1]:
                         ok = (isinstance(arg, ast.Call) and getattr(arg.func, 'attr', '') == 'state_path') or \
                              (isinstance(arg, ast.Name) and arg.id in from_state) or \
@@ -1048,7 +1058,254 @@ class NothingDestructive(Base):
         down.fail = False
         mon.run_once()
         self.assertEqual(self.snapshot(self.tmp, self.state_dir), before)
-        self.assertTrue(set(os.listdir(self.state_dir)) <= {'lock', 'state.json'})
+        self.assertTrue(set(os.listdir(self.state_dir)) <= {'lock', 'state.json', 'state.reserve'})
+
+
+# ------------------------------------------------------------------------- review fixes (outage, full disk, clock)
+
+class PoisonChannel(FakeChannel):
+    """Refuses every message whose subject starts with one of `refuse` (a mail server rejecting it as spam)."""
+
+    def __init__(self, refuse):
+        super().__init__()
+        self.refuse = refuse
+        self.refused = 0
+
+    def send(self, subject, text):
+        if subject.startswith(self.refuse):
+            self.refused += 1
+            raise dm.DeliveryError('554 rejected')
+        super().send(subject, text)
+
+
+class Outages(Base):
+    def test_after_an_outage_the_current_state_comes_first_not_a_backlog(self):
+        down = FakeChannel(fail=True)
+        mon = self.monitor(channels={'telegram': down})
+        self.system.set_percent('/', 96)
+        self.run_every(mon, 900, 24 * 4)                 # 24 h at 96% with the channel down
+        queue = self.state()['queue']['telegram']
+        self.assertLessEqual(len(queue), 2, 'one alert message and one report, not one per re-alert')
+        self.system.set_percent('/', 50)
+        mon.run_once()                                   # the disk was freed, still down
+        down.fail = False
+        self.system.t += 900
+        mon.run_once()
+        self.assertLessEqual(len(down.sent), 3)
+        first = down.sent[0][1]
+        self.assertTrue(first.startswith('[RECOVERED]'), first[:80])
+        self.assertIn('the most severe was EMERGENCY', first)
+        self.assertEqual(self.state()['queue']['telegram'], [])
+
+    def test_the_newest_alert_lists_every_active_alert(self):
+        down = FakeChannel(fail=True)
+        mon = self.monitor('GAP_ALERT_MINUTES=100000\n', channels={'telegram': down})
+        self.system.set_percent('/', 96)
+        mon.run_once()
+        self.system.set_percent('/boot', 72)              # a new, lower event while the EMERGENCY is undelivered
+        self.system.t += 900
+        mon.run_once()
+        down.fail = False
+        self.system.t += 900
+        mon.run_once()
+        alerts = self.texts(down, reports=False)
+        self.assertEqual(len(alerts), 1)
+        self.assertIn('Active now: EMERGENCY disk:/ since', alerts[0])
+        self.assertIn('WARNING disk:/boot since', alerts[0])
+
+    def test_a_message_the_channel_keeps_refusing_does_not_block_the_rest(self):
+        mail = PoisonChannel('[REPORT]')
+        mon = self.monitor('GAP_ALERT_MINUTES=100000\n', channels={'email': mail})
+        self.system.t = T0 + 2 * 3600                    # 08:00 UTC: the report is due and refused
+        self.system.set_percent('/', 96)
+        self.run_every(mon, 900, 24 * 4)
+        emergencies = [t for t in self.texts(mail) if t.startswith('[EMERGENCY]')]
+        self.assertGreaterEqual(len(emergencies), 23)
+        # A refused message of higher severity than the rest is skipped after POISON_ATTEMPTS failures.
+        mail = PoisonChannel('[MONITOR FAILED]')
+        shutil.rmtree(self.state_dir)
+        os.mkdir(self.state_dir)
+        mon = self.monitor('GAP_ALERT_MINUTES=100000\n', channels={'email': mail})
+        mon.notify_failure('pocol-disk-monitor.service')
+        self.system.set_percent('/', 72)
+        self.run_every(mon, 900, dm.POISON_ATTEMPTS + 1)
+        self.assertTrue(any(t.startswith('[WARNING]') for t in self.texts(mail)), self.out.getvalue()[-400:])
+        self.assertEqual(self.state()['queue']['email'][0]['kind'], 'MONITOR FAILED', 'kept, still retried')
+
+    def test_monitor_failed_is_repeated_at_its_interval_then_recovers(self):
+        mon = self.monitor()
+        for _ in range(24 * 4):                          # 24 h of failing checks, every 15 minutes
+            mon.notify_failure('pocol-disk-monitor.service')
+            self.system.t += 900
+        failed = [t for t in self.texts() if t.startswith('[MONITOR FAILED]')]
+        self.assertEqual(len(failed), 24, 'the first and one per hour')
+        self.assertIn('STILL FAILING: 5 failed check(s) since', failed[1])
+        mon.run_once()
+        self.assertIn('MONITOR RECOVERED: the check succeeds again after 96 failed check(s)', self.texts()[-1])
+        self.assertIsNone(self.state()['failure'])
+        mon.notify_failure('pocol-disk-monitor.service')
+        self.assertIn('failed at', self.texts()[-1], 'a new failure is reported at once')
+
+    def test_monitor_failed_keeps_one_queued_message_while_the_channel_is_down(self):
+        mon = self.monitor('REALERT_MONITOR_FAILED_HOURS=0.25\n', channels={'telegram': FakeChannel(fail=True)})
+        for _ in range(8):
+            mon.notify_failure('pocol-disk-monitor.service')
+            self.system.t += 900
+        queue = self.state()['queue']['telegram']
+        self.assertEqual([q['kind'] for q in queue], ['MONITOR FAILED'])
+        self.assertEqual(queue[0]['superseded'], 7)
+
+
+class FullDisk(Base):
+    def run_unsaveable(self, mon, runs):
+        with mock.patch.object(dm.Monitor, 'save_state', side_effect=OSError(28, 'No space left on device')):
+            self.run_every(mon, 900, runs)
+
+    def test_an_unsaveable_state_file_does_not_flood(self):
+        mon = self.monitor()
+        self.system.t = T0 + 2 * 3600                    # 08:00 UTC: today's report goes with the first run
+        self.system.set_percent('/', 96)
+        mon.run_once()
+        self.system.t += 900
+        self.run_unsaveable(mon, 8)                      # 2 h with the state file refusing every write
+        texts = self.texts()
+        self.assertEqual(len([t for t in texts if t.startswith('[REPORT]')]), 1)
+        self.assertEqual(len([t for t in texts if 'STILL EMERGENCY' in t]), 2, 'one re-alert per hour')
+        self.assertFalse(any('MONITORING GAP' in t for t in texts))
+        self.assertIn('the state was saved in the reserve copy instead', self.out.getvalue())
+        # Space again: the state file wins over the reserve, which is blanked so it is never read again.
+        mon.run_once()
+        with open(os.path.join(self.state_dir, dm.STATE_RESERVE_NAME), 'rb') as handle:
+            self.assertEqual(handle.read(1), b' ')
+        self.assertEqual(os.path.getsize(os.path.join(self.state_dir, dm.STATE_RESERVE_NAME)), dm.RESERVE_BYTES)
+
+    def test_the_reserve_is_never_created_or_grown_when_the_disk_is_full(self):
+        mon = self.monitor()
+        with self.assertRaises(FileNotFoundError):
+            mon.save_reserve(mon.new_state())
+        self.assertFalse(os.path.exists(os.path.join(self.state_dir, dm.STATE_RESERVE_NAME)))
+        self.run_unsaveable(mon, 1)
+        self.assertIn('saving the reserve state copy failed too', self.out.getvalue())
+        mon.run_once()
+        state = mon.new_state()
+        state['samples'] = [{'t': T0 - k, 'fs': {'/mount/' + 'x' * 1000: k}, 'p': k} for k in range(dm.SAMPLES_MAX)]
+        mon.save_reserve(state)                          # too big: the oldest samples are shed to fit
+        self.assertEqual(os.path.getsize(os.path.join(self.state_dir, dm.STATE_RESERVE_NAME)), dm.RESERVE_BYTES)
+        loaded, problem = mon.read_state_file(dm.STATE_RESERVE_NAME)
+        self.assertIsNone(problem)
+        self.assertLess(len(loaded['samples']), dm.SAMPLES_MAX)
+        self.assertEqual(loaded['samples'][-1]['t'], T0 - dm.SAMPLES_MAX + 1)
+
+    def short_writes(self, behaviour):
+        real = os.write
+        calls = []
+
+        def fake(fd, data):
+            calls.append(len(data))
+            if behaviour == 'short-then-enospc':
+                if len(calls) > 1:
+                    raise OSError(28, 'No space left on device')
+                return real(fd, bytes(data[:100]))
+            if behaviour == 'zero':
+                return 0
+            real(fd, bytes(data[:100]))                   # a write that claims more than it wrote
+            return len(data)
+        return mock.patch.object(dm.os, 'write', fake)
+
+    def test_a_short_write_never_replaces_the_good_state(self):
+        mon = self.monitor()
+        self.system.set_percent('/', 96)
+        mon.run_once()
+        path = os.path.join(self.state_dir, dm.STATE_NAME)
+        with open(path, 'rb') as handle:
+            good = handle.read()
+        for behaviour in ('short-then-enospc', 'zero', 'lying'):
+            with self.subTest(behaviour=behaviour):
+                state = mon.load_state()
+                with self.short_writes(behaviour), self.assertRaises(OSError):
+                    mon.save_state(state)
+                with open(path, 'rb') as handle:
+                    self.assertEqual(handle.read(), good)
+        self.assertEqual(mon.load_state()['alerts']['disk:/']['level'], dm.EMERGENCY)
+
+
+class Clock(Base):
+    def test_a_clock_that_was_ahead_once_does_not_silence_re_alerts(self):
+        mon = self.monitor()
+        self.system.set_percent('/', 96)
+        self.run_every(mon, 900, 4 * 24)                 # one day of history
+        real = self.system.t
+        self.system.t = real + 30 * 86400                # one run 30 days ahead (before NTP)
+        mon.run_once()
+        self.system.t = real
+        before = len(self.channel.sent)
+        self.run_every(mon, 900, 4 * 48)                 # 48 h at the right time
+        later = [t for t in self.texts()[before:] if 'STILL EMERGENCY' in t]
+        self.assertGreaterEqual(len(later), 47)
+        self.assertIn('CLOCK STEPPED BACK', self.texts()[before])
+        self.assertGreater(len(self.state()['samples']), 4 * 24, 'the history from before was kept')
+
+    def test_a_clock_behind_keeps_the_history(self):
+        mon = self.monitor()
+        self.run_every(mon, 900, 4 * 24)
+        samples = len(self.state()['samples'])
+        real = self.system.t
+        self.system.t = real - 365 * 86400               # one run a year behind
+        self.assertEqual(mon.run_once(), 0)
+        self.assertEqual(len(self.state()['samples']), samples, 'nothing dropped, nothing recorded')
+        self.assertIn('WARNING: the system clock is behind the last recorded check', self.texts()[-1])
+        self.system.t = real + 900
+        mon.run_once()
+        self.assertEqual(len(self.state()['samples']), samples + 1)
+        self.assertIn('RECOVERED', self.texts()[-1])
+        self.assertNotIn('MONITORING GAP', self.texts()[-1])
+
+
+class AccelerationSteps(Base):
+    def test_a_one_off_step_is_not_accelerating_growth(self):
+        used = 15 * GB
+        for step_age in (6 * 3600, 13 * 3600, 1800):
+            with self.subTest(step_age=step_age):
+                shutil.rmtree(self.state_dir)
+                os.mkdir(self.state_dir)
+                mon = self.monitor()
+                points = [(age, used - (600 * 10 ** 6 if age > step_age else 0), None)
+                          for age in list(range(900, 26 * 3600, 900)) + list(range(26 * 3600, 8 * 86400, 3600))]
+                self.system.set_used('/', used)
+                Growth.seed(self, mon, points)
+                mon.run_once()
+                self.assertNotIn('accel:/', self.state()['alerts'])
+
+
+class Encoding(Base):
+    def write(self, name, data):
+        path = os.path.join(self.tmp, name)
+        with open(path, 'wb') as handle:
+            handle.write(data)
+        os.chmod(path, 0o600)
+        return path
+
+    def test_a_byte_that_is_not_utf8_drops_its_line_only(self):
+        conf = self.write('monitor.conf', b'SERVER_NAME=founder-2\nSMTP_FROM=caf\xe9@x\n')
+        secret = self.write('secret.env', b'TELEGRAM_BOT_TOKEN=123:abcdef\nTELEGRAM_CHAT_ID=42\n'
+                                          b'SMTP_PASSWORD=p\xa0wd-secret\n')
+        config = dm.Config.load(conf, secret, self.system)
+        self.assertEqual(config['SERVER_NAME'], 'founder-2')
+        self.assertEqual(config.secrets, {'TELEGRAM_BOT_TOKEN': '123:abcdef', 'TELEGRAM_CHAT_ID': '42'})
+        joined = ' '.join(config.warnings)
+        self.assertIn('monitor.conf line 2: not valid UTF-8, ignored', joined)
+        self.assertIn('secret.env line 3: not valid UTF-8, ignored', joined)
+        self.assertNotIn('wd-secret', joined)
+
+    def test_the_commands_still_run_and_report(self):
+        conf = self.write('monitor.conf', f'POCOL_DATA_DIR={self.data}\n'.encode() + b'X=\xff\n')
+        secret = self.write('secret.env', b'TELEGRAM_BOT_TOKEN=\xa0\xa0\n')
+        args = ['--config', conf, '--secrets', secret, '--state-dir', self.state_dir]
+        self.assertEqual(dm.main(['--notify-failure', 'pocol-disk-monitor.service'] + args, system=self.system,
+                                 out=self.out), 1, 'no channel left: non-zero, but no crash')
+        self.assertEqual(dm.main(['--once'] + args, system=self.system, out=self.out), 0)
+        self.assertNotIn('Traceback', self.out.getvalue())
+        self.assertIn('no channel configured', self.out.getvalue())
 
 
 # ------------------------------------------------------------------------------- 4. real channels, local servers

@@ -7,13 +7,16 @@ over SMTP with STARTTLS or SMTPS, certificates always verified). Python 3 standa
 
 It only reads and notifies. It never deletes, prunes, truncates or moves anything outside its own state directory,
 never starts, stops or restarts a service, never changes a firewall rule and runs no external command: the only files
-it writes are the state file (and its lock and temporary file) in its own state directory.
+it writes are in its own state directory: the state file, its temporary file, its lock, a fixed-size reserve copy that
+is overwritten in place when the disk is too full for a new state file, and, when the state file is corrupt, the
+set-aside state.json.corrupt.
 deploy/monitoring/test_disk_monitor.py checks that as a property of this source.
 
 Usage (as root, as the timer runs it): --once, --status, --report, --test-alert, --simulate-usage PERCENT,
 --notify-failure UNIT. See deploy/monitoring/README.md.
 """
 import argparse
+import errno
 import fcntl
 import json
 import os
@@ -36,7 +39,11 @@ DEFAULT_STATE_DIR = '/var/lib/pocol-disk-monitor'
 STATE_NAME = 'state.json'
 STATE_TMP_NAME = 'state.json.tmp'
 STATE_CORRUPT_NAME = 'state.json.corrupt'
+STATE_RESERVE_NAME = 'state.reserve'
 LOCK_NAME = 'lock'
+RESERVE_BYTES = 256 * 1024       # allocated once while there is space, then overwritten in place (no new blocks)
+CLOCK_MARGIN_SECONDS = 300       # a stored time later than now by more than this means the clock stepped back
+POISON_ATTEMPTS = 4              # a message failing this often no longer holds back the rest of its channel
 STATE_VERSION = 1
 STATE_MAX_BYTES = 1_000_000      # a larger file is treated as corrupt
 SAMPLES_MAX = 400                # about 26 h at 15 min plus hourly samples for 8 days
@@ -48,6 +55,8 @@ OK, WARNING, CRITICAL, EMERGENCY = range(4)
 # Message kinds and their rank (the queue drops the lowest rank first when full).
 RANK = {'REPORT': 0, 'INFO': 1, 'RECOVERED': 2, 'WARNING': 3, 'MONITOR FAILED': 4, 'CRITICAL': 5, 'EMERGENCY': 6,
         'TEST': 1}
+# Queued messages of one group replace each other: the newest one is the current state (see Monitor.enqueue).
+GROUPS = ('alert', 'report', 'failed')
 ARABIC = {'EMERGENCY': 'طارئ', 'CRITICAL': 'حرج', 'WARNING': 'تحذير', 'RECOVERED': 'زال التنبيه', 'INFO': 'معلومة',
           'REPORT': 'التقرير اليومي', 'TEST': 'اختبار', 'MONITOR FAILED': 'تعطل نظام المراقبة'}
 
@@ -80,6 +89,7 @@ SETTINGS = {
     'REALERT_WARNING_HOURS': ('float', 24.0),
     'REALERT_CRITICAL_HOURS': ('float', 6.0),
     'REALERT_EMERGENCY_HOURS': ('float', 1.0),
+    'REALERT_MONITOR_FAILED_HOURS': ('float', 1.0),
     'GAP_ALERT_MINUTES': ('float', 45.0),
     'DAILY_REPORT_HOUR': ('int', 8),
     'DAILY_REPORT_TZ': ('choice:UTC|local', 'UTC'),
@@ -122,6 +132,9 @@ def parse_env_text(text):
     for number, raw in enumerate(text.splitlines(), 1):
         line = raw.strip()
         if not line or line.startswith('#'):
+            continue
+        if '\ufffd' in line:
+            warnings.append(f'line {number}: not valid UTF-8, ignored')
             continue
         if line.startswith('export '):
             line = line[len('export '):].strip()
@@ -200,7 +213,7 @@ class Config:
                 self.warnings.append(f'monitor.conf: {key} must be in {low}..{high}; default used')
                 self.values[key] = SETTINGS[key][1]
         for key in ('REALERT_WARNING_HOURS', 'REALERT_CRITICAL_HOURS', 'REALERT_EMERGENCY_HOURS',
-                    'GAP_ALERT_MINUTES', 'NETWORK_TIMEOUT_SECONDS', 'ACCEL_FACTOR', 'ETA_HYSTERESIS_FACTOR'):
+                    'REALERT_MONITOR_FAILED_HOURS', 'GAP_ALERT_MINUTES', 'NETWORK_TIMEOUT_SECONDS', 'ACCEL_FACTOR', 'ETA_HYSTERESIS_FACTOR'):
             if self.values[key] <= 0 or (key == 'ETA_HYSTERESIS_FACTOR' and self.values[key] < 1):
                 self.warnings.append(f'monitor.conf: {key} must be positive; default used')
                 self.values[key] = SETTINGS[key][1]
@@ -244,15 +257,22 @@ class Config:
     @classmethod
     def load(cls, conf_path, secret_path, system):
         conf_text, secret_text, mode, notes = '', '', None, []
+        def read(path):
+            # A byte that is not UTF-8 never stops the monitor or its failure notice: that line is dropped (and
+            # reported, without its content) and the rest of the file still loads.
+            try:
+                return system.read_text(path)
+            except ValueError:
+                return system.read_text_lenient(path)
         try:
-            conf_text = system.read_text(conf_path)
+            conf_text = read(conf_path)
         except FileNotFoundError:
             notes.append(f'{conf_path} not found; defaults used')
         except OSError as exc:
             notes.append(f'{conf_path} unreadable ({exc.strerror}); defaults used')
         try:
             mode = stat.S_IMODE(system.stat(secret_path).st_mode)
-            secret_text = system.read_text(secret_path)
+            secret_text = read(secret_path)
         except FileNotFoundError:
             notes.append(f'{secret_path} not found; no channel has credentials')
         except OSError as exc:
@@ -288,6 +308,10 @@ class System:
 
     def read_text(self, path):
         with open(path, encoding='utf-8') as handle:
+            return handle.read(STATE_MAX_BYTES + 1)
+
+    def read_text_lenient(self, path):
+        with open(path, encoding='utf-8', errors='replace') as handle:
             return handle.read(STATE_MAX_BYTES + 1)
 
     def read_mountinfo(self):
@@ -486,7 +510,7 @@ def compact_samples(samples, now):
     recent, hourly, seen_hours = [], [], set()
     for sample in sorted(samples, key=lambda s: s['t']):
         age = now - sample['t']
-        if age < 0 or age > 8 * 86400:
+        if age < -CLOCK_MARGIN_SECONDS or age > 8 * 86400:
             continue
         if age <= 26 * 3600:
             recent.append(sample)
@@ -514,6 +538,33 @@ def rate(samples, now, value, getter, window, min_span):
 
 def growth(samples, now, value, getter):
     return {name: rate(samples, now, value, getter, window, span) for name, window, span in WINDOWS}
+
+
+def acceleration_rates(samples, now, value, getter):
+    """For the acceleration check: the rates of the two 12 h halves of the last 24 h, and the rate of the days
+    before those 24 h (the 7 d window without its last day). None where the history is too short."""
+    def near(t):
+        best = None
+        for sample in samples:
+            v = getter(sample)
+            if v is not None and abs(sample['t'] - t) <= 3 * 3600 and (best is None or
+                                                                       abs(sample['t'] - t) < abs(best[0] - t)):
+                best = (sample['t'], v)
+        return best
+
+    def between(a, b, span):
+        if a is None or b is None or b[0] - a[0] < span:
+            return None
+        return (b[1] - a[1]) * 86400.0 / (b[0] - a[0])
+    current = (now, value) if value is not None else None
+    day_ago, half_ago = near(now - 86400), near(now - 43200)
+    oldest = None
+    for sample in samples:
+        v = getter(sample)
+        if v is not None and now - 7 * 86400 <= sample['t'] < now and (oldest is None or sample['t'] < oldest[0]):
+            oldest = (sample['t'], v)
+    return {'first_half': between(day_ago, half_ago, 6 * 3600), 'second_half': between(half_ago, current, 6 * 3600),
+            'before': between(oldest, day_ago, 86400)}
 
 
 def eta_days(avail, rates, config):
@@ -571,7 +622,11 @@ def sanitize_state(state, base):
                            and is_num(a.get('since')) and is_num(a.get('last_sent'))}
     if isinstance(state.get('queue'), dict):
         clean['queue'] = {n: [{'t': q['t'], 'kind': q['kind'], 'subject': q['subject'], 'text': q['text'],
-                               'attempts': q.get('attempts') if is_num(q.get('attempts')) else 0}
+                               'attempts': int(q['attempts']) if is_num(q.get('attempts')) else 0,
+                               'group': q.get('group') if q.get('group') in GROUPS else None,
+                               'superseded': int(q['superseded']) if is_num(q.get('superseded')) else 0,
+                               'superseded_since': q['superseded_since'] if is_num(q.get('superseded_since')) else None,
+                               'superseded_top': q.get('superseded_top') if q.get('superseded_top') in RANK else None}
                               for q in queue[-1000:]
                               if isinstance(q, dict) and is_num(q.get('t')) and q.get('kind') in RANK
                               and isinstance(q.get('subject'), str) and isinstance(q.get('text'), str)]
@@ -584,6 +639,11 @@ def sanitize_state(state, base):
             clean[key] = {n: int(v) for n, v in state[key].items() if isinstance(n, str) and is_num(v)}
     if is_num(state.get('last_success')):
         clean['last_success'] = state['last_success']
+    if is_num(state.get('seq')):
+        clean['seq'] = int(state['seq'])
+    failure = state.get('failure')
+    if isinstance(failure, dict) and all(is_num(failure.get(k)) for k in ('since', 'last_sent', 'count')):
+        clean['failure'] = {'since': failure['since'], 'last_sent': failure['last_sent'], 'count': int(failure['count'])}
     if isinstance(state.get('last_report_date'), str):
         clean['last_report_date'] = state['last_report_date']
     if isinstance(state.get('announced'), bool):
@@ -660,7 +720,8 @@ class Monitor:
     def state_path(self, name):
         path = os.path.join(self.state_dir, name)
         if os.path.dirname(path) != self.state_dir.rstrip('/') or name not in (STATE_NAME, STATE_TMP_NAME,
-                                                                               STATE_CORRUPT_NAME, LOCK_NAME):
+                                                                               STATE_CORRUPT_NAME, STATE_RESERVE_NAME,
+                                                                               LOCK_NAME):
             raise AssertionError('a write outside the state directory')
         return path
 
@@ -684,46 +745,77 @@ class Monitor:
         os.close(fd)
 
     def new_state(self):
-        return {'v': STATE_VERSION, 'samples': [], 'alerts': {}, 'queue': {}, 'sent': {}, 'dropped': {},
-                'last_success': None, 'last_report_date': None, 'announced': False, 'peers': {}, 'notes': []}
+        return {'v': STATE_VERSION, 'seq': 0, 'samples': [], 'alerts': {}, 'queue': {}, 'sent': {}, 'dropped': {},
+                'last_success': None, 'last_report_date': None, 'announced': False, 'peers': {}, 'notes': [],
+                'failure': None}
 
-    def load_state(self):
-        path = self.state_path(STATE_NAME)
+    def read_state_file(self, name):
+        """(state, None), (None, None) when the file is missing or blank, or (None, problem)."""
+        path = self.state_path(name)
         try:
             size = os.stat(path).st_size
         except FileNotFoundError:
-            return self.new_state()
-        problem = None
-        if size > STATE_MAX_BYTES:
-            problem = f'too large ({size} B)'
-        else:
-            try:
-                with open(path, encoding='utf-8') as handle:
-                    state = json.load(handle)
-                if not isinstance(state, dict) or state.get('v') != STATE_VERSION:
-                    problem = 'unknown format'
-                else:
-                    return sanitize_state(state, self.new_state())
-            except (OSError, ValueError) as exc:
-                problem = f'unreadable ({type(exc).__name__})'
-        os.replace(path, self.state_path(STATE_CORRUPT_NAME))
+            return None, None
+        except OSError as exc:
+            return None, f'unreadable ({type(exc).__name__})'
+        if size > max(STATE_MAX_BYTES, RESERVE_BYTES):
+            return None, f'too large ({size} B)'
+        try:
+            with open(path, encoding='utf-8') as handle:
+                text = handle.read()
+            if not text.strip():
+                return None, None
+            state = json.loads(text)
+        except (OSError, ValueError) as exc:
+            return None, f'unreadable ({type(exc).__name__})'
+        if not isinstance(state, dict) or state.get('v') != STATE_VERSION:
+            return None, 'unknown format'
+        return sanitize_state(state, self.new_state()), None
+
+    def load_state(self):
+        """The newer (by save sequence, not by the clock) of the state file and its reserve copy."""
+        state, problem = self.read_state_file(STATE_NAME)
+        reserve, _ = self.read_state_file(STATE_RESERVE_NAME)   # a damaged reserve is simply overwritten later
+        if problem:
+            os.replace(self.state_path(STATE_NAME), self.state_path(STATE_CORRUPT_NAME))
+            self.log(f'warning: state file {problem}; set aside as {STATE_CORRUPT_NAME}')
+        if reserve is not None and (state is None or reserve['seq'] > state['seq']):
+            return reserve
+        if state is not None:
+            return state
         state = self.new_state()
-        state['notes'].append(f'The state file was {problem}; it was set aside as {STATE_CORRUPT_NAME} in '
-                              f'{self.state_dir} and a new one started (alert history reset).')
-        self.log(f'warning: state file {problem}; started a new one')
+        if problem:
+            state['notes'].append(f'The state file was {problem}; it was set aside as {STATE_CORRUPT_NAME} in '
+                                  f'{self.state_dir} and a new one started (alert history reset).')
         return state
 
+    @staticmethod
+    def encode_state(state):
+        return json.dumps(state, separators=(',', ':'), sort_keys=True).encode('utf-8')
+
+    @staticmethod
+    def write_all(fd, data, offset=None):
+        """Write every byte or raise: a short write (a nearly full disk) never passes for a complete one."""
+        view, done = memoryview(data), 0
+        while done < len(data):
+            n = os.write(fd, view[done:]) if offset is None else os.pwrite(fd, view[done:], offset + done)
+            if not n or n < 0:
+                raise OSError(errno.ENOSPC, 'short write')
+            done += n
+
     def save_state(self, state):
-        data = json.dumps(state, separators=(',', ':'), sort_keys=True).encode('utf-8')
+        data = self.encode_state(state)
         if len(data) > STATE_MAX_BYTES:
-            # Never expected (every list is bounded); shed the oldest samples and queued reports first.
+            # Never expected (every list is bounded); shed the oldest samples first.
             state['samples'] = state['samples'][-100:]
-            data = json.dumps(state, separators=(',', ':'), sort_keys=True).encode('utf-8')
+            data = self.encode_state(state)
         tmp = self.state_path(STATE_TMP_NAME)
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
-            os.write(fd, data)
+            self.write_all(fd, data)
             os.fsync(fd)
+            if os.fstat(fd).st_size != len(data):
+                raise OSError(errno.ENOSPC, 'the temporary state file is incomplete')
         finally:
             os.close(fd)
         os.replace(tmp, self.state_path(STATE_NAME))
@@ -732,6 +824,61 @@ class Monitor:
             os.fsync(dir_fd)
         finally:
             os.close(dir_fd)
+        self.prepare_reserve()
+
+    def prepare_reserve(self):
+        """After a good save of the state file: allocate the reserve copy (RESERVE_BYTES of real blocks) while the
+        disk has room for it, or, when it holds an older state, blank its first byte so that it is never read again."""
+        path = self.state_path(STATE_RESERVE_NAME)
+        try:
+            if os.stat(path).st_size == RESERVE_BYTES:
+                fd = os.open(path, os.O_RDWR)
+                try:
+                    if os.pread(fd, 1, 0) != b' ':
+                        self.write_all(fd, b' ', offset=0)
+                        os.fsync(fd)
+                finally:
+                    os.close(fd)
+                return
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            self.log(f'warning: the reserve state copy could not be checked ({exc.strerror or exc})')
+            return
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            try:
+                self.write_all(fd, b' ' * RESERVE_BYTES)
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        except OSError as exc:
+            self.log(f'warning: the reserve state copy could not be allocated ({exc.strerror or exc})')
+
+    def save_reserve(self, state):
+        """The fallback when the state file cannot be written (a full disk): overwrite the preallocated reserve in
+        place, so no new block is needed and de-duplication, the hourly limit and the report schedule survive."""
+        reserve = dict(state)
+        data = self.encode_state(reserve)
+        keep = len(reserve['samples'])
+        while len(data) > RESERVE_BYTES and keep > 0:
+            keep //= 2
+            reserve['samples'] = state['samples'][-keep:] if keep else []
+            data = self.encode_state(reserve)
+        if len(data) > RESERVE_BYTES:
+            reserve['queue'] = {n: sorted(q, key=lambda m: -RANK.get(m['kind'], 0))[:2] for n, q in state['queue'].items()}
+            data = self.encode_state(reserve)
+        if len(data) > RESERVE_BYTES:
+            raise OSError(errno.EFBIG, 'the state does not fit the reserve')
+        path = self.state_path(STATE_RESERVE_NAME)
+        fd = os.open(path, os.O_WRONLY)       # never created or truncated here: only its existing blocks are used
+        try:
+            if os.fstat(fd).st_size != RESERVE_BYTES:
+                raise OSError(errno.ENOSPC, 'the reserve state copy is not allocated')
+            self.write_all(fd, data + b' ' * (RESERVE_BYTES - len(data)), offset=0)
+            os.fsync(fd)
+        finally:
+            os.close(fd)
 
     # ------------------------------------------------------------------ evaluation
     def analyse(self, m, samples):
@@ -739,10 +886,14 @@ class Monitor:
         now = m['t']
         for fs in m['filesystems']:
             point = fs['mount']
-            fs['rates'] = growth(samples, now, fs['used'], lambda s, p=point: s.get('fs', {}).get(p))
+            getter = lambda s, p=point: s.get('fs', {}).get(p)
+            fs['rates'] = growth(samples, now, fs['used'], getter)
+            fs['accel'] = acceleration_rates(samples, now, fs['used'], getter)
             fs['eta_days'] = eta_days(fs['avail'], fs['rates'], self.config)
         data = m['data']
-        data['rates'] = growth(samples, now, data['bytes'] if data['exists'] else None, lambda s: s.get('p'))
+        value = data['bytes'] if data['exists'] else None
+        data['rates'] = growth(samples, now, value, lambda s: s.get('p'))
+        data['accel'] = acceleration_rates(samples, now, value, lambda s: s.get('p'))
         return m
 
     def conditions(self, m, alerts, peers=None):
@@ -767,9 +918,9 @@ class Monitor:
             level = level_low(fs['eta_days'], [c['ETA_WARNING_DAYS'], c['ETA_CRITICAL_DAYS'], c['ETA_EMERGENCY_DAYS']],
                               prev(key), c['ETA_HYSTERESIS_FACTOR'])
             out[key] = (level, f'disk {point} full in {fmt_days(fs["eta_days"])} at {fmt_rate(self.eta_rate(fs))}')
-            out[f'accel:{point}'] = self.acceleration(f'accel:{point}', f'disk {point}', fs['rates'], prev)
+            out[f'accel:{point}'] = self.acceleration(f'accel:{point}', f'disk {point}', fs['rates'], fs['accel'], prev)
         data = m['data']
-        out['accel:pocol'] = self.acceleration('accel:pocol', 'PoCol data', data['rates'], prev)
+        out['accel:pocol'] = self.acceleration('accel:pocol', 'PoCol data', data['rates'], data['accel'], prev)
         if c['POCOL_DATA_REQUIRED']:
             out['pocol:missing'] = (CRITICAL if not data['exists'] else OK,
                                     f'PoCol data directory {data["path"]} '
@@ -785,16 +936,21 @@ class Monitor:
         rates = [r for r in (fs['rates'].get('24h'), fs['rates'].get('7d')) if r is not None]
         return max(rates) if rates else None
 
-    def acceleration(self, key, what, rates, prev):
+    def acceleration(self, key, what, rates, accel, prev):
+        """Growth is accelerating when the 24 h rate is at least ACCEL_FACTOR times the rate of the days before and
+        at least ACCEL_MIN_BYTES_PER_DAY, and it is sustained: each 12 h half of the last 24 h grew at least half that
+        minimum. A one-off step (a package upgrade, a download) falls in one half only and raises nothing."""
         c = self.config
-        day, week = rates.get('24h'), rates.get('7d')
-        line = f'{what} growth {fmt_rate(day)} (24 h) against {fmt_rate(week)} (7 d)'
-        if day is None or week is None:
+        day = rates.get('24h')
+        base = accel.get('before') if accel.get('before') is not None else rates.get('7d')
+        first, second = accel.get('first_half'), accel.get('second_half')
+        line = f'{what} growth {fmt_rate(day)} (24 h) against {fmt_rate(base)} (the days before)'
+        if day is None or base is None or first is None or second is None:
             return OK, line
         active = prev(key) >= WARNING
         factor = c['ACCEL_FACTOR'] * (0.8 if active else 1.0)
         minimum = c['ACCEL_MIN_BYTES_PER_DAY'] * (0.8 if active else 1.0)
-        accelerating = day >= minimum and day >= factor * max(week, 0.0)
+        accelerating = (day >= minimum and day >= factor * max(base, 0.0) and min(first, second) >= minimum / 2)
         return (WARNING if accelerating else OK), line + (' (accelerating)' if accelerating else '')
 
     def transitions(self, conditions, alerts, now):
@@ -884,46 +1040,83 @@ class Monitor:
         return 'REPORT', lines[0], '\n'.join(lines)
 
     # ------------------------------------------------------------------ queue and delivery
-    def enqueue(self, state, kind, subject, text, now):
+    @staticmethod
+    def message_rank(message):
+        """A message that replaced undelivered ones keeps the rank of the most severe of them."""
+        return max(RANK.get(message['kind'], 0), RANK.get(message.get('superseded_top') or 'REPORT', 0))
+
+    def enqueue(self, state, kind, subject, text, now, group=None):
+        """Queue a message on every channel. A message of a group (the checks' alert messages, the daily report, the
+        failure notice) replaces that channel's undelivered message of the same group, so after an outage the owner
+        gets the current state at once, not a backlog of stale messages; it says how many it replaced and the most
+        severe of them, and an alert message then also lists every alert active now."""
         if not self.channels:
             self.log(f'no channel configured; message not sent: {subject}')
             return
         for name in self.channels:
             queue = state['queue'].setdefault(name, [])
-            queue.append({'t': now, 'kind': kind, 'subject': self.redact(subject), 'text': self.redact(text),
-                          'attempts': 0})
+            entry = {'t': now, 'kind': kind, 'subject': self.redact(subject), 'text': self.redact(text),
+                     'attempts': 0, 'group': group, 'superseded': 0, 'superseded_since': None, 'superseded_top': None}
+            if group:
+                old = [q for q in queue if q.get('group') == group]
+                if old:
+                    queue[:] = [q for q in queue if q.get('group') != group]
+                    entry['superseded'] = sum(q.get('superseded', 0) + 1 for q in old)
+                    entry['superseded_since'] = min(q.get('superseded_since') or q['t'] for q in old)
+                    tops = [q['kind'] for q in old] + [q['superseded_top'] for q in old if q.get('superseded_top')]
+                    entry['superseded_top'] = max(tops, key=lambda k: RANK.get(k, 0))
+                    if group == 'alert':
+                        active = [f'{LEVELS[a["level"]]} {k} since {self.stamp(a["since"])}'
+                                  for k, a in sorted(state['alerts'].items())]
+                        entry['text'] += '\nActive now: ' + ('; '.join(active) if active else 'none')
+            queue.append(entry)
             while len(queue) > self.config['QUEUE_MAX']:
-                victim = min(range(len(queue)), key=lambda i: (RANK.get(queue[i]['kind'], 0), queue[i]['t']))
+                victim = min(range(len(queue)), key=lambda i: (self.message_rank(queue[i]), queue[i]['t']))
                 queue.pop(victim)
                 state['dropped'][name] = state['dropped'].get(name, 0) + 1
 
     def deliver(self, state, now):
-        """Send each channel's queue oldest first, within the hourly limit; a failure stops that channel until the
-        next run (the message stays queued)."""
+        """Send each channel's queue, the most severe first (oldest first within a severity), within the hourly
+        limit. A failure stops that channel until the next run (the message stays queued), except that a message that
+        has already failed POISON_ATTEMPTS times (one the channel keeps refusing, such as a mail rejected as spam) no
+        longer holds back the next one."""
         failures = []
         for name, channel in self.channels.items():
             queue = state['queue'].setdefault(name, [])
             sent = [t for t in state['sent'].get(name, []) if now - 3600 < t <= now]
-            while queue:
+            order = sorted(queue, key=lambda q: (-self.message_rank(q), q['t']))
+            delivered, skipped = [], False
+            for message in order:
                 if len(sent) >= self.config['MAX_MESSAGES_PER_HOUR']:
-                    self.log(f'{name}: hourly limit reached; {len(queue)} message(s) wait for the next run')
+                    self.log(f'{name}: hourly limit reached; {len(queue) - len(delivered)} message(s) wait for the '
+                             f'next run')
                     break
-                message = queue[0]
                 text = message['text']
+                if message.get('superseded'):
+                    since = message.get('superseded_since')
+                    text += (f'\n(This message replaces {message["superseded"]} earlier undelivered message(s)'
+                             + (f' since {self.stamp(since)}' if since else '')
+                             + (f'; the most severe was {message["superseded_top"]}' if message.get('superseded_top')
+                                else '') + '.)')
                 dropped = state['dropped'].get(name, 0)
                 if dropped:
                     text += f'\n({dropped} older message(s) were dropped from the full queue)'
                 try:
                     channel.send(message['subject'], text)
                 except Exception as exc:  # any failure of a channel is reported and retried, never fatal
-                    message['attempts'] += 1
+                    message['attempts'] = message.get('attempts', 0) + 1
                     failures.append(name)
-                    self.log(f'{name}: delivery failed ({self.redact(exc)}); {len(queue)} message(s) queued for retry')
+                    self.log(f'{name}: delivery failed ({self.redact(exc)}); {len(queue) - len(delivered)} '
+                             f'message(s) queued for retry')
+                    if message['attempts'] >= POISON_ATTEMPTS and not skipped:
+                        skipped = True
+                        continue
                     break
-                queue.pop(0)
+                delivered.append(message)
                 sent.append(now)
                 state['dropped'][name] = 0
                 self.log(f'{name}: sent {message["subject"]}')
+            queue[:] = [q for q in queue if not any(q is d for d in delivered)]
             state['sent'][name] = sent
         return failures
 
@@ -951,14 +1144,48 @@ class Monitor:
         finally:
             self.unlock(fd)
 
+    def check_clock(self, state, now):
+        """Stored times later than now: the clock stepped back (a run had a clock that was ahead) or this run's clock
+        is behind. Returns (behind, latest, events). Alert times are clamped to now so that re-alerts and the gap
+        check keep working. When only the newest samples are in the future they are dropped (the earlier run's clock
+        was ahead); when most of the history is, this run's clock is taken to be behind: the history is kept as it
+        is and this check is not recorded, and a 'clock' WARNING stays active until the clock is right again."""
+        limit = now + CLOCK_MARGIN_SECONDS
+        times = [s['t'] for s in state['samples']] + ([state['last_success']] if state['last_success'] else [])
+        latest = max(times, default=None)
+        if latest is None or latest <= limit:
+            return False, latest, []
+        for entry in state['alerts'].values():
+            entry['last_sent'] = min(entry['last_sent'], now)
+        failure = state.get('failure')
+        if failure:
+            failure['last_sent'] = min(failure['last_sent'], now)
+        ahead = [s for s in state['samples'] if s['t'] > limit]
+        if len(ahead) * 2 > len(state['samples']):
+            return True, latest, []
+        state['samples'] = [s for s in state['samples'] if s['t'] <= limit]
+        for entry in state['alerts'].values():
+            entry['since'] = min(entry['since'], now)
+        if failure:
+            failure['since'] = min(failure['since'], now)
+        state['last_success'] = None
+        return False, latest, [('WARNING', f'CLOCK STEPPED BACK: a previous check was recorded at {self.stamp(latest)}, '
+                                           f'later than now; {len(ahead)} sample(s) from that time were dropped and '
+                                           f'the alert timers were reset to now.')]
+
     def _run_once(self):
         state = self.load_state()
         now = self.system.now()
+        behind, latest, events = self.check_clock(state, now)
         m = self.analyse(measure(self.system, self.config), state['samples'])
-        events = []
         for note in state['notes']:
             events.append(('WARNING', note))
         state['notes'] = []
+        failure = state.get('failure')
+        if failure:
+            events.append(('RECOVERED', f'MONITOR RECOVERED: the check succeeds again after {failure["count"]} failed '
+                                        f'check(s) since {self.stamp(failure["since"])}.'))
+            state['failure'] = None
         last = state['last_success']
         gap = self.config['GAP_ALERT_MINUTES'] * 60
         if last is not None and now - last > gap:
@@ -974,19 +1201,30 @@ class Monitor:
                 entry['last_sent'] = 0
             state['announced'] = True
         peers = self.check_peers(state)
-        events += self.transitions(self.conditions(m, state['alerts'], peers), state['alerts'], now)
+        conditions = self.conditions(m, state['alerts'], peers)
+        conditions['clock'] = ((WARNING, f'the system clock is behind the last recorded check ({self.stamp(latest)}); '
+                                         f'the growth history is kept and checks are not recorded until it is right')
+                               if behind else (OK, 'the system clock agrees with the recorded history again'))
+        events += self.transitions(conditions, state['alerts'], now)
         if events:
             kind, subject, text = self.compose(events, m, now)
             self.log(text.replace('\n', ' | '))
-            self.enqueue(state, kind, subject, text, now)
+            self.enqueue(state, kind, subject, text, now, group='alert')
         if self.report_due(state, now):
             kind, subject, text = self.report(m, state, now)
-            self.enqueue(state, kind, subject, text, now)
+            self.enqueue(state, kind, subject, text, now, group='report')
             state['last_report_date'] = self.report_date(now)[0]
-        sample = {'t': now, 'fs': {fs['mount']: fs['used'] for fs in m['filesystems']},
-                  'p': m['data']['bytes'] if m['data']['exists'] else None}
-        state['samples'] = compact_samples(state['samples'] + [sample], now)
-        state['last_success'] = now
+        if not behind:
+            sample = {'t': now, 'fs': {fs['mount']: fs['used'] for fs in m['filesystems']},
+                      'p': m['data']['bytes'] if m['data']['exists'] else None}
+            newest = max((s['t'] for s in state['samples']), default=None)
+            if newest is not None and now - newest > 8 * 86400:
+                # A long gap, or a clock that jumped ahead: keep the old history one more run (bounded), so that a
+                # clock stepping back again finds it; the next run compacts it as usual.
+                state['samples'] = (state['samples'] + [sample])[-SAMPLES_MAX:]
+            else:
+                state['samples'] = compact_samples(state['samples'] + [sample], now)
+            state['last_success'] = now
         # Saved before and after delivery; a failed save (a full disk is the case this monitor exists for) never
         # holds back the alert: the state stays in memory for this run and the error is logged.
         saved = self.try_save(state)
@@ -1005,11 +1243,18 @@ class Monitor:
         return 0
 
     def try_save(self, state):
+        state['seq'] = state.get('seq', 0) + 1       # the newer of the state file and the reserve wins at load
         try:
             self.save_state(state)
             return True
         except OSError as exc:
             self.log(f'warning: saving the state failed ({exc.strerror or exc})')
+        try:
+            self.save_reserve(state)
+            self.log('warning: the state was saved in the reserve copy instead')
+            return True
+        except OSError as exc:
+            self.log(f'warning: saving the reserve state copy failed too ({exc.strerror or exc})')
             return False
 
     def report_date(self, now):
@@ -1121,14 +1366,9 @@ class Monitor:
 
     def status(self):
         now = self.system.now()
-        state = self.new_state()
-        try:
-            with open(self.state_path(STATE_NAME), encoding='utf-8') as handle:
-                loaded = json.load(handle)
-            if isinstance(loaded, dict) and loaded.get('v') == STATE_VERSION:
-                state = sanitize_state(loaded, state)
-        except (OSError, ValueError):
-            pass
+        candidates = [self.read_state_file(name)[0] for name in (STATE_NAME, STATE_RESERVE_NAME)]
+        candidates = [c for c in candidates if c is not None]
+        state = max(candidates, key=lambda c: c['seq']) if candidates else self.new_state()
         m = self.analyse(measure(self.system, self.config), state.get('samples', []))
         _, _, text = self.report(m, state, now)
         print(text.replace('[REPORT] PoCol disk daily report', '[STATUS] PoCol disk status', 1), file=self.out)
@@ -1139,23 +1379,46 @@ class Monitor:
         print(f'peer check: {"on" if self.config["PEER_CHECK"] else "off"}', file=self.out)
         return 0
 
-    def notify_failure(self, unit):
-        """The OnFailure= path: queue a MONITOR FAILED alert and try to deliver it now."""
-        now = self.system.now()
+    def failure_text(self, unit, now, failure=None):
         subject = f'[MONITOR FAILED] PoCol disk monitor: {self.identity()}'
-        text = '\n'.join([subject, f'- {unit} failed at {self.stamp(now)}: the last disk check did not complete.',
-                          f'- Check on the server: journalctl -u {unit} -n 50',
+        first = (f'- {unit} failed at {self.stamp(now)}: the last disk check did not complete.' if not failure else
+                 f'- {unit} is STILL FAILING: {failure["count"]} failed check(s) since {self.stamp(failure["since"])}.')
+        text = '\n'.join([subject, first, f'- Check on the server: journalctl -u {unit} -n 50',
                           'Until it is fixed no disk alert is sent from this server.',
                           f'Time: {self.stamp(now)}'] +
                          ([f'PoCol: {ARABIC["MONITOR FAILED"]} - {self.identity()}'] if self.config['ARABIC_LINE'] else []))
-        self.log(text.replace('\n', ' | '))
+        return subject, text
+
+    def notify_failure(self, unit):
+        """The OnFailure= path: queue a MONITOR FAILED alert and try to deliver it now. While the check keeps
+        failing the alert is repeated only every REALERT_MONITOR_FAILED_HOURS (as a STILL FAILING message with the
+        count); the next successful check sends MONITOR RECOVERED."""
+        now = self.system.now()
+        subject, text = self.failure_text(unit, now)
         try:
             fd = self.lock()
         except Exception as exc:
+            self.log(text.replace('\n', ' | '))
             return self.failure_fallback(subject, text, exc)
         try:
             state = self.load_state()
-            self.enqueue(state, 'MONITOR FAILED', subject, text, now)
+            failure = state.get('failure')
+            if failure and failure['last_sent'] > now + CLOCK_MARGIN_SECONDS:
+                failure['last_sent'] = now
+            if failure:
+                failure['count'] += 1
+                if now - failure['last_sent'] < self.config['REALERT_MONITOR_FAILED_HOURS'] * 3600 - 60:
+                    self.log(f'{unit} failed again ({failure["count"]} failures since {self.stamp(failure["since"])}); '
+                             f'already reported at {self.stamp(failure["last_sent"])}, not repeated yet')
+                    failures = self.deliver(state, now)
+                    self.try_save(state)
+                    return 1 if failures else 0
+                subject, text = self.failure_text(unit, now, failure)
+                failure['last_sent'] = now
+            else:
+                state['failure'] = {'since': now, 'last_sent': now, 'count': 1}
+            self.log(text.replace('\n', ' | '))
+            self.enqueue(state, 'MONITOR FAILED', subject, text, now, group='failed')
             failures = self.deliver(state, now)
             self.try_save(state)
             return 1 if failures or not self.channels else 0
@@ -1306,7 +1569,11 @@ def main(argv=None, system=None, out=None):
     args = parser.parse_args(argv)
     system = system or System()
     out = out or sys.stderr
-    config = Config.load(args.config, args.secrets, system)
+    try:
+        config = Config.load(args.config, args.secrets, system)
+    except Exception as exc:  # never expected (Config.load reports bad files as warnings); defaults keep it running
+        print(f'warning: configuration unusable ({type(exc).__name__}); defaults used, no channel', file=out)
+        config = Config()
     monitor = Monitor(config, system, os.path.abspath(args.state_dir), out=out)
     try:
         if args.once:

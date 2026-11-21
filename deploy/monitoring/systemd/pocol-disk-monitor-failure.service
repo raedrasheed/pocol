@@ -3,7 +3,8 @@
 [Unit]
 Description=PoCol founder disk monitor: report a failed check
 Documentation=file:///opt/pocol-disk-monitor/README.md
-After=network-online.target
+# time-sync.target: when systemd-time-wait-sync is enabled, the first check after boot waits for the clock.
+After=network-online.target time-sync.target
 Wants=network-online.target
 
 [Service]
@@ -25,8 +26,19 @@ ProtectSystem=strict
 StateDirectory=pocol-disk-monitor
 StateDirectoryMode=0700
 ReadWritePaths=/var/lib/pocol-disk-monitor
+# Defense in depth (the code opens none of these): the live and the staged miner key, the encrypted key credential
+# and the host key that decrypts it, the faucet's key directory, the testnet operator files, backups and root's home.
+# Old keys kept as identity.pocol-key.replaced-<address> have no fixed name and cannot be masked here; they stay
+# readable to this process (CAP_DAC_READ_SEARCH): move them off the server (KEYS.md, encrypt-server-key.sh).
 InaccessiblePaths=-/var/lib/pocol-standalone/identity.pocol-key
 InaccessiblePaths=-/var/lib/pocol-standalone/identity.pocol-key.restoring
+InaccessiblePaths=-/etc/credstore.encrypted
+InaccessiblePaths=-/etc/credstore
+InaccessiblePaths=-/var/lib/systemd/credential.secret
+InaccessiblePaths=-/var/lib/pocol-faucet
+InaccessiblePaths=-/etc/pocol-testnet
+InaccessiblePaths=-/var/backups
+InaccessiblePaths=-/root
 ProtectHome=read-only
 PrivateTmp=yes
 PrivateDevices=yes

@@ -4,12 +4,13 @@
 # (/opt/pocol-disk-monitor, /etc/pocol-disk-monitor, /var/lib/pocol-disk-monitor and three units) and never touches
 # PoCol's install, data, unit or the firewall.
 #
-# Usage (as the admin user, from the folder that holds this script):  sudo ./install-disk-monitor.sh
+# Usage (as the admin user, from the folder that holds this script):  sudo bash ./install-disk-monitor.sh
+# (bash ./..., so that a copy that lost its executable bit, as one from a Windows checkout can, still runs.)
 # POCOL_MONITOR_ROOT is for the tests only: it installs under that directory instead of /.
 set -euo pipefail
 
 if [ "$(id -u)" != 0 ]; then
-  echo 'Run with sudo: sudo ./install-disk-monitor.sh' >&2
+  echo 'Run with sudo: sudo bash ./install-disk-monitor.sh' >&2
   exit 1
 fi
 
@@ -28,15 +29,17 @@ for file in pocol_disk_monitor.py monitor.conf.example secret.env.example README
   fi
 done
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo 'python3 is required (Ubuntu 24.04 ships it as /usr/bin/python3).' >&2
+# The interpreter the units run (ExecStart=/usr/bin/python3), not whichever python3 comes first on PATH.
+python=/usr/bin/python3
+if [ ! -x "$python" ]; then
+  echo "$python is required (Ubuntu 24.04 ships it); the units run it." >&2
   exit 1
 fi
-if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
-  echo 'python3 3.10 or later is required.' >&2
+if ! "$python" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
+  echo "$python must be Python 3.10 or later." >&2
   exit 1
 fi
-python3 -I -B "$src/pocol_disk_monitor.py" --help >/dev/null
+"$python" -I -B "$src/pocol_disk_monitor.py" --help >/dev/null
 
 install -d -m 0755 "$opt" "$etc" "$units"
 install -d -m 0700 "$state"

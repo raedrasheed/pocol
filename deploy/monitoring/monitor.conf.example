@@ -30,7 +30,9 @@ ETA_CRITICAL_DAYS=7
 ETA_EMERGENCY_DAYS=2
 ETA_HYSTERESIS_FACTOR=1.2
 
-# Accelerating growth: the 24 h rate at least ACCEL_FACTOR times the 7 d rate and at least ACCEL_MIN_BYTES_PER_DAY.
+# Accelerating growth: the 24 h rate at least ACCEL_FACTOR times the rate of the days before and at least
+# ACCEL_MIN_BYTES_PER_DAY, with each 12 h half of the last 24 h at least half that minimum (a one-off step is not
+# acceleration).
 ACCEL_FACTOR=3
 ACCEL_MIN_BYTES_PER_DAY=500000000
 
@@ -38,6 +40,8 @@ ACCEL_MIN_BYTES_PER_DAY=500000000
 REALERT_WARNING_HOURS=24
 REALERT_CRITICAL_HOURS=6
 REALERT_EMERGENCY_HOURS=1
+# A monitor that keeps failing (OnFailure=) is reported again after this many hours, not at every failed check.
+REALERT_MONITOR_FAILED_HOURS=1
 
 # A MONITORING GAP warning when the previous successful check is older than this (the timer runs every 15 minutes).
 GAP_ALERT_MINUTES=45

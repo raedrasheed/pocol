@@ -24,8 +24,8 @@ servers). This record states them as decided under D7.
 
 ## Decisions
 
-7. **D7: the founder servers keep 35 GB disks; the growth risk is accepted on the condition of tested monitoring.**
-   The three founder servers, `108.165.128.89`, `108.165.128.90` and `108.165.128.91` (D3 of
+7. **D7 (the owner's option (a)): the founder servers keep 35 GB disks; the growth risk is accepted on the condition of tested monitoring.**
+   The owner formally approves option (a), keeping the current disks: the three founder servers, `108.165.128.89`, `108.165.128.90` and `108.165.128.91` (D3 of
    [2026-11-20](OWNER-DECISIONS-2026-11-20.md); Ubuntu Server 24.04 LTS, 4 GB of RAM, D2), keep their current 35 GB
    disk each. The owner accepts the risk of the blockchain data's growth on the condition that an effective automatic
    monitoring and alerting system is implemented and tested before the network is opened to the public:

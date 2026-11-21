@@ -85,6 +85,34 @@ class Units(unittest.TestCase):
                       'the miner key is masked from the monitor')
         self.assertNotIn('Install', s, 'started by the timer only')
 
+    def test_key_material_is_masked_and_the_docs_say_what_is_not(self):
+        for name in ('pocol-disk-monitor.service', 'pocol-disk-monitor-failure.service'):
+            s = parse_unit(name)
+            masked = values(s, 'Service', 'InaccessiblePaths')
+            for path in ('/var/lib/pocol-standalone/identity.pocol-key',
+                         '/var/lib/pocol-standalone/identity.pocol-key.restoring', '/etc/credstore.encrypted',
+                         '/etc/credstore', '/var/lib/systemd/credential.secret', '/var/lib/pocol-faucet',
+                         '/etc/pocol-testnet', '/var/backups', '/root'):
+                self.assertIn('-' + path, masked, f'{name}: {path}')
+            self.assertIn('time-sync.target', one(s, 'Unit', 'After').split(), name)
+        with open(os.path.join(UNITS, 'pocol-disk-monitor.service'), encoding='utf-8') as handle:
+            unit = handle.read()
+        with open(os.path.join(HERE, 'README.md'), encoding='utf-8') as handle:
+            readme = handle.read()
+        for text in (unit, readme):
+            self.assertIn('identity.pocol-key.replaced-', text)
+            self.assertNotRegex(text, r'and (to )?read its own root-only\s+secret\.env', 'the capability is not for it')
+        self.assertNotIn('the miner key file is masked from it', readme)
+
+    def test_the_readme_matches_the_code(self):
+        with open(os.path.join(HERE, 'README.md'), encoding='utf-8') as handle:
+            readme = ' '.join(handle.read().split())
+        for text in ('state.json.corrupt', 'state.reserve', 'sudo bash ./install-disk-monitor.sh',
+                     'below 80% of either limit', 'REALERT_MONITOR_FAILED_HOURS'):
+            self.assertIn(text, readme)
+        self.assertNotIn('below 80% of both', readme)
+        self.assertNotIn('sudo ./install-disk-monitor.sh', readme)
+
     def test_the_failure_unit_reports_and_has_the_same_sandbox(self):
         main = parse_unit('pocol-disk-monitor.service')
         failure = parse_unit('pocol-disk-monitor-failure.service')
@@ -283,6 +311,20 @@ class Installer(unittest.TestCase):
         with open(self.path('etc/pocol-disk-monitor/secret.env')) as handle:
             self.assertEqual(handle.read(), 'TELEGRAM_BOT_TOKEN=owner-token\n')
         self.assert_pocol_untouched()
+
+    def test_the_installer_checks_the_interpreter_the_units_run(self):
+        if not os.access('/usr/bin/python3', os.X_OK):
+            self.skipTest('/usr/bin/python3, the units\' interpreter, is missing on this host')
+        with open(os.path.join(self.bin, 'python3'), 'w') as handle:   # an older python3 first on PATH
+            handle.write('#!/bin/sh\necho "fake python3 on PATH used" >&2\nexit 1\n')
+        os.chmod(os.path.join(self.bin, 'python3'), 0o755)
+        run = self.run_script(INSTALL)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertNotIn('fake python3 on PATH used', run.stderr)
+        with open(INSTALL) as handle:
+            self.assertIn('python=/usr/bin/python3', handle.read())
+        for unit in ('pocol-disk-monitor.service', 'pocol-disk-monitor-failure.service'):
+            self.assertTrue(one(parse_unit(unit), 'Service', 'ExecStart').startswith('/usr/bin/python3 '))
 
     def test_the_installed_script_runs(self):
         self.assertEqual(self.run_script(INSTALL).returncode, 0)
