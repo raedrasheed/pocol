@@ -1,0 +1,37 @@
+# The founder servers' disk monitor (deploy/monitoring, OWNER-DECISIONS-2026-11-21 D7): its unit tests (fakes and local
+# Telegram, heartbeat and SMTP servers on 127.0.0.1; no message leaves the runner), systemd-analyze verify and security
+# on its units, and bash -n, shellcheck and a temporary-root run of its installer. POCOL_MONITOR_REQUIRE_TOOLS=1 turns
+# a missing tool into a failure instead of a skip.
+name: Founder disk monitor
+on:
+  pull_request:
+    branches: [main]
+    paths: ['deploy/monitoring/**', '.github/workflows/founder-disk-monitor.yml', '.gitattributes']
+  push:
+    branches: [main]
+    paths: ['deploy/monitoring/**', '.github/workflows/founder-disk-monitor.yml', '.gitattributes']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  disk-monitor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Preserve source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Tools (python3 of Ubuntu 24.04, systemd-analyze, shellcheck, openssl)
+        run: |
+          command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+          /usr/bin/python3 --version
+          systemd-analyze --version | head -1
+          shellcheck --version | head -2
+          openssl version
+      - name: Disk monitor, units and installer tests
+        env:
+          POCOL_MONITOR_REQUIRE_TOOLS: '1'
+        run: /usr/bin/python3 -B -W error::ResourceWarning -m unittest discover -s deploy/monitoring -v

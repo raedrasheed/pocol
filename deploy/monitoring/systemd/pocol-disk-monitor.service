@@ -1,0 +1,60 @@
+# PoCol founder disk monitor: one read-only check (OWNER-DECISIONS-2026-11-21 D7). It measures and notifies only; it
+# never deletes data, prunes the chain, stops or restarts a service or changes the firewall.
+# Installed by deploy/monitoring/install-disk-monitor.sh; started by pocol-disk-monitor.timer every 15 minutes.
+[Unit]
+Description=PoCol founder disk monitor (read-only check and alerts)
+Documentation=file:///opt/pocol-disk-monitor/README.md
+After=network-online.target
+Wants=network-online.target
+OnFailure=pocol-disk-monitor-failure.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I -B /opt/pocol-disk-monitor/pocol_disk_monitor.py --once
+TimeoutStartSec=180
+# Low priority and tiny limits: a 4 GB, 35 GB founder server runs a PoCol node beside it.
+Nice=19
+CPUWeight=20
+CPUQuota=20%
+IOSchedulingClass=idle
+MemoryMax=64M
+MemorySwapMax=0
+TasksMax=16
+# Root, but with one capability only: CAP_DAC_READ_SEARCH lets it list /var/lib/pocol-standalone (0700, owned by the
+# pocol-standalone user, install-linux.sh) and read its own root-only secret.env. It cannot write anywhere but its
+# state directory, and it never opens a PoCol file (the miner key is also masked below).
+User=root
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=
+NoNewPrivileges=yes
+ProtectSystem=strict
+StateDirectory=pocol-disk-monitor
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/pocol-disk-monitor
+InaccessiblePaths=-/var/lib/pocol-standalone/identity.pocol-key
+InaccessiblePaths=-/var/lib/pocol-standalone/identity.pocol-key.restoring
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateIPC=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+KeyringMode=private
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+UMask=0077

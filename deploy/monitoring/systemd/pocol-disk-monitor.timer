@@ -1,0 +1,14 @@
+# Every 15 minutes; a run missed while the host was off runs at boot (Persistent=true).
+[Unit]
+Description=PoCol founder disk monitor every 15 minutes
+Documentation=file:///opt/pocol-disk-monitor/README.md
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+RandomizedDelaySec=60
+AccuracySec=10s
+Unit=pocol-disk-monitor.service
+
+[Install]
+WantedBy=timers.target
