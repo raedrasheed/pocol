@@ -225,7 +225,7 @@ Each claim sends 0.002 PCOL and pays its own transfer fee (21,000 gas at the sug
 
 ```
 python3 -B -m unittest discover -s deploy/faucet -p 'test*.py' -v
-python3 deploy/standalone/test_wallet_earnin.py   # opt-in, about 15 minutes: real nodes, signer and wallet
+python3 deploy/standalone/test_wallet_earnin.py   # run on its own (CI: public-mainnet-e2e.yml); real nodes, signer and wallet; time depends on the host's hash rate
 ```
 
 The unit tests cover once per address, new accounts only, reserved addresses, the daily and
