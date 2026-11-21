@@ -5,8 +5,10 @@ RAM, a 35 GB disk each), keep their 35 GB disks by owner decision of 2026-11-21 
 [OWNER-DECISIONS-2026-11-21.md](../../development/decisions/OWNER-DECISIONS-2026-11-21.md)). The owner accepts the
 risk of the chain's growth on the condition that an automatic monitoring and alerting system runs on all three
 servers, and that a real test notification from each has been received, before the network is opened to the public
-(step 8 of [deploy/mainnet/README.md](../mainnet/README.md)). This directory is that system. Nothing here has been
-installed on a server: installing it is a deployment step that needs the owner's approval.
+(step 8 of [deploy/mainnet/README.md](../mainnet/README.md)). This directory is that system. On 2026-11-21 the owner
+installed it on the three servers, with a Telegram channel, and reports its acceptance test passed on each; the owner
+approves that D7's condition is met ("Acceptance of D7's monitoring" in the decision record). Every further step on a
+server (the `POCOL_DATA_REQUIRED=1` change of install step 3 below, an upgrade, a removal) needs the owner's approval.
 
 Why it matters: PoCol's block journal is never compacted. In the worst case (every 10 s block body at BODY_MAX) it
 grows about 1.7 GB a day, about 620 GB a year
@@ -178,8 +180,12 @@ Approval first: this is a deployment step on the founder servers and needs the o
    it upgrades the script and the units and keeps both files. It does not touch PoCol's install, data, unit or the
    firewall.
 3. `sudoedit /etc/pocol-disk-monitor/monitor.conf`: set `SERVER_NAME` (`founder-1`, `founder-2`, `founder-3`) and
-   `SERVER_IP` (the server's address), and the SMTP settings if email is used. Once PoCol is installed, set
-   `POCOL_DATA_REQUIRED=1`.
+   `SERVER_IP` (the server's address), and the SMTP settings if email is used. Once the ceremony has installed PoCol
+   (step 3 of [deploy/mainnet/README.md](../mainnet/README.md)) and the founders have booted (its step 6), set
+   `POCOL_DATA_REQUIRED=1` and check with `--status` (below) that the line `PoCol data /var/lib/pocol-standalone:` shows
+   its size on disk, not `not present`; the next daily report shows it too. With it set, a missing or unreadable data
+   directory raises a CRITICAL alert. Before PoCol is installed leave it unset: the directory is then reported as
+   absent, without an alert.
 4. `sudoedit /etc/pocol-disk-monitor/secret.env`: the channel secrets (above).
 5. Run the acceptance test below.
 
@@ -212,6 +218,12 @@ On each of the three servers, and recorded with the date and the server:
 
 The network is opened to the public only after all three servers pass (D7). The daily report of the next morning is a
 further check that the timer runs.
+
+Recorded: the owner reports this test passed on all three servers on 2026-11-21, with a Telegram channel, together
+with `--status` and a `[RECOVERED]` message after the forced failure was undone
+([OWNER-DECISIONS-2026-11-21.md](../../development/decisions/OWNER-DECISIONS-2026-11-21.md), "Acceptance of D7's
+monitoring"). No PoCol node was installed then: the `POCOL_DATA_REQUIRED=1` step of install step 3 remains for after
+the ceremony.
 
 ## Files
 

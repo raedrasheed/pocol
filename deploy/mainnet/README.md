@@ -25,7 +25,9 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    ([owner decisions, 2026-11-21](../../development/decisions/OWNER-DECISIONS-2026-11-21.md) D7; F-94): the disk
    monitor of [deploy/monitoring](../monitoring/README.md) is installed on each server, with the owner's approval, at
    this step or at any time before step 8. It installs only its own files (`install-linux.sh` checks only
-   `/opt/pocol-standalone`, its unit and its service user) and never touches PoCol's data, unit or firewall. The
+   `/opt/pocol-standalone`, its unit and its service user) and never touches PoCol's data, unit or firewall. The owner
+   installed it on the three servers on 2026-11-21 and reports its acceptance test passed on each (D7, "Acceptance of
+   D7's monitoring"); until PoCol is installed it reports the PoCol data directory as absent. The
    owner's computer runs the fourth founding miner; the phone is a wallet.
 3. **Fresh keys.** Each founding miner generates its miner key on its own device: on each server `install-linux.sh`
    runs `pocol identity --home /var/lib/pocol-standalone` as the `pocol-standalone` user, and on the PC the ceremony
@@ -89,7 +91,12 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    `Initialize-PoColNetwork.ps1` makes them, start from the invitation; this genesis is the launch genesis (no
    rehearsal, no wipe and repeat). Each founder checks with `pocol_status` that its node reports
    the recorded chain ID and genesis hash, `networkScope` public-network and `networkEnvironment` mainnet, and the
-   computed approval and readiness, unchanged by any label.
+   computed approval and readiness, unchanged by any label. Then, with the owner's approval, on each of the three
+   servers once PoCol is installed there (D7, the owner's requirement): `sudoedit /etc/pocol-disk-monitor/monitor.conf`
+   and set `POCOL_DATA_REQUIRED=1`, then check that
+   `sudo python3 -I -B /opt/pocol-disk-monitor/pocol_disk_monitor.py --status` reports the PoCol data directory
+   `/var/lib/pocol-standalone` present, with its size (not `not present`), and that the next daily report shows it.
+   From then on a missing or unreadable data directory raises a CRITICAL alert.
 7. **Pin the identity in the clients.** Switch every client from the identity the tree pins today to the new
    one with `set_network_identity.py` (below), in one reviewed PR, and release the clients: rebuild the native
    packages and the 0.5.0 extension from the switched tree, then assemble, sign and verify them
@@ -104,10 +111,13 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    servers and a real test notification from each has been received (D7 of 2026-11-21): on each server
    `--test-alert` delivered and received on every configured channel, a `--simulate-usage 96` alert received,
    `systemctl list-timers pocol-disk-monitor.timer` listing the timer and a forced failure reported
-   ([deploy/monitoring/README.md](../monitoring/README.md), "Acceptance test"). At the journal's worst case, about
-   1.7 GB a day, a 35 GB disk fills in about three weeks; the monitor warns 30, 7 and 2 days ahead, and a disk
-   expansion is a separate owner decision. Then publish the invitation on pocol.net, signed with the release key like
-   every download (`deploy/release`), and open the seeds. The launch evidence
+   ([deploy/monitoring/README.md](../monitoring/README.md), "Acceptance test"). The owner reports this passed on all
+   three servers on 2026-11-21 and approves that D7's condition is met. The monitor's post-install step of step 6
+   (`POCOL_DATA_REQUIRED=1`, the PoCol data directory reported present) remains: it follows PoCol's install by the
+   ceremony (step 3) and the founders' boot (step 6). At the journal's worst case, about 1.7 GB a day, a 35 GB disk
+   fills in about three weeks; the monitor warns 30, 7 and 2 days ahead, and a disk expansion is a separate owner
+   decision. Then publish the invitation on pocol.net, signed with the release key like every download
+   (`deploy/release`), and open the seeds. The launch evidence
    ([REHEARSAL.md](../../development/public-network/REHEARSAL.md)) is measured on PoCol Mainnet after the launch.
 
 ## Tools
