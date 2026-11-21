@@ -636,6 +636,45 @@ class SelfFailure(Base):
         mon.run_once()
         self.assertEqual(self.heartbeat.calls[-1], ('GET', url + '/fail'))
 
+    def test_an_unmeasurable_alerted_filesystem_keeps_its_alert_and_fails_the_heartbeat(self):
+        url = 'https://hc-ping.test/0f9b2c-uuid'
+        mon = self.monitor(secrets=f'HEARTBEAT_URL={url}\n')
+        self.system.set_percent('/', 96)
+        mon.run_once()
+        self.assertEqual(self.state()['alerts']['disk:/']['level'], dm.EMERGENCY)
+        self.system.statvfs_errors = {'/'}             # /boot and the others stay readable
+        self.system.t += 900
+        mon.run_once()
+        self.assertEqual(self.state()['alerts']['disk:/']['level'], dm.EMERGENCY, 'no recovery without a reading')
+        self.assertFalse(any('RECOVERED' in t and 'disk / ' in t for t in self.texts()))
+        self.assertIn('WARNING: disk / could not be measured (statvfs failed: Input/output error)', self.texts()[-1])
+        self.assertEqual(self.heartbeat.calls[-1], ('GET', url + '/fail'), 'usage unknown is not a healthy check')
+        self.system.t += 3 * 3600
+        mon.run_once()
+        self.assertIn('STILL EMERGENCY', self.texts(reports=False)[-1], 'the kept level re-alerts at its interval')
+        self.system.statvfs_errors = set()
+        self.system.set_percent('/', 50)
+        self.system.t += 900
+        mon.run_once()
+        self.assertIn('RECOVERED (was EMERGENCY', self.texts(reports=False)[-1])
+        self.assertIn('disk / is measured again', self.texts(reports=False)[-1])
+        self.assertNotIn('disk:/', self.state()['alerts'])
+        self.assertEqual(self.heartbeat.calls[-1], ('GET', url))
+
+    def test_an_unreadable_mount_table_keeps_the_other_filesystems_alerts(self):
+        mon = self.monitor()
+        self.system.set_percent('/mnt/data disk', 90)
+        mon.run_once()
+        self.assertEqual(self.state()['alerts']['disk:/mnt/data disk']['level'], dm.CRITICAL)
+
+        def unreadable():
+            raise OSError(13, 'Permission denied')
+        self.system.read_mountinfo = unreadable
+        self.system.t += 900
+        mon.run_once()
+        self.assertEqual(self.state()['alerts']['disk:/mnt/data disk']['level'], dm.CRITICAL)
+        self.assertIn('disk /mnt/data disk could not be measured (the mount table is unreadable)', self.texts()[-1])
+
     def test_heartbeat_must_be_https(self):
         c = dm.Config('', 'HEARTBEAT_URL=http://hc.example/ping\n')
         self.assertNotIn('HEARTBEAT_URL', c.secrets)

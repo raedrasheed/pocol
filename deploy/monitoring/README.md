@@ -45,6 +45,7 @@ systemd timer and:
 | Founder peer port unreachable (optional, `PEER_CHECK=1`) | | N consecutive checks (3) | | when reachable |
 | Monitoring gap: no successful check for over 45 minutes | once | | | |
 | System clock behind the recorded history | yes | | | when the clock is right again |
+| A filesystem that cannot be measured (statvfs fails, or the mount table is unreadable) | yes; its active alerts keep their last level and re-alert at their interval, never a RECOVERED without a reading | | | when it is measured again |
 
 - An alert is sent when a level is entered; while it persists it is sent again every 24 h (WARNING), 6 h (CRITICAL)
   or 1 h (EMERGENCY); when it eases or clears a RECOVERED or EASED message is sent. Every value is configurable in
@@ -96,7 +97,7 @@ the host is down.**
   last successful check. `Persistent=true` runs a missed check at boot.
 - **The host or its network is down**: nothing on the host can report that. Use the optional dead-man heartbeat:
   every successful check requests the owner's `HEARTBEAT_URL` (a healthchecks.io-compatible ping URL; with messages
-  still undelivered it requests `URL/fail`), and the heartbeat service alerts the owner when the pings stop. Without
+  still undelivered, or a filesystem could not be measured, it requests `URL/fail`), and the heartbeat service alerts the owner when the pings stop. Without
   it, the missing daily report is the signal.
 - **The clock steps** (a wrong clock before NTP sync at boot; the units start after `time-sync.target`): stored
   times later than now are reset, so re-alerts and the gap check keep working. If only the newest samples lie in the

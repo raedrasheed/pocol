@@ -124,6 +124,9 @@ class DeliveryError(Exception):
     pass
 
 
+FS_ALERT_KINDS = ('disk', 'inode', 'eta', 'accel')
+
+
 class PartialDelivery(DeliveryError):
     """The mail server accepted the message for some recipients and refused the others (smtplib returns the refusals
     instead of raising). `refused` lists the addresses still owed the message; only they are retried."""
@@ -487,12 +490,13 @@ def device_of(system, path):
 
 
 def measure(system, config):
-    warnings = []
+    warnings, failed = [], []
     try:
         mounts = parse_mountinfo(system.read_mountinfo())
+        mounts_known = True
     except OSError as exc:
         warnings.append(f'mountinfo unreadable ({exc.strerror}); measuring / only')
-        mounts = []
+        mounts, mounts_known = [], False
     points = real_mounts(mounts, set(config['EXCLUDE_MOUNTS'])) if mounts else [('/', 'unknown', device_of(system, '/'))]
     filesystems = []
     for point, fstype, device in points:
@@ -500,6 +504,7 @@ def measure(system, config):
             fs = measure_filesystem(system, point, fstype, device)
         except OSError as exc:
             warnings.append(f'{point}: statvfs failed ({exc.strerror})')
+            failed.append((point, f'statvfs failed: {exc.strerror}'))
             continue
         if fs:
             filesystems.append(fs)
@@ -509,7 +514,8 @@ def measure(system, config):
     data_device = device_of(system, config['POCOL_DATA_DIR'])
     data_mount = next((fs['mount'] for fs in filesystems if fs['device'] == data_device), None)
     data['mount'] = data_mount or ('/' if any(fs['mount'] == '/' for fs in filesystems) else filesystems[0]['mount'])
-    return {'t': system.now(), 'filesystems': filesystems, 'data': data, 'warnings': warnings}
+    return {'t': system.now(), 'filesystems': filesystems, 'data': data, 'warnings': warnings, 'failed': failed,
+            'mounts_known': mounts_known}
 
 
 # -------------------------------------------------------------------------------------------------- growth and ETA
@@ -930,6 +936,25 @@ class Monitor:
                               prev(key), c['ETA_HYSTERESIS_FACTOR'])
             out[key] = (level, f'disk {point} full in {fmt_days(fs["eta_days"])} at {fmt_rate(self.eta_rate(fs))}')
             out[f'accel:{point}'] = self.acceleration(f'accel:{point}', f'disk {point}', fs['rates'], fs['accel'], prev)
+        # A filesystem that could not be measured this check is not a recovery: its active alerts keep their last
+        # level (and re-alert at their interval), and the failed measurement is its own WARNING. When the mount table
+        # itself is unreadable only / is measured, so every other active filesystem alert is kept the same way.
+        measured = {fs['mount'] for fs in m['filesystems']}
+        unmeasured = dict(m.get('failed', []))
+        if not m.get('mounts_known', True):
+            for key in alerts:
+                kind, _, point = key.partition(':')
+                if kind in FS_ALERT_KINDS and point not in measured and point not in unmeasured:
+                    unmeasured[point] = 'the mount table is unreadable'
+        for point in measured:
+            out[f'unmeasured:{point}'] = (OK, f'disk {point} is measured again')
+        for point, why in unmeasured.items():
+            out[f'unmeasured:{point}'] = (WARNING, f'disk {point} could not be measured ({why}); its alerts keep '
+                                                   f'their last level')
+            for kind in FS_ALERT_KINDS:
+                key = f'{kind}:{point}'
+                if prev(key) > OK:
+                    out[key] = (prev(key), f'{kind} {point}: last level kept, not measured this check ({why})')
         data = m['data']
         out['accel:pocol'] = self.acceleration('accel:pocol', 'PoCol data', data['rates'], data['accel'], prev)
         if c['POCOL_DATA_REQUIRED']:
@@ -1147,12 +1172,13 @@ class Monitor:
             state['sent'][name] = sent
         return failures
 
-    def ping_heartbeat(self, state):
+    def ping_heartbeat(self, state, degraded=False):
+        """Ping the dead-man URL: its /fail form while messages are undelivered or a filesystem could not be measured."""
         url = self.config.secrets.get('HEARTBEAT_URL')
         if not url:
             return None
         pending = sum(len(q) for q in state['queue'].values())
-        target = url.rstrip('/') + '/fail' if pending else url
+        target = url.rstrip('/') + '/fail' if pending or degraded else url
         try:
             status, _ = self.heartbeat('GET', target, None, {}, self.config['NETWORK_TIMEOUT_SECONDS'])
             ok = 200 <= status < 300
@@ -1257,7 +1283,7 @@ class Monitor:
         saved = self.try_save(state)
         failures = self.deliver(state, now)
         saved = self.try_save(state) or saved
-        beat = self.ping_heartbeat(state)
+        beat = self.ping_heartbeat(state, degraded=bool(m.get('failed')) or not m.get('mounts_known', True))
         main = next((fs for fs in m['filesystems'] if fs['mount'] == m['data']['mount']), m['filesystems'][0])
         self.log(f'ok: {main["mount"]} {main["percent"]:.1f}% used, {fmt_bytes(main["avail"])} free; PoCol data '
                  f'{fmt_bytes(m["data"]["bytes"]) if m["data"]["exists"] else "absent"}; {len(events)} event(s); '
