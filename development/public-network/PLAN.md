@@ -76,7 +76,9 @@ test and devnet profile).
 2. **Mainnet ceremony.** On freshly provisioned devices (the three founder servers, also the seeds, and the owner's
    PC; D3), generate fresh keys and run the ceremony with the mainnet profile. Each node boots in scope
    public-network and reports approval false (`network-not-release-pinned`, `launch-not-approved`) until the pin.
-   Publish the invitation and its fingerprint through a trusted channel.
+   Publish the invitation and its fingerprint through a trusted channel. Once PoCol is installed on the three founder
+   servers, set `POCOL_DATA_REQUIRED=1` in their disk monitor (with the owner's approval) and check that its `--status` reports the PoCol data
+   directory present (OWNER-DECISIONS-2026-11-21 D7, the owner's requirement; step 6 of the launch runbook).
 3. **Pin the identity** of the new genesis in the clients in one reviewed change: `set_network_identity.py` writes the
    release pin with the approval reference "OWNER-DECISIONS-2026-11-20 D1".
 4. **Signed release.** Release the clients from the switched tree: the first signed release (release signing is
@@ -84,7 +86,9 @@ test and devnet profile).
    `publicLaunchReady` true, with its `technicalReadiness` still listing what is open.
 5. **Public launch** with the disclosures, once the founder servers' disk monitor is active on all three servers
    and a real test notification from each has been received (OWNER-DECISIONS-2026-11-21 D7: the servers keep their
-   35 GB disks, [deploy/monitoring](../../deploy/monitoring/README.md), "Acceptance test"). The launch evidence of [REHEARSAL.md](REHEARSAL.md) is measured on PoCol
+   35 GB disks, [deploy/monitoring](../../deploy/monitoring/README.md), "Acceptance test"). The owner installed the
+   monitor on the three servers on 2026-11-21, reports its acceptance test passed on each and approves that D7's
+   condition is met (D7, "Acceptance of D7's monitoring"). The launch evidence of [REHEARSAL.md](REHEARSAL.md) is measured on PoCol
    Mainnet after the launch; a remedy that changes a consensus parameter is then a fork (version 4 or later, announced
    at least 24 h ahead), with the owner's approval and recorded in FRESH-NETWORK-CP. The gates above stay open until
    their evidence exists; an independent security review (Q1) is commissioned after the launch.

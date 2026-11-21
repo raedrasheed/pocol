@@ -629,10 +629,13 @@ The open gates and the launch order are in [PLAN.md](PLAN.md). For operations:
 5. **Fork tooling.** The seed fork-migration tool (`deploy/public-testnet/nonce_upgrade.py`, G3 above) refuses an
    H2 or H less than 8,640 blocks (the 24 h minimum notice) above the seed's highest stored block, with a test; it
    has not yet been run on real hosts (the upgrade drill of gate L1 remains open).
-6. **Founder disk monitoring.** The founder servers keep their 35 GB disks (OWNER-DECISIONS-2026-11-21 D7). Before
-   the network is opened to the public, install the disk monitor of
-   [deploy/monitoring](../../deploy/monitoring/README.md) on the three servers (with the owner's approval) and pass its
-   acceptance test on each: a real test notification received, a simulated 96% alert received, the timer listed and a
-   forced failure reported. It measures every filesystem and the data directory every 15 minutes and alerts off the
-   host; it never deletes data, prunes the chain or stops the node. Afterwards its daily report and the D1 measurement
-   of [REHEARSAL.md](REHEARSAL.md) show the real growth; a disk expansion is a separate owner decision.
+6. **Founder disk monitoring.** The founder servers keep their 35 GB disks (OWNER-DECISIONS-2026-11-21 D7). The owner
+   installed the disk monitor of [deploy/monitoring](../../deploy/monitoring/README.md) on the three servers on
+   2026-11-21 and reports its acceptance test passed on each (a real test notification received, a simulated 96% alert
+   received, the timer active, a forced failure and the recovery reported); the owner approves that D7's condition is
+   met. It measures every filesystem and the data directory every 15 minutes and alerts off the host; it never deletes
+   data, prunes the chain or stops the node. What remains: once the ceremony has installed PoCol, set
+   `POCOL_DATA_REQUIRED=1` on the three servers (`sudoedit /etc/pocol-disk-monitor/monitor.conf`, with the owner's
+   approval) and check with `--status` that the PoCol data directory is reported present ([deploy/mainnet/README.md](../../deploy/mainnet/README.md),
+   step 6). Afterwards its daily report and the D1 measurement of [REHEARSAL.md](REHEARSAL.md) show the real growth;
+   a disk expansion is a separate owner decision.

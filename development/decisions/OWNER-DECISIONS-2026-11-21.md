@@ -1,8 +1,8 @@
 # Owner decisions (2026-11-21): the founder servers' disks and their monitoring
 
-Status: **decided by the owner on 2026-11-21.** Approving a decision is not approval to deploy: installing the
-monitor on the founder servers is a deployment step that needs the owner's explicit approval, like every launch step
-on a server.
+Status: **decided by the owner on 2026-11-21; the monitoring was installed and accepted by the owner on 2026-11-21**
+("Acceptance of D7's monitoring", below). Approving a decision is not approval to deploy: every step on the founder
+servers, the monitor's included, needs the owner's explicit approval, like every launch step on a server.
 
 ## The owner's words (verbatim)
 
@@ -59,9 +59,54 @@ servers). This record states them as decided under D7.
 
    The finding ledger records D7 as accepted risk F-94 ([FINDINGS.md](../public-network/FINDINGS.md)).
 
+### Acceptance of D7's monitoring (2026-11-21)
+
+The owner's words (verbatim, from the owner's report of 2026-11-21):
+
+> أعتمد اكتمال شرط D7 الخاص بالمراقبة والتنبيهات قبل الإطلاق العام.
+
+> مهم: بعد تثبيت عقد PoCol يجب تغيير `POCOL_DATA_REQUIRED=1` على الخوادم الثلاثة، والتحقق من أن مراقبة مجلد بيانات السلسلة تعمل.
+
+> لا تنفذ أي إجراء على الخوادم دون موافقتي الصريحة.
+
+What the owner reports, recorded as reported:
+
+- **Date and servers.** On 2026-11-21 the owner installed the disk monitor of `deploy/monitoring`, from the version
+  merged in `main` (the report names no commit), on the three founder servers: founder-1 `108.165.128.89`, founder-2
+  `108.165.128.90` and founder-3 `108.165.128.91`.
+- **Channel.** One channel type, Telegram, is configured. Its bot, chat and token are not recorded here (they live
+  only in each server's `secret.env`).
+- **The seven checks, passed on each of the three servers:**
+  1. `--status`: the monitoring runs and the channel is configured;
+  2. `--test-alert`: a `[TEST]` message was actually received;
+  3. `--simulate-usage 96`: a `[TEST] [EMERGENCY]` message was received, and the real disk was unchanged;
+  4. the service run by systemd shows an `ok:` line;
+  5. `pocol-disk-monitor.timer` is active;
+  6. a forced failure: a `[MONITOR FAILED]` message was received;
+  7. after the test mode was unset and the service run again: a `[RECOVERED]` message was received.
+- **Afterwards.** All three timers are active, and at the last successful check no message was queued and no delivery
+  error was reported.
+- **The owner's approval.** The owner approves that D7's condition, the monitoring and alerting before the network
+  is opened to the public, is met.
+- **Not done (the state of the report).** No PoCol node is installed on the servers, the final genesis has not been
+  created and port 30300 has not been opened.
+- **What remains of D7 (the owner's requirement).** After the ceremony installs PoCol on the three servers (step 6
+  of [deploy/mainnet/README.md](../../deploy/mainnet/README.md)), set `POCOL_DATA_REQUIRED=1` on each of them
+  (`sudoedit /etc/pocol-disk-monitor/monitor.conf`) and verify that the monitoring of the chain's data directory
+  works: `--status`, and then the daily report, report the PoCol data directory `/var/lib/pocol-standalone` as
+  present, with its size.
+- **No action on the servers without the owner's explicit approval,** this step included.
+
+What the acceptance does not change: the risk stays an accepted risk (F-94). The disks are still 35 GB; the monitor
+warns and does not prevent a full disk, and a disk expansion or any action on the data still needs a separate owner
+decision. By the monitor's design ([deploy/monitoring/README.md](../../deploy/monitoring/README.md)) it reports the
+PoCol data directory as absent until PoCol is installed, and with `POCOL_DATA_REQUIRED=1` a missing or unreadable
+data directory raises a CRITICAL alert.
+
 ## Where it stands (2026-11-21)
 
 The monitor, its systemd units, its installer and its tests are in `deploy/monitoring` (CI:
-`.github/workflows/founder-disk-monitor.yml`). They were tested locally only. Nothing is installed on the founder
-servers and no test notification has been received yet, so D7's condition is not met yet; meeting it is the owner's
-acceptance test on each server, after the owner approves the install.
+`.github/workflows/founder-disk-monitor.yml`). The owner installed it on the three founder servers on 2026-11-21 and
+reports its acceptance test passed on each; the owner approves that D7's condition is met ("Acceptance of D7's
+monitoring", above). The risk stays accepted (F-94). What remains is the post-install step: `POCOL_DATA_REQUIRED=1`
+on the three servers once the ceremony has installed PoCol, and the PoCol data directory reported present.
