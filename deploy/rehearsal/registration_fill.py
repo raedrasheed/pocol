@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Registration fill harness for the rehearsal (development/public-network/REHEARSAL.md M1, M3 and R-off).
+"""Registration fill harness for the launch evidence on a devnet (development/public-network/REHEARSAL.md M1, M3 and
+R-off).
 
 Against a running PoCol v3 network over JSON-RPC, it registers up to N fresh identities (default 10,000) with the v3
 MinerRegistry, mostly idle zero-bond (ACCRUING) members, some bonded (HELD) ones and a configurable number of ACCRUING
@@ -8,7 +9,7 @@ block, failures by reason and the M1 measures the node's RPC exposes. `m3` runs 
 `replace` registers into one named member's seat (R-off).
 
 What it does not do: it changes no consensus rule or parameter, closes no gate and judges no threshold. It records
-what the RPC shows; the M1 run is the rehearsal's, read against REHEARSAL.md.
+what the RPC shows; the M1 run is a devnet's, read against REHEARSAL.md.
 
 Signing and keys reuse the release tools: each identity's key is a fresh key file made by `pocol-key generate` in a
 harness-owned directory (mode 0700, each file 0600), and every transaction is signed by `pocol-sign --key-file`. This
@@ -34,8 +35,8 @@ Revert reasons: pocold's receipts carry no revert data and the registry's user p
 (their phase check needs the block's own beginBlock), so a reverted registration's reason is inferred from the
 public state at the block before it and the block's own registry transactions, and is labelled "(inferred)".
 
-Chain id 2656089850 (the mainnet) is refused unless --allow-mainnet-chain is given; the targets are the rehearsal
-chain 1656550731 and local devnets. Standard library only; it imports the keccak and registry reader of
+Chain id 2656089850 (the mainnet) is refused unless --allow-mainnet-chain is given; the targets are a devnet of the
+rehearsal profile (chain 1656550731) and local devnets. Standard library only; it imports the keccak and registry reader of
 deploy/rewards/pocol_rewards.py.
 """
 import argparse
@@ -186,8 +187,9 @@ def percentile(values, p):
 def check_chain(chain_id, allow_mainnet=False):
     """The chain refusal: the mainnet id only with the explicit flag."""
     if chain_id == MAINNET_CHAIN_ID and not allow_mainnet:
-        raise Refused(f'chain id {chain_id} is the mainnet; the harness runs on the rehearsal chain {REHEARSAL_CHAIN_ID} '
-                      'or a local devnet (pass --allow-mainnet-chain to override explicitly)')
+        raise Refused(f'chain id {chain_id} is the mainnet; the harness runs on a devnet (the rehearsal '
+                      f'profile\'s chain {REHEARSAL_CHAIN_ID}, or a local devnet; pass --allow-mainnet-chain to '
+                      'override explicitly)')
     return chain_id
 
 
@@ -1180,7 +1182,7 @@ class Harness:
             'gateway reward computation time (deploy/rewards; time the gateway itself)',
             'RSS, unless --node-pid names the node process on this host (read from /proc, not RPC)',
             'T4/T5 pass or miss: the raw attempts, unsigned blocks and reorg counters are recorded for comparison with the '
-            'rehearsal\'s baseline']
+            'network\'s baseline']
         return out
 
     def failures(self):
@@ -2431,7 +2433,7 @@ def parser():
         s.add_argument('--dir', required=True, help='the harness directory (mode 0700): keys, state.json, report.json')
         s.add_argument('--bin-dir', default=str(ROOT / 'prototypes/pocold/target/release'), help='directory of pocol-key, pocol-sign, pocol')
         s.add_argument('--allow-mainnet-chain', action='store_true', help=f'allow chain id {MAINNET_CHAIN_ID} (refused by default)')
-        s.add_argument('--expect-chain-id', type=int, help=f'refuse unless the node is on this chain (the rehearsal is {REHEARSAL_CHAIN_ID})')
+        s.add_argument('--expect-chain-id', type=int, help=f'refuse unless the node is on this chain (a devnet of the rehearsal profile is {REHEARSAL_CHAIN_ID})')
         s.add_argument('--poll', type=float, default=0.5, help='seconds between head polls')
         s.add_argument('--node-pid', type=int, help='sample this local node process\'s RSS from /proc (M1)')
         if keys:

@@ -75,7 +75,8 @@ at least 8 GiB of RAM, plus the limits of any other service on the host. A
 node stopped by `MemoryMax` restarts as a service failure. PoCol Mainnet's founder servers have
 4 GB of RAM, a risk the owner accepted (OWNER-DECISIONS-2026-11-20 D2): on them the 7G limit is
 never reached, and a node that outgrows its host is stopped by the kernel's OOM killer and
-restarted by systemd (FINDINGS.md F-23). The unit's `TasksMax=256` holds the
+restarted by systemd (FINDINGS.md F-23, F-93): systemd restarts it at most 5 times in 300 s, and after that the
+service stays failed until `systemctl reset-failed pocol-standalone` and `systemctl start pocol-standalone`. The unit's `TasksMax=256` holds the
 thread inventory (164 tasks with 7 configured peers and automatic outbound, 144 with 2). Disk sizing, compaction and long-term
 load qualification remain operational work. Numeric heights retain the format's
 u64 representation; zero disables scheduled expiry, not hardware arithmetic.
@@ -100,9 +101,11 @@ package only as a devnet option for a test (`-Network Rehearsal`); it is not a l
 The four founders are the three servers (founders 1-3, in the order given) and this PC
 (founder 4). The founder servers are `108.165.128.89`, `108.165.128.90` and `108.165.128.91`
 (D3), in that order; they are also the invitation's seeds. Each has 4 GB of RAM, a risk the
-owner accepted (D2): a node whose memory passes its limit (the unit's `MemoryMax=3G`, or about
-3.5 GB of the host) is killed and restarts, and block production stops if all three restart
-at once; 8 GB is the recommended size. Each generates a fresh key on its own device; only public addresses are
+owner accepted (D2; FINDINGS.md F-23, F-93): the unit's `MemoryMax=7G` is sized for 8 GiB and is
+never reached there, so a node whose real use outgrows its host (about 3.5 GB) is stopped by the
+kernel's OOM killer and restarted by systemd (see the memory paragraph above). While all three
+servers are down, blocks come only from this PC (founder 4) and any other registered miner; with
+none of them mining, block production stops until a server is back. 8 GB is the recommended size. Each generates a fresh key on its own device; only public addresses are
 collected. Each founder is a HELD member from genesis with a 20 PCOL bond in Escrow. Founders
 1-3 are paid to owner-held reward addresses (owner decision 2026-11-16): the 999,980 PCOL
 allocation and every mining reward of each server founder go to an address the owner holds
@@ -125,17 +128,23 @@ Before the run:
     at the install and at the start (two separate SSH sessions).
   - a synchronized clock: `timedatectl show -p NTPSynchronized --value` prints `yes`
     (systemd-timesyncd or chrony). The script checks only that; the 0.5 s limit between
-    founders is measured during the rehearsal (T2).
+    founders (T2) is measured on PoCol Mainnet after the launch
+    (development/public-network/REHEARSAL.md, section 8).
   - `ufw` installed. The script runs `sudo ufw allow 30300/tcp` before it starts the
     service and fails there if ufw is missing; it never enables ufw, so an inactive ufw
     stores the rule and filters nothing. To enable it, first allow SSH
-    (`sudo ufw allow OpenSSH`), then `sudo ufw enable`. The rehearsal's partition drill needs
-    an active host firewall.
+    (`sudo ufw allow OpenSSH`), then `sudo ufw enable`. The partition drill
+    (development/public-network/REHEARSAL.md, section 4.1) runs on a devnet, never on the
+    founder servers; a devnet host used for it needs an active host firewall.
   - the provider's firewall open for inbound TCP 22 from this PC and TCP 30300 from the
     other founders (RPC stays on 127.0.0.1:8545).
-  - at least 8 GiB of RAM (the unit's `MemoryMax=7G`, above) and disk for the run: the
-    journal's worst case is about 1.7 GB a day (development/public-network/REHEARSAL.md,
-    risk 11 and D1).
+  - RAM: the unit is sized for a host with at least 8 GiB of RAM (its `MemoryMax=7G`,
+    above), and 8 GB is recommended. PoCol Mainnet's founder servers have 4 GB, a risk the
+    owner accepted (OWNER-DECISIONS-2026-11-20 D2; FINDINGS.md F-23, F-93): there the kernel's
+    OOM killer, not the unit, stops a node that outgrows its host, and systemd restarts it.
+  - disk for at least 2 years of the worst case, or the growth measured and alarmed: the
+    journal's worst case is about 1.7 GB a day, about 620 GB a year
+    (development/public-network/REHEARSAL.md, risk 11 and D1).
   - Ubuntu: no release is tested by CI for the server install (the remote path has never run
     in CI). The Linux binaries are built on ubuntu-24.04 (the CI build host) and link the
     system C library, and the encrypted server key (`encrypt-server-key.sh`) needs systemd
@@ -295,18 +304,24 @@ Only `VERIFIED` is a verified release: the `SHA256SUMS` inside a package checks 
 - **Disk.** The block journal is never compacted: up to about 1.7 GB per day in the worst
   case.
 - **No separate rehearsal.** By the owner's decision of 2026-11-20 (D1) PoCol Mainnet
-  launches directly from its ceremony. Its launch evidence (WAN timing, forks, the full
-  member set, the drills; `development/public-network/REHEARSAL.md`) is measured on the
-  network after the launch; a remedy that changes a consensus parameter is then a fork,
+  launches directly from its ceremony. Its launch evidence (WAN timing, clocks, forks,
+  block intervals, memory and disk growth, and the restart, backup and release drills;
+  `development/public-network/REHEARSAL.md`) is measured on the network after the launch.
+  The full-member-set measures, the cap tests and the partition drill run on a devnet, or
+  are recorded as not measured. A remedy that changes a consensus parameter is then a fork,
   announced at least 24 h ahead.
 - **Founder server memory.** The three founder servers have 4 GB of RAM (D2). A server
-  node that passes its memory limit, for example once the member set fills, is killed and
-  restarts; if all three restart at once, block production stops until one is back. 8 GB
-  is the recommended size.
+  node whose memory use outgrows its host, for example once the member set fills, is
+  stopped by the kernel and restarted (systemd restarts it at most 5 times in 300 s; after
+  that the service stays failed until an operator starts it again). While all three servers
+  are down, blocks come only from the owner's PC (founder 4) and any other registered miner;
+  with none of them mining, block production stops until a server is back. 8 GB is the
+  recommended size.
 - **Admission.** Nodes admit PoCol Mainnet in scope `public-network`, which is not
   specification compliance: each node reports its admission conditions and the owner's
   R13, R21 and R26 waivers (`technicalReadiness` in `pocol_status`). The accepted risks are
-  listed in `development/decisions/OWNER-DECISIONS-2026-11-20.md`.
+  listed in `development/decisions/OWNER-DECISIONS-2026-11-20.md`, with their entries in
+  `development/public-network/FINDINGS.md`.
 
 ## Everyday use
 
@@ -359,8 +374,8 @@ silently repeated and a toggle does not bypass eligibility.
 **Bond:** the bond is 20 PCOL, and a new identity does not need it up front.
 **Review mining registration** offers a 0 PCOL bond by default and can lock 0 to 20 PCOL; the
 rest is earned from mining rewards, with no deadline (owner decision 10c).
-1. Get the first fee: the fee faucet (`deploy/faucet/README.md`; on mainnet and on the rehearsal network, owner
-   decision 2026-11-18) sends 0.002 PCOL once to an account that has never sent a transaction. Any PCOL holder can
+1. Get the first fee: the fee faucet (`deploy/faucet/README.md`; on PoCol Mainnet, owner decision 2026-11-18; a
+   devnet has one only if one is configured) sends 0.002 PCOL once to an account that has never sent a transaction. Any PCOL holder can
    also send it with an ordinary transfer.
 2. The registration can be that account's first transaction (see *Mining* above).
 3. The record is *accruing*: it mines like any member, but each reward fills the bond until it

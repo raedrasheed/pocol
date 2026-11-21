@@ -43,9 +43,13 @@ their own.
      that decision's truthfulness rule stays.
 2. **D2: founder servers with 4 GB of RAM, risk accepted.** The three founder servers have 4 GB of RAM, and the owner
    accepts the risk: a node is OOM-killed and restarts if its real use passes about 3.5 GB, for example after the
-   member set fills, and block production stops if all three restart at once. The recommended size is 8 GB. (The
-   standalone service unit, `deploy/standalone/install-linux.sh`, sets `MemoryHigh=2560M` and `MemoryMax=3G`, so on
-   these servers the unit's own limit is reached first; the A13 model's default uses 6 GiB.)
+   member set fills; while all three servers are down, blocks come only from the owner's PC (founder 4) and any other
+   registered miner, and with none of them mining, block production stops until a server is back. The recommended
+   size is 8 GB. (The standalone service unit, `deploy/standalone/install-linux.sh`, sets `MemoryMax=7G`,
+   `MemorySwapMax=0` and no `MemoryHigh`, sized for a host with at least 8 GiB of RAM, so on these servers the unit's
+   limit is never reached: the kernel's OOM killer stops a node that outgrows its host, and systemd restarts it
+   (`Restart=on-failure`, at most 5 starts in 300 s). The node's own A13 check uses the default 6 GiB budget.
+   FINDINGS.md F-23, F-93.)
 3. **D3: founders and seeds.** The founders are three servers, `108.165.128.89`, `108.165.128.90` and
    `108.165.128.91` (also the invitation's seeds), and the owner's Windows PC (founder 4). The genesis is fresh: no
    old genesis and no dry-run identity is reused.
@@ -91,9 +95,11 @@ their own.
      `publicLaunchReady` true and a truthful `technicalReadiness`.
    - C. Answers to the open questions of the design: `publicLaunchReady` is approval with no hard blocker, and the
      technical gates are reported, not blocking; D1 accepts the documented risks, which this record lists under
-     "Accepted risks (D1, D2)" and claims no more; the finding ledger (PR #107) is assumed to merge first, and the
-     entries this change makes untrue are updated where that ledger is on the branch, otherwise this record carries the
-     table; the ceremony hash rate comes from `pocol hashrate` (PR #108), which merges first; the launcher's display of
+     "Accepted risks (D1, D2)" and claims no more; the finding ledger (PR #107) merged first (main 87a4b50f), and the
+     entries this change makes untrue are updated in it, with the accepted risks of D1 and D2 recorded as its entries
+     F-92 and F-93 and the admission of D5 as F-10 (this record's table cites them); the ceremony hash rate comes from
+     `pocol hashrate` (PR #108, merged at main 9a6fe78c): the sum of the four founder devices' values, each the median
+     of three 60 s runs; the launcher's display of
      approval (false, with the approval reference beside it) is accepted.
    - D. No mainnet-facing surface describes PoCol Mainnet as a testnet, devnet, simnet, experimental-devnet, private
      or rehearsal network, or as not public-launch-ready. Test modes, development tools, automated tests, the rehearsal
@@ -113,28 +119,29 @@ Earlier records keep their text with the note "Superseded by owner decision 2026
 
 ## Accepted risks (D1, D2)
 
-D1 accepts "the documented risks" (the owner's words above). The finding ledger, `development/public-network/FINDINGS.md`,
-is not on this branch: it is on branch `claude/finding-ledger` (PR #107, commit 64a642ff). This section therefore
-lists, for every item the node reports as pending for PoCol Mainnet, the text on this branch that documents it and the
-entries of that ledger (as of 64a642ff) that record it. Each item is covered by D1 by the owner's words; this record
-claims no more for it. The waivers of D5 are the engineering form of that acceptance: they are reported, never
-presented as passed. The R26 waiver skips only the predicates that read RpcGuard fields the node does not enforce. The
-R13 and R21 waivers remove terms the parameter gate enforces, for the network profile on a public network chain in
-scope public-network only: R13's continuous-kind term and R21's history-budget term (`retained-state bound <=
-HIST_TRIE_BUDGET`). The Specification and ExperimentalDevnet scopes still refuse a network profile on those terms.
-Every other term of R13 and R21 stays enforced: a finite schedule's checks, retained blocks >= min(K_hist, H_END) and
-the resource facts.
+D1 accepts "the documented risks" (the owner's words above). They are recorded in the finding ledger,
+[FINDINGS.md](../public-network/FINDINGS.md) (PR #107, merged into main at 87a4b50f and into this branch with main
+9a6fe78c): F-92 records the launch without a rehearsal (D1), F-93 the 4 GB founder servers (D2) and F-10 the
+public-network admission with its waivers (D5). This section lists, for every item the node reports as pending for
+PoCol Mainnet, the text that documents it and the ledger entries that record it. Each item is covered by D1 by the
+owner's words; this record claims no more for it. The waivers of D5 are the engineering form of that acceptance: they
+are reported, never presented as passed. The R26 waiver skips only the predicates that read RpcGuard fields the node
+does not enforce. The R13 and R21 waivers remove terms the parameter gate enforces, for the network profile on a public
+network chain in scope public-network only: R13's continuous-kind term and R21's history-budget term (`retained-state
+bound <= HIST_TRIE_BUDGET`). The Specification and ExperimentalDevnet scopes still refuse a network profile on those
+terms. Every other term of R13 and R21 stays enforced: a finite schedule's checks, retained blocks >= min(K_hist, H_END)
+and the resource facts.
 
-| Pending item | What it is | Documented on this branch in | FINDINGS ids (PR #107) |
+| Pending item | What it is | Documented in | FINDINGS.md ids |
 | --- | --- | --- | --- |
-| No rehearsal (`plan-gate-L1`, `plan-gate-E1`) | The launch evidence (T1-T8, M1-M4, R-off, D1, S1, S2 and the L1 drills) has no pre-launch measurement; it is measured on PoCol Mainnet after the launch, and a remedy that changes a consensus parameter is then a fork with notice | [REHEARSAL.md](../public-network/REHEARSAL.md), [PLAN.md](../public-network/PLAN.md) L1 and E1 | F-77, F-20, F-79, F-80 |
-| 4 GB founder servers (D2) | A node past its memory limit is killed and restarts; production stops if all three servers restart at once; the A13 margin is thin and the unit's `MemoryMax=3G` is below the A13 admitted bound | [A13-DERIVATION.md](../audit-2026-10-22/A13-DERIVATION.md) §4, [deploy/standalone/README.md](../../deploy/standalone/README.md) | F-21, F-22, F-23 |
-| `admission-waiver-R21` | The retained-state bound at the mainnet caps, 59,702,459,358 B, exceeds `HIST_TRIE_BUDGET` 1,717,986,918 B; the owner waives the budget term (tied to D2); the retained-blocks term stays enforced; K_eff is not implemented | [FRESH-NETWORK-CP.md](FRESH-NETWORK-CP.md) §4, [governance.md](../m1/reference/governance.md) "Fresh v3 network profile" (R21 figure) | F-17, F-16 |
-| `admission-waiver-R13` | A continuous protocol (no end height) on the network profile, which R13 admits only for a simnet profile on a simnet node | [FRESH-NETWORK-CP.md](FRESH-NETWORK-CP.md) §1, [governance.md](../m1/reference/governance.md) "Fresh v3 network profile" | F-10 (its text, "admitted as a Simnet profile in ExperimentalDevnet scope", is superseded by D5) |
-| `admission-waiver-R26`, `admission-condition-rpc-absent` | Four RpcGuard fields are not enforced (scratch_heavy, scratch_light, mem_total, cancel_max_ms), so the R26 predicates that read them are not evaluated, on Internet-exposed nodes | [RPCGUARD.md](../audit-2026-10-22/RPCGUARD.md), `prototypes/pocold/src/lib.rs` (`RPC_ENFORCED`) | F-11, F-12, F-87 |
+| No rehearsal (`plan-gate-L1`, `plan-gate-E1`) | The launch evidence (T1-T8, M1-M4, R-off, D1, S1, S2 and the L1 drills) has no pre-launch measurement; it is measured on PoCol Mainnet after the launch, and a remedy that changes a consensus parameter is then a fork with notice | [REHEARSAL.md](../public-network/REHEARSAL.md), [PLAN.md](../public-network/PLAN.md) L1 and E1 | F-92, F-77, F-20, F-79, F-80 |
+| 4 GB founder servers (D2) | The hosts' 4 GB is below the A13 model (5,512,153,289 B at the committed profile, inside the 6 GiB default budget) and below the unit's `MemoryMax=7G`, so a node that outgrows its host is stopped by the kernel's OOM killer and restarted; while all three servers are down, only the owner's PC and other registered miners produce blocks; the A13 margin is thin | [deploy/standalone/README.md](../../deploy/standalone/README.md), [A13-DERIVATION.md](../audit-2026-10-22/A13-DERIVATION.md) §4 | F-93, F-21, F-22, F-23 |
+| `admission-waiver-R21` | The retained-state bound at the mainnet caps, 59,702,459,358 B, exceeds `HIST_TRIE_BUDGET` 1,717,986,918 B; the owner waives the budget term (tied to D2); the retained-blocks term stays enforced; K_eff is not implemented | [FRESH-NETWORK-CP.md](FRESH-NETWORK-CP.md) §4, [governance.md](../m1/reference/governance.md) "Fresh v3 network profile" (R21 figure) | F-10, F-17, F-16 |
+| `admission-waiver-R13` | A continuous protocol (no end height) on the network profile, which R13 admits only for a simnet profile on a simnet node | [FRESH-NETWORK-CP.md](FRESH-NETWORK-CP.md) §1, [governance.md](../m1/reference/governance.md) "Fresh v3 network profile" | F-10 |
+| `admission-waiver-R26`, `admission-condition-rpc-absent` | Four RpcGuard fields are not enforced (scratch_heavy, scratch_light, mem_total, cancel_max_ms), so the R26 predicates that read them are not evaluated, on Internet-exposed nodes | [RPCGUARD.md](../audit-2026-10-22/RPCGUARD.md), `prototypes/pocold/src/lib.rs` (`RPC_ENFORCED`) | F-10, F-11, F-12, F-87 |
 | `admission-condition-gas-monotonicity-assumed` | SYS gas monotonicity in the domain fields is assumed (R18) | [A13-DERIVATION.md](../audit-2026-10-22/A13-DERIVATION.md) §4 | F-15 |
 | `admission-condition-gate-deferred-general-R18`, `admission-condition-gate-deferred-general-R21`, `admission-condition-gate-deferred-caps64` | The parameter gate's three deferred obligations (LP4:general-R18, LP4:general-R21, LP4:caps64-minimum-SYS_SLOT_MAX) | `prototypes/lp1-node/src/gate.rs` (`GateReport::deferred`) | F-16 |
-| `admission-condition-timing-not-a-bound`, `admission-condition-continuous-protocol` | The measured timing is not a worst-case bound; the protocol is continuous | [A13-DERIVATION.md](../audit-2026-10-22/A13-DERIVATION.md) §4, [FRESH-NETWORK-CP.md](FRESH-NETWORK-CP.md) §1 | F-21 |
+| `admission-condition-timing-not-a-bound`, `admission-condition-continuous-protocol` | The measured timing is not a worst-case bound; the protocol is continuous | [A13-DERIVATION.md](../audit-2026-10-22/A13-DERIVATION.md) §4, [FRESH-NETWORK-CP.md](FRESH-NETWORK-CP.md) §1 | F-13, F-14, F-21 (timing-not-a-bound); F-10 (continuous-protocol) |
 | `admission-scope` | The scope public-network is not specification compliance | [governance.md](../m1/reference/governance.md) "Fresh v3 network profile", `prototypes/lp4-execution/src/admission/scope.rs` | F-10 |
 | `plan-gate-K1` | Independent identities: the key recovery drill, a server run with the encrypted credential, an encrypted keystore or HSM | [PLAN.md](../public-network/PLAN.md) K1, [RECOVERY.md](../public-network/RECOVERY.md) | F-42 to F-49 |
 | `plan-gate-J1` | Open miner enrollment: eligibility churn and load, network-scale enrollment | [PLAN.md](../public-network/PLAN.md) J1 | F-29, F-31, F-32, F-71, F-72, F-73 |
@@ -142,10 +149,11 @@ the resource facts.
 | `plan-gate-A1` | Honest admission: worst-case execution calibration, the R18/R21 obligations, the RpcGuard gaps | [PLAN.md](../public-network/PLAN.md) A1 | F-10, F-11, F-13, F-14, F-15, F-16, F-18, F-21, F-24 |
 | `plan-gate-S1` | Bounded historical state: K_eff and historical RPC behaviour within the resource budget | [PLAN.md](../public-network/PLAN.md) S1 | F-16, F-17, F-21, F-22, F-26 |
 | `plan-gate-N1` | Internet exposure: ingress acceptance, the remaining RpcGuard controls | [PLAN.md](../public-network/PLAN.md) N1 | F-11, F-12, F-25, F-35, F-36, F-38 to F-41 |
-| `plan-gate-Q1` | Release review: the independent security review (after the launch, decision 7 of 2026-11-18) | [PLAN.md](../public-network/PLAN.md) Q1 | F-01 to F-04, F-50, F-62, F-63, F-67, F-68, F-70, F-74 to F-76, F-82 to F-87, F-89, F-91 |
+| `plan-gate-Q1` | Release review: the release candidate's exact-commit full CI and the independent security review (after the launch, decision 7 of 2026-11-18) | [PLAN.md](../public-network/PLAN.md) Q1 | F-01 to F-04, F-06, F-50, F-62, F-63, F-67, F-68, F-70, F-74 to F-76, F-82 to F-87, F-89, F-91 |
 
-`plan-gate-L1` also covers the L1 entries F-09, F-23, F-26, F-27, F-31, F-64, F-65, F-66, F-78 and F-81, and
-`plan-gate-E1` the E1 entries F-19 and F-34. When the finding ledger is on the branch, its entries are cited instead of
-this table, and F-10 gets the note "Superseded by owner decision 2026-11-20 D5".
-`deploy/websites/tests/test_owner_decision_record.py` keeps this section listing every pending id the node reports for
-PoCol Mainnet, and every approval reference naming a decision of an existing record.
+`plan-gate-L1` also covers the L1 entries F-09, F-23, F-26, F-27, F-31, F-64, F-65, F-66, F-78, F-81, F-88 and F-93, and
+`plan-gate-E1` the E1 entries F-19, F-34 and F-92. F-10 records the D5 admission; its earlier text (Q3 = a, a Simnet
+profile in ExperimentalDevnet scope for both fresh-network chains) is marked there as superseded by D5 for the mainnet
+chain. `deploy/websites/tests/test_owner_decision_record.py` keeps this section listing every pending id the node
+reports for PoCol Mainnet, with every ledger entry of each open gate, and every approval reference naming a decision
+of an existing record.

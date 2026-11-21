@@ -20,7 +20,8 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    (D3; also the seeds), start from a clean install (`deploy/standalone/install-linux.sh` refuses a host that
    already has a PoCol install). Each has 4 GB of RAM, a risk the owner accepted (D2; 8 GB is recommended): that
    is below the unit's `MemoryMax=7G`, so if a node outgrows its host the kernel, not the unit, stops it and
-   systemd restarts it ([FINDINGS.md](../../development/public-network/FINDINGS.md), F-23). The owner's computer
+   systemd restarts it, at most 5 times in 300 s ([FINDINGS.md](../../development/public-network/FINDINGS.md), F-23,
+   F-93). The owner's computer
    runs the fourth founding miner; the phone is a wallet.
 3. **Fresh keys.** Each founding miner generates its miner key on its own device: on each server `install-linux.sh`
    runs `pocol identity --home /var/lib/pocol-standalone` as the `pocol-standalone` user, and on the PC the ceremony
@@ -80,8 +81,9 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    device compares and the owner announces. `pocol inspect --network FILE` prints `networkFingerprint`, a different
    value: the SHA-256 of the parsed invitation, which reformatting the JSON leaves unchanged. It is not the file's
    SHA-256.
-6. **Founders boot on the genesis.** The three servers and the PC start from the invitation; this genesis is the
-   launch genesis (no rehearsal, no wipe and repeat). Each founder checks with `pocol_status` that its node reports
+6. **Founders boot on the genesis.** The four founding devices, the three servers and the owner's PC (founder 4) as
+   `Initialize-PoColNetwork.ps1` makes them, start from the invitation; this genesis is the launch genesis (no
+   rehearsal, no wipe and repeat). Each founder checks with `pocol_status` that its node reports
    the recorded chain ID and genesis hash, `networkScope` public-network and `networkEnvironment` mainnet, and the
    computed approval and readiness, unchanged by any label.
 7. **Pin the identity in the clients.** Switch every client from the identity the tree pins today to the new

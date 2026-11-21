@@ -1,6 +1,6 @@
-# Rehearsal T2 on the PC (development/public-network/REHEARSAL.md, section 8): the PC runs the wallet engine without an
-# RPC port, so collect_measures.py cannot sample it; this logs the PC's clock offset against its NTP peer instead, one
-# JSON line per sample in the clock schema collect_measures.py merges (kind "clock", label, unixMs, clock.offsetMs).
+# Launch-evidence T2 on the PC (development/public-network/REHEARSAL.md, section 8; PoCol Mainnet after the launch):
+# the PC runs the wallet engine without an RPC port, so collect_measures.py cannot sample it; this logs the PC's
+# clock offset against its NTP peer instead, one JSON line per sample in the clock schema collect_measures.py merges (kind "clock", label, unixMs, clock.offsetMs).
 # It measures as Initialize-PoColNetwork.ps1 does: w32tm /stripchart against the first entry of w32tm /query /source.
 # It reads no key, contacts nothing but that NTP peer and writes only its own new file in -Out. Ctrl-C stops it; every
 # line already written is complete.

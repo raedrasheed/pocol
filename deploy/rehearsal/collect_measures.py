@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Rehearsal measure collector (development/public-network/REHEARSAL.md, section 8): T1, T2, T5 and T6.
+"""Launch-evidence measure collector (development/public-network/REHEARSAL.md, section 8): T1, T2, T5 and T6, on PoCol
+Mainnet after the launch or on a devnet.
 
 Python standard library only, so the file alone can be copied to a founder server. It reads the node's loopback
 JSON-RPC and the host's clock status; it signs nothing, sends no transaction and reads no key.

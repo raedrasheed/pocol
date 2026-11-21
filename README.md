@@ -562,7 +562,8 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
     operation, economics, release review) of [PLAN.md](development/public-network/PLAN.md), as `plan-gate-*`. The
     network launches with them open; they do not withhold launch approval (D4, D6).
 
-  The accepted risks are listed in the decision record, "Accepted risks (D1, D2)".
+  The accepted risks are listed in the decision record, "Accepted risks (D1, D2)", with their entries in
+  [FINDINGS.md](development/public-network/FINDINGS.md) (among them F-10, F-92 and F-93).
 - **The memory bound.** At 10,000 members the store-mode bound is 5,485,767,089 B at the network's parameters, inside
   the usable 5.25 GiB (7/8 of the 6 GiB budget) with a thin margin
   ([FN-3c evidence](development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md)). Whole-state mode was not measured at
@@ -571,8 +572,11 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
   pre-launch measurement on the founders' devices; it is measured on PoCol Mainnet after the launch, or on a devnet
   where a measure would change the public network's state
   ([REHEARSAL.md](development/public-network/REHEARSAL.md)). The ceremony has not run yet.
-- **Founder servers with 4 GB of RAM.** The owner accepted the risk (D2): a server node that passes its memory limit
-  is killed and restarts, and block production stops if all three restart at once; 8 GB is recommended.
+- **Founder servers with 4 GB of RAM.** The owner accepted the risk (D2): a server node that outgrows its host's
+  memory is stopped by the kernel's OOM killer and restarted by systemd (the unit's `MemoryMax=7G` is sized for 8 GiB
+  hosts and is never reached there; systemd restarts it at most 5 times in 300 s). While all three servers are down,
+  blocks come only from the owner's PC (founder 4) and any other registered miner; with none of them mining, block
+  production stops until a server is back. 8 GB is recommended.
 - **Decisions pending with the owner.** The launch-disclosure wording and the reward page S1 wording
   ([STATUS-EN.md](development/STATUS-EN.md)). Decided on 2026-11-16: native release 0.5.0; release
   signing with ssh-keygen ed25519 ([deploy/release](deploy/release/README.md)); English and Arabic sites; owner-held

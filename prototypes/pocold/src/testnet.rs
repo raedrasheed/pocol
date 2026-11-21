@@ -496,7 +496,7 @@ fn resolve(config: serde_json::Value, test_filled: bool) -> Result<(Config, devn
         || input.genesis_time > u64::MAX - 10_000_000
         || !(1..=256).contains(&input.miners.len())
         || input.accounts.len() > 10000 || input.registration_per_block > 4 {
-        return Err("invalid experimental testnet parameters".into());
+        return Err("invalid network parameters".into());
     }
     // The builder's own base values: the devnet values (DevnetConfig::new) with the testnet timing, and the S0 of 2 PCOL
     // (S_tail S0/32) this builder has always written for a config that does not state it, so every config builds the

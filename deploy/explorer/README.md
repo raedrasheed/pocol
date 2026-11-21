@@ -58,7 +58,7 @@ The first step must succeed: it builds the snapshot's twelve public files (`depl
 checked against its `SHA256SUMS.txt`, into a new directory, so no copy of an earlier run is left to install. The
 installer also compares the copy with this checkout's snapshot built the same way, and refuses one that differs (a
 leftover or edited copy) unless `--accept-site site-<id>` names that copy's id (for a copy meant to differ, such as a
-bundle switched for a rehearsal network); it prints both ids. It refuses a copy with a hidden, server, checksum or
+bundle switched for a devnet); it prints both ids. It refuses a copy with a hidden, server, checksum or
 configuration file, a symbolic link, an unexpected file type, more than 64 files or 8 MiB, or an `index.html` script
 or stylesheet that is missing. It is written root-owned and world-readable to `/srv/pocol-explorer/site-<first 12 hex of its manifest's
 SHA-256>`, so a new copy is a new root and the Caddy reload switches it at once; the previous copy is kept for a

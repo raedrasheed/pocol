@@ -291,7 +291,9 @@ class InitializeNetwork(unittest.TestCase):
         self.assertIn('-Network Mainnet -Servers 108.165.128.89,108.165.128.90,108.165.128.91 ', commands[0])
         self.assertIn('-ServerRewardAddresses OWNER_ADDR1,OWNER_ADDR2,OWNER_ADDR3', commands[0])
         self.assertNotIn('-Network Rehearsal -Servers', readme)
-        self.assertIn('`pocol hashrate` on each of the four founder', readme)
+        self.assertIn("Measure the founders' aggregate hash rate, `-HashesPerSecond`: on each of the four devices, with that "
+                      "device's own release binary, run `pocol hashrate --seconds 60` three times and take the median, then "
+                      "add the four medians.", ' '.join(readme.split()))
         self.assertNotIn('networkHashrateEst', readme)
         for gone in ('first the **rehearsal**', '**Rehearsal, then mainnet.**', 'experimental admission\nconditions',
                      'admitted as an experimental network', 'not in experimental-devnet scope'):
@@ -444,8 +446,9 @@ def memory_budget(settings):
     return int(m.group(1)) << int(m.group(2))
 
 
-class Rehearsal(unittest.TestCase):
-    """The rehearsal's server unit, hash rate measurement and runbook texts agree with the code they describe."""
+class LaunchCeremony(unittest.TestCase):
+    """The founder server unit, the hash rate measurement and the mainnet runbook texts agree with the code they
+    describe (OWNER-DECISIONS-2026-11-20 D1: no separate rehearsal)."""
 
     def test_the_server_unit_leaves_the_node_its_memory_budget(self):
         unit = unit_settings()
@@ -465,11 +468,16 @@ class Rehearsal(unittest.TestCase):
     def test_the_docs_quote_the_units_memory_limits(self):
         cap = unit_settings()['MemoryMax'][0]
         host = systemd_bytes(cap) // GIB + 1
-        for name, text in (('deploy/standalone/README.md', README), ('REHEARSAL.md', REHEARSAL)):
+        # The decision record's D2 states the unit's limits too (OWNER-DECISIONS-2026-11-20; FINDINGS.md F-23).
+        record = (ROOT / 'development/decisions/OWNER-DECISIONS-2026-11-20.md').read_text(encoding='utf-8')
+        for name, text in (('deploy/standalone/README.md', README), ('REHEARSAL.md', REHEARSAL),
+                           ('OWNER-DECISIONS-2026-11-20.md', ' '.join(record.split()))):
             self.assertIn(f'`MemoryMax={cap}`', text, name)
             self.assertIn(f'at least {host} GiB of RAM', text, name)
             for gone in ('MemoryMax=3G', 'MemoryHigh=2560M', '4 GiB server', '4 GiB host'):
                 self.assertNotIn(gone, text, name)
+            if not unit_settings().get('MemoryHigh'):
+                self.assertNotIn('MemoryHigh=', text, name)
         self.assertNotIn('4 GiB', INSTALL)
         self.assertIn(f'at least {host} GiB of RAM', INSTALL.replace('\n# ', ' '))
 
@@ -495,7 +503,10 @@ class Rehearsal(unittest.TestCase):
         self.assertNotRegex(SCRIPT[fill:admit], r'Read-Host|PromptForChoice|launch_delay_asert')
         step = ' '.join(runbook_steps()['4'].split())
         self.assertIn('--test launch_delay_asert -- --ignored --nocapture', step)
-        self.assertIn('for the mainnet as for the rehearsal', step)
+        self.assertIn('`Initialize-PoColNetwork.ps1` fills the profile and runs `init-testnet` in one run, so this run '
+                      'comes after the genesis: it is a record, not a gate.', step)
+        self.assertIn('(`<setup folder>\\v3-profile.json`, public values only)', step)
+        self.assertNotIn('for the rehearsal', step)
         self.assertIn('it is a record, not a gate', step)
         # CI checks sampled rates, not every rate: the docs give the count the test has.
         words = {'8': 'eight'}[rates]
@@ -516,7 +527,11 @@ class Rehearsal(unittest.TestCase):
             self.assertIn('pocol hashrate --seconds 60', text, name)
             self.assertIn('pocol.exe hashrate --seconds 60', text, name)
             self.assertRegex(text, r'sum of the four|add the four medians', name)
-            self.assertIn('networkHashrateEst', text, name)
+            # D1: no rehearsal supplies the rate; each device measures it before the genesis.
+            self.assertNotIn('networkHashrateEst', text, name)
+        self.assertIn('The hash rate is measured before the genesis, on each founding device with its own copy of the '
+                      'release binary', ' '.join(steps['4'].split()))
+        self.assertIn('each device measures itself because the rate depends on its CPU', ' '.join(README.split()))
         self.assertIn('`pocol hashrate`', REHEARSAL)
 
     def test_the_miner_key_comes_from_pocol_identity_on_each_device(self):
@@ -529,10 +544,13 @@ class Rehearsal(unittest.TestCase):
         miner = step[:step.index('Only the public miner ID leaves the device.')]
         self.assertNotIn('pocol-key', miner, 'pocol-key makes the reward keys, not the miner keys')
 
-    def test_the_rehearsal_runs_the_four_founders_the_ceremony_makes(self):
+    def test_the_launch_runs_the_four_founders_the_ceremony_makes(self):
         step = runbook_steps()['6']
         self.assertIn('four founding devices', step)
         self.assertIn("owner's PC (founder 4)", step)
+        self.assertIn('this genesis is the launch genesis (no rehearsal, no wipe and repeat)', ' '.join(step.split()))
+        self.assertIn('`networkScope` public-network and `networkEnvironment` mainnet', ' '.join(step.split()))
+        self.assertNotIn('Closed rehearsal', RUNBOOK)
         self.assertNotIn('three US servers only', RUNBOOK)
         self.assertIn("Write-Host \"Creates the $($Selected.Name) genesis (chain id $($Selected.ChainId)) with four founders: the three servers and this PC.\"", SCRIPT)
         self.assertNotIn('The host set is the owner', REHEARSAL)

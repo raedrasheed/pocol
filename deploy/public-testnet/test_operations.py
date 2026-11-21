@@ -150,7 +150,9 @@ class Operations(unittest.TestCase):
         with self.assertRaises(ValueError): op.backup(data, data / 'child')
 
     def test_public_build_digest_recomputed_independently(self):
-        binary = prepare.ROOT / 'prototypes/pocold/target/release/pocold'
+        # The release binary under test: POCOLD_BIN_DIR (default prototypes/pocold/target/release), as deploy/standalone
+        # and deploy/rehearsal read it.
+        binary = Path(os.environ.get('POCOLD_BIN_DIR', prepare.ROOT / 'prototypes/pocold/target/release')) / 'pocold'
         info = json.loads(subprocess.check_output([str(binary), 'build-info'], text=True))
         h = hashlib.sha256(b'pocol-testnet-source-compatibility-v1\0')
         for name, sha in sorted(info['sourceSha256'].items()):

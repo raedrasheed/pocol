@@ -15,6 +15,8 @@ DECISIONS = ROOT / 'development' / 'decisions'
 RECORD = DECISIONS / 'OWNER-DECISIONS-2026-11-20.md'
 READINESS = (ROOT / 'prototypes' / 'pocold' / 'src' / 'readiness.rs').read_text(encoding='utf-8')
 IDENTITY = (ROOT / 'deploy' / 'mainnet' / 'set_network_identity.py').read_text(encoding='utf-8')
+FINDINGS = ROOT / 'development' / 'public-network' / 'FINDINGS.md'
+INSTALL = (ROOT / 'deploy' / 'standalone' / 'install-linux.sh').read_text(encoding='utf-8')
 
 def accepted_risks(text):
     section = text.split('\n## Accepted risks (D1, D2)\n', 1)
@@ -49,6 +51,25 @@ def resolves(ref):
     text = (DECISIONS / f'{m.group(1)}.md').read_text(encoding='utf-8')
     decisions = text.split('\n## Decisions\n', 1)
     return len(decisions) == 2 and re.search(rf'(?m)^\d+\. \*\*{m.group(2)}:', decisions[1].split('\n## ', 1)[0]) is not None
+
+def ledger_rows():
+    """FINDINGS.md's table rows as (id, kind, gates, statement)."""
+    rows = []
+    for line in FINDINGS.read_text(encoding='utf-8').splitlines():
+        if line.startswith('| F-'):
+            cells = [c.strip() for c in re.split(r'(?<!\\)\|', line)[1:-1]]
+            rows.append((cells[0], cells[2], {g.strip() for g in cells[5].split(',')}, cells[4]))
+    return rows
+
+def cited_ids(text):
+    """Every F-NN that `text` cites, a range written "F-NN to F-MM" included."""
+    ids = set(re.findall(r'\bF-\d{2}\b', text))
+    for a, b in re.findall(r'\bF-(\d{2}) to F-(\d{2})\b', text):
+        ids |= {f'F-{n:02d}' for n in range(int(a), int(b) + 1)}
+    return ids
+
+def unit_setting(name):
+    return re.findall(rf'^{name}=(\S+)$', INSTALL, re.M)
 
 def missing(section, ids):
     """The pending ids that `section` does not name (each written as `id`)."""
@@ -97,6 +118,48 @@ class AcceptedRisks(unittest.TestCase):
         d6 = ' '.join(text.split('6. **D6:', 1)[1].split('\n7. ', 1)[0].split())
         self.assertIn('The launch is a full public launch of PoCol Mainnet, after passing the required technical and security tests', d6)
         self.assertIn('a test that cannot run is reported as not run, never as passed', d6)
+
+
+class AcceptedRisksAgainstTheLedger(unittest.TestCase):
+    """The record and the finding ledger agree: every id the record cites is an entry, every entry of an open gate the
+    record names is cited, D1, D2 and D5 each have an accepted-risk entry that cites this record, and D2 states the
+    unit's memory limits as install-linux.sh writes them."""
+    def test_every_cited_entry_exists_and_every_entry_of_an_open_gate_is_cited(self):
+        section = accepted_risks(RECORD.read_text(encoding='utf-8'))
+        rows = ledger_rows()
+        ids = {r[0] for r in rows}
+        self.assertNotIn('is not on this branch', section)
+        self.assertIn('[FINDINGS.md](../public-network/FINDINGS.md)', section)
+        self.assertLessEqual(cited_ids(section), ids, sorted(cited_ids(section) - ids))
+        gates = [g[len('plan-gate-'):] for g in pending_ids() if g.startswith('plan-gate-')]
+        for gate in gates:
+            want = {r[0] for r in rows if gate in r[2]}
+            self.assertTrue(want, gate)
+            self.assertEqual(sorted(want - cited_ids(section)), [], f'plan-gate-{gate}')
+        self.assertEqual(cited_ids('F-42 to F-44, F-50'), {'F-42', 'F-43', 'F-44', 'F-50'})
+
+    def test_d1_d2_and_d5_each_have_an_accepted_risk_entry_citing_this_record(self):
+        rows = {r[0]: r for r in ledger_rows()}
+        section = accepted_risks(RECORD.read_text(encoding='utf-8'))
+        for decision, entry in (('D1', 'F-92'), ('D2', 'F-93'), ('D5', 'F-10')):
+            fid, kind, _, statement = rows[entry]
+            self.assertEqual(kind, 'accepted-risk', entry)
+            self.assertIn(f'owner decision of 2026-11-20 ({decision})' if entry != 'F-10' else 'owner decision 2026-11-20 D5',
+                          statement, entry)
+            self.assertIn(entry, section)
+        self.assertIn('OWNER-DECISIONS-2026-11-20.md', FINDINGS.read_text(encoding='utf-8'))
+
+    def test_d2_states_the_units_memory_limits(self):
+        text = RECORD.read_text(encoding='utf-8')
+        d2 = ' '.join(text.split('2. **D2:', 1)[1].split('\n3. ', 1)[0].split())
+        (cap,) = unit_setting('MemoryMax')
+        self.assertIn(f'`MemoryMax={cap}`', d2)
+        self.assertEqual(unit_setting('MemorySwapMax'), ['0'])
+        self.assertIn('`MemorySwapMax=0`', d2)
+        if not unit_setting('MemoryHigh'):
+            self.assertNotIn('MemoryHigh=', text)
+            self.assertIn('no `MemoryHigh`', d2)
+        self.assertIn('F-23', d2)
 
 
 class ApprovalReferences(unittest.TestCase):

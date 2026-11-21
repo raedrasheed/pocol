@@ -35,7 +35,8 @@ None of this stops a node from running, mining or serving sites. PoCol Mainnet i
 network node in its own scope, `public-network` (D5), on its chain only (`PUBLIC_NETWORK_CHAINS`, R22). The scope is
 never specification compliance; it reports every condition and the owner's explicit R13, R21 and R26 waivers, and it
 changes no consensus validity rule, allocRoot or genesis hash. The accepted risks of D1 and D2 (no rehearsal, 4 GB
-founder servers, each waiver and pending item) are listed in the decision record, "Accepted risks (D1, D2)". The
+founder servers, each waiver and pending item) are listed in the decision record, "Accepted risks (D1, D2)", and
+recorded in [FINDINGS.md](FINDINGS.md) (F-10, F-92 and F-93, with the other entries the record cites). The
 launch disclosures are drafted in the standalone README, "Launch disclosures" (owner decision pending:
 launch-disclosure wording; owner decision 2026-11-18: they carry no "not public-launch-ready" item).
 

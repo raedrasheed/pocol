@@ -196,7 +196,7 @@ migration tool yet (the G3 TODO in OPERATIONS.md). Remedy: fix the build identit
 
 ## 5. Resource-growth bound
 
-RSS and disk are recorded on every founder over the whole run, M1 included, and read against the A13 store-mode bound
+RSS and disk are recorded on every founder over the whole run, and on the devnet's nodes during M1, and read against the A13 store-mode bound
 ([A13-DERIVATION](../audit-2026-10-22/A13-DERIVATION.md), sections "FN-3c" and "FN-1b";
 [FN-3C-C6-EVIDENCE](../decisions/FN-3C-C6-EVIDENCE-2026-11-14.md)).
 
@@ -204,13 +204,17 @@ RSS and disk are recorded on every founder over the whole run, M1 included, and 
   the committed v3 profile, as a founder opens it in store mode, at 5,512,153,289 B (5.13 GiB,
   `prototypes/pocold/tests/network_budget.rs`), under the usable 5,637,144,576 B (7/8 of the 6 GiB default budget,
   `POCOL_MEMORY_BUDGET_BYTES`). The model leaves out allocator overhead and fragmentation, so it is not a ceiling on
-  RSS. The server unit sets `MemoryMax=7G` and `MemorySwapMax=0` and no `MemoryHigh` (`install-linux.sh`), so each
-  server needs at least 8 GiB of RAM. Sample the node's RSS, for example
+  RSS. The server unit sets `MemoryMax=7G` and `MemorySwapMax=0` and no `MemoryHigh` (`install-linux.sh`): it is sized
+  for a host with at least 8 GiB of RAM. PoCol Mainnet's founder servers have 4 GB, a risk the owner accepted
+  (OWNER-DECISIONS-2026-11-20 D2; FINDINGS.md F-23, F-93). There the 7G limit is never reached and the host's memory
+  is the limit (RSS cannot reach the A13 bound): a node that outgrows the host is stopped by the kernel's OOM killer
+  and restarted by systemd (`Restart=on-failure`, at most 5 starts in 300 s). Sample the node's RSS, for example
   `ps -o rss= -p "$(systemctl show -p MainPID --value pocol-standalone)"`, the unit's
   `systemctl show -p MemoryCurrent pocol-standalone` (which includes page cache) and `pocol_status` `a13.boundBytes`
   and `a13.budgetBytes`. Pass: peak RSS stays within the bound and does not grow with height across the run (A13 §2g,
-  windowed history), and no service restart is caused by `MemoryMax` (a node stopped by it shows as a restart, which
-  is a miss). The `LOCAL CAPACITY warning` is expected at the default budget ([OPERATIONS.md](OPERATIONS.md), "LOCAL
+  windowed history), and no restart is caused by running out of memory, whether by the unit's `MemoryMax` or by the
+  kernel's OOM killer (`journalctl -k` reports an out-of-memory kill of the node's process); either shows as a
+  restart (`NRestarts`), which is a miss. The `LOCAL CAPACITY warning` is expected at the default budget ([OPERATIONS.md](OPERATIONS.md), "LOCAL
   CAPACITY"); the stop is not. Remedy: size the host's memory and the unit's limits (owner approval), or reduce the
   node's memory use in code with A13 re-derived.
 - **Disk (D1).** Record the daily growth of the journal, history.redb and state.redb, and the node's `diskObserved` and
@@ -295,7 +299,8 @@ reward address) and the mining identities' rewards. The harness moves none of it
 and move the balances first where they matter. Without `--discard-funds`, `delete-keys` is refused and names the
 recorded identities, bonds and miners.
 
-**M1.** On a founder server, from a checkout of this repository (the harness imports
+**M1.** On a host of the devnet that runs M1 (section 1a; never a founder server while it runs PoCol Mainnet),
+installed with `install-linux.sh` as the paths below assume, from a checkout of this repository (the harness imports
 `deploy/rewards/pocol_rewards.py`; it is not part of the release package), as that user. `--network` is the network's
 invitation (`network.pocol.json`), which the mining identities' nodes start from:
 
@@ -487,11 +492,14 @@ part of the release package). It reads the node's loopback RPC and the host's cl
 user (not root, not `pocol-standalone`); it signs, sends and asks for nothing secret. It refuses any `--rpc` other than
 `http://127.0.0.1:PORT` (or `[::1]`), and ignores proxy variables.
 
+On PoCol Mainnet (section 1a) the collector runs on each founder server against its own node; it only reads, so,
+unlike the fill harness, it needs no override for the mainnet chain.
+
 **On each server**, for the whole run (in a `tmux` or `screen` session, or a user service), one sample a minute:
 
 ```sh
 python3 collect_measures.py sample --rpc http://127.0.0.1:8545 --label s1 --out ~/measures --every 60 \
-  --expect-chain-id 1656550731
+  --expect-chain-id 2656089850
 ```
 
 Each sample is one JSON line in `~/measures/measures-s1-<startUTC>.jsonl`, written and synced at once: the service's
@@ -516,8 +524,10 @@ It measures as `Initialize-PoColNetwork.ps1` does (`w32tm /stripchart` against t
 **At the end**, on one server (a second server's copy cross-checks it), the canonical blocks:
 
 ```sh
-python3 collect_measures.py blocks --rpc http://127.0.0.1:8545 --out ~/blocks.jsonl --expect-chain-id 1656550731
+python3 collect_measures.py blocks --rpc http://127.0.0.1:8545 --out ~/blocks.jsonl --expect-chain-id 2656089850
 ```
+
+(On a devnet of the rehearsal profile, section 1a, pass `--expect-chain-id 1656550731` instead, to both commands.)
 
 The export is one chain or nothing. Each block must extend the block read before it, and when the export runs to the
 head, its last block must be the head recorded before the read. If the chain reorganizes during the export, it is

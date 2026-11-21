@@ -1,9 +1,11 @@
 # PoCol fee faucet
 
-**Mainnet and the rehearsal network** (owner decision 2026-11-18, superseding the rehearsal-only decision of
-2026-11-16; [OWNER-DECISIONS-2026-11-18.md](../../development/decisions/OWNER-DECISIONS-2026-11-18.md)).
+**PoCol Mainnet, and devnets of the rehearsal profile** (owner decision 2026-11-18, superseding the rehearsal-only
+decision of 2026-11-16; [OWNER-DECISIONS-2026-11-18.md](../../development/decisions/OWNER-DECISIONS-2026-11-18.md);
+the rehearsal profile is a test and devnet profile only,
+[OWNER-DECISIONS-2026-11-20.md](../../development/decisions/OWNER-DECISIONS-2026-11-20.md) D1).
 `config.mainnet.example.json` names mainnet (2656089850, `deploy/mainnet/v3-profile.json`) and `config.example.json`
-the rehearsal network (1656550731, `deploy/mainnet/v3-rehearsal-profile.json`). On mainnet the owner's limits are
+a devnet of the rehearsal profile (1656550731, `deploy/mainnet/v3-rehearsal-profile.json`). On mainnet the owner's limits are
 ceilings that the code enforces (`MAINNET_LIMITS`): a config above any of them is refused at start, before the key
 file or the signer is touched. A newcomer can also receive its first fee by an ordinary transfer from any PCOL holder.
 
@@ -30,7 +32,7 @@ Why 0.002 PCOL is enough: the wallet's earn-in registration reserves a maximum f
 fee of 1 gwei the reservation is 0.0012 PCOL and the actual fee about 0.0004 PCOL. The amount still
 covers the reservation while the base fee stays below 2 gwei.
 
-On the v3 networks (mainnet and the rehearsal network) a zero-bond newcomer facing a full set registers into the seat of an
+On the v3 networks (mainnet and a devnet of the rehearsal profile) a zero-bond newcomer facing a full set registers into the seat of an
 inactive member instead (FN-2b; `quote_register` sends registerReplacing): the wallet reserves REPLACE_GAS = 500,000
 gas, about twice the largest replacement measured (217,381 gas, `prototypes/lp4-execution/tests/v3_contracts.rs`,
 `replacing_write_ceilings_gas_and_user_sys_keys`). With the maximum fee at 2 x base fee + 1 gwei, 0.002 PCOL covers
@@ -139,7 +141,7 @@ key file: `pocol-sign` refuses a key owned by another user or readable by others
 the user and `/var/lib/pocol-faucet`, then the key as that user, and use the server's own signer:
 `/opt/pocol-standalone/pocol-sign` on a mainnet server installed from the release
 (`deploy/standalone/install-linux.sh`, as in `config.mainnet.example.json`), or
-`/opt/pocol-testnet/bin/pocol-sign` on a rehearsal server (as in `config.example.json`). On mainnet:
+`/opt/pocol-testnet/bin/pocol-sign` on a devnet server of the rehearsal profile (as in `config.example.json`). On mainnet:
 
 ```
 sudo useradd --system --home-dir /var/lib/pocol-faucet --shell /usr/sbin/nologin pocol-faucet
@@ -152,8 +154,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now pocol-faucet.service
 ```
 
-`pocol-key generate` prints the operator address; send it the float (at most 10 PCOL on mainnet). On a rehearsal
-server use `/opt/pocol-testnet/bin/pocol-key` and `config.example.json` instead.
+`pocol-key generate` prints the operator address; send it the float (at most 10 PCOL on mainnet). On a devnet
+server of the rehearsal profile use `/opt/pocol-testnet/bin/pocol-key` and `config.example.json` instead.
 
 ## Public route on explorer.pocol.net
 

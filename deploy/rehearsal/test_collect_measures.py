@@ -632,6 +632,17 @@ class Scripts(unittest.TestCase):
         for name in ('collect_measures.py sample', 'collect_measures.py blocks', 'collect_measures.py merge', 'Collect-PoColClock.ps1'):
             self.assertIn(name, rehearsal)
 
+    def test_the_documented_collector_commands_target_pocol_mainnet(self):
+        # OWNER-DECISIONS-2026-11-20 D1: T1, T2, T5 and T6 are taken on PoCol Mainnet after the launch (REHEARSAL.md
+        # section 1a), so section 8's server commands expect the mainnet profile's chain id, read from the profile.
+        rehearsal = (ROOT / 'development/public-network/REHEARSAL.md').read_text(encoding='utf-8')
+        section8 = rehearsal.split('## 8. The measure collector (T1, T2, T5, T6)', 1)[1].split('\n## ', 1)[0]
+        mainnet = json.loads((ROOT / 'deploy/mainnet/v3-profile.json').read_text(encoding='utf-8'))['chainId']
+        found = re.findall(r'collect_measures\.py (sample|blocks)\b[^`]*?--expect-chain-id (\d+)', section8, re.S)
+        self.assertEqual(sorted(kind for kind, _ in found), ['blocks', 'sample'], found)
+        self.assertEqual({chain for _, chain in found}, {str(mainnet)}, found)
+        self.assertIn('On PoCol Mainnet (section 1a) the collector runs on each founder server', section8)
+
     @unittest.skipUnless(shutil.which('pwsh'), 'pwsh is not installed (the Windows CI job runs the PowerShell test)')
     def test_the_powershell_test_passes_under_pwsh(self):
         p = subprocess.run(['pwsh', '-NoProfile', '-File', str(HERE / 'test_collect_clock.ps1')], capture_output=True, text=True, timeout=300)
