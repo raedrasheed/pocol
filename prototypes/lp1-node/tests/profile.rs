@@ -114,15 +114,21 @@ fn full_nonce_activation_has_exact_boundaries_and_cannot_repeat_or_downgrade() {
 
 #[test]
 fn kind_matrix_and_network_chain_id_separation() {
-    for chain in [1, 777001, 777002, 777902, u64::MAX] {
+    // R22 (OWNER-DECISIONS-2026-11-20 D5): the network profile's chains are 777001 and the public network chain
+    // 2656089850 (PoCol Mainnet), no other; R22 stays two-way, so a simnet or synthetic profile is refused on both. The
+    // rehearsal chain 1656550731 and the local test chain 777990 are not network chains.
+    assert_eq!(lp1_node::profile::PUBLIC_NETWORK_CHAINS, &[2656089850]);
+    for chain in [1, 777001, 777002, 777902, 777990, 1656550731, 2656089850, 2656089851, u64::MAX] {
+        let network_chain = chain == 777001 || chain == 2656089850;
+        assert_eq!(lp1_node::profile::network_chain(chain), network_chain, "{chain}");
         let mut s = spec();
         s.chain_id = chain;
         for kind in [ProfileKind::Network, ProfileKind::Simnet, ProfileKind::Synthetic] {
             for node in [NodeKind::Node, NodeKind::Simnet] {
                 let result = validate(&s, kind, node, &[(1, 0)]);
-                let allowed = match (kind, node, chain) {
-                    (ProfileKind::Network, _, 777001) => true,
-                    (ProfileKind::Simnet, NodeKind::Simnet, id) | (ProfileKind::Synthetic, NodeKind::Simnet, id) => id != 777001,
+                let allowed = match (kind, node) {
+                    (ProfileKind::Network, _) => network_chain,
+                    (ProfileKind::Simnet, NodeKind::Simnet) | (ProfileKind::Synthetic, NodeKind::Simnet) => !network_chain,
                     _ => false,
                 };
                 assert_eq!(result.is_ok(), allowed, "{kind:?} {node:?} {chain}");

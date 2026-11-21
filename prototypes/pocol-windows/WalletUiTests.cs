@@ -52,6 +52,11 @@ internal static class WalletUiTests {
    Check(Control<TextBlock>("NetworkName").Text=="●  PoCol Mainnet","Validated network designation was not displayed.");
    state.Remove("networkName");state.Remove("networkEnvironment");Response(state);
    Check(Control<TextBlock>("NetworkName").Text=="●  PoCol network","The previous network designation was retained for another network.");
+   // A public network chain that this release does not pin yet reports networkEnvironment "mainnet" without a name
+   // (readiness.rs): the name shown is only the engine's networkName, never one made up from the environment.
+   state["networkEnvironment"]="mainnet";Response(state);
+   Check(Control<TextBlock>("NetworkName").Text=="●  PoCol network","A network was named PoCol Mainnet without the engine's networkName.");
+   state.Remove("networkEnvironment");
    Check(Control<Button>("Upgrade")!=null,"Explicit network upgrade action is missing.");
    Check(Control<TextBlock>("Connection").Text.StartsWith("3 direct peers"),"Peer count must describe direct connections.");
    Check(Control<CheckBox>("MiningToggle").IsChecked==true,"Mining snapshot not reflected.");

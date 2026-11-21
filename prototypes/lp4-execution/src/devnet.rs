@@ -1,6 +1,6 @@
 //! Local development network profiles (profileKind=simnet, NodeKind::Simnet).
 //! Bootable ONLY for local devnets (OWNER-STANDING-AUTHORIZATION.md §2): disposable
-//! keys, no funds. The network profile (chainId 777001) is never built here.
+//! keys, no funds. A network profile chain (chainId 777001 or a public network chain, `profile::network_chain`) is never built here.
 use revm::{InMemoryDB,primitives::{AccountInfo,Address,B256,U256}};
 use crate::{admission::{Admitted,NodeLocal,Request,Timing},apply::{Genesis,SystemPrograms},fixed,gate::FactClass,genesis_spec::{self as gs,GenesisSpec,Member},profile::{ProfileIdentity,ProfileKind,NodeKind},txsign::Key};
 
@@ -130,7 +130,7 @@ pub fn account_key(label:&str)->Key{Key::devnet(&format!("account:{label}"))}
 /// the profile schema (simnet) → builds and root-checks the genesis state. The result
 /// is a candidate, not an admitted profile (see `Devnet::admit`).
 pub fn build(cfg:&DevnetConfig)->Result<Devnet,String>{
-    if cfg.chain_id==777001{return Err("network chainId is not a devnet".into())}
+    if crate::profile::network_chain(cfg.chain_id){return Err("network chainId is not a devnet".into())}
     // V3-34: a specVersion-2 (CP schema v2) devnet runs the V3 programs, which read their v3 fields from it. Phase 6a: the
     // only bundled set, so no other specVersion builds.
     if cfg.spec_version!=2{return Err(format!("specVersion {}: the spec-1 rule set is retired; a devnet is specVersion 2 (DevnetConfig::new)",cfg.spec_version))}

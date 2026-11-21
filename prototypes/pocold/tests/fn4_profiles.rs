@@ -5,7 +5,7 @@
 //! them with the public test keys of `testnet::test_founder` and the local `testnet::TEST_CHAIN_ID` (never a launch
 //! genesis), so every genesis built here is a local test genesis. Only `ceremony_filled` (no flag) keeps a profile's id.
 use pocol_lp4_execution::{admission::{NodeLocal,Scope},apply::{self,ProgramSet},devnet,gate::FactClass,
-    genesis_spec as gs,issuance,param_gate::registry_metrics,profile::ConsensusParams};
+    genesis_spec as gs,issuance,param_gate::registry_metrics,profile::{ConsensusParams,NodeKind,ProfileKind}};
 use pocold::testnet::{self,TestPlaceholders,TimingAssumptions};
 use revm::primitives::U256;
 use std::{path::{Path,PathBuf},sync::atomic::{AtomicU64,Ordering}};
@@ -45,8 +45,10 @@ fn ceremony_filled(profile:&serde_json::Value,hash_rate:u64)->serde_json::Value{
     p
 }
 /// The genesis in `dir` booted by the launcher (`pocold::load_spec_for`, the path `pocold run` takes): the full ParamGate
-/// (R1-R26) at `local`, Simnet profile, Simnet node, ExperimentalDevnet scope (FRESH-NETWORK-DESIGN §0 "Launch
-/// admission"), with the calibration class the launcher reads from devnet.json. Its admission is `spec.admission()`.
+/// (R1-R26) at `local` with the admission `pocold::boot_admission` gives the genesis's chain (OWNER-DECISIONS-2026-11-20
+/// D5): the network profile on a network node in scope public-network on the mainnet chain, a Simnet profile on a Simnet
+/// node in scope experimental-devnet on every other chain (the rehearsal chain and the local test chain), with the
+/// calibration class the launcher reads from devnet.json. Its admission is `spec.admission()`.
 fn boot(dir:&Path,local:&NodeLocal)->Result<pocold::chain::Spec,String>{pocold::load_spec_for(dir,local,None)}
 
 #[test]
@@ -165,11 +167,19 @@ fn a_ceremony_filled_profile_builds_without_the_flag_with_a_measured_calibration
     // The launcher (pocold/src/lib.rs) boots it with the measured class devnet.json records.
     let spec=boot(&out.0,&testnet::local_for_network(&out.0).unwrap()).unwrap();let a=spec.admission();
     assert_eq!(spec.chain_id(),MAINNET_CHAIN_ID);
+    // OWNER-DECISIONS-2026-11-20 D5: the mainnet chain boots as the network profile on a network node, scope public-network.
+    assert_eq!((a.scope(),a.profile().kind(),a.profile().node_kind()),(Scope::PublicNetwork,ProfileKind::Network,NodeKind::Node));
+    assert_eq!(info["profileKind"],"network");
     assert_eq!(a.report().calibration_class,Some(FactClass::Measurement),"R25 with a measured class (design §1a row 1)");
     assert!(!a.report().conditions.iter().any(|c|c.id=="calibration-synthetic"));
     assert_eq!(a.profile().cp().target_g,pocol_lp4_execution::gate::calibration_target(1_000_000,10).unwrap(),"target_g = calibration_target(H_measured, 10)");
+    // The rehearsal chain keeps the experimental-devnet admission, a Simnet profile on a Simnet node.
+    let r=boot(&o3.0,&testnet::local_for_network(&o3.0).unwrap()).unwrap();let ra=r.admission();
+    assert_eq!((ra.scope(),ra.profile().kind(),ra.profile().node_kind()),(Scope::ExperimentalDevnet,ProfileKind::Simnet,NodeKind::Simnet));
+    assert_eq!(info_in(&o3.0)["profileKind"],"simnet");
     // The converse: the launcher boots a --test-placeholders genesis with its synthetic class.
     let t=built("ceremony-converse",&json(MAINNET));let spec=boot(&t.0,&testnet::local_for_network(&t.0).unwrap()).unwrap();
+    assert_eq!(spec.admission().scope(),Scope::ExperimentalDevnet,"the local test chain {} is not a public chain",testnet::TEST_CHAIN_ID);
     assert_eq!(spec.admission().report().calibration_class,Some(FactClass::SyntheticFixture));
     assert!(spec.admission().report().conditions.iter().any(|c|c.id=="calibration-synthetic"));
     // A measured class on a profile is required: a synthetic one is refused.
@@ -177,17 +187,24 @@ fn a_ceremony_filled_profile_builds_without_the_flag_with_a_measured_calibration
     let o2=Temp::new("ceremony-synthetic");assert!(testnet::prepare(synthetic.to_string().as_bytes(),&o2.0).unwrap_err().contains("measurement"));
 }
 
-/// V3-28 H2 (1): the admission set_network_identity.py pins for a switched-to network, readiness.rs
-/// `ExpectedAdmission::FRESH_NETWORK`, is the decided launch admission (FRESH-NETWORK-CP.md §1 "Launch admission"):
-/// every field of it is what the launcher's boot gives a ceremony genesis of either profile. It is not the launch
-/// admission, so a pin of it keeps `admission-not-booted` in the launcher.
+/// V3-28 H2 (1), OWNER-DECISIONS-2026-11-20 D4 and D5: the admissions set_network_identity.py pins are the ones the
+/// launcher's boot gives a ceremony genesis, every field compared. On the mainnet chain it pins readiness.rs
+/// `ExpectedAdmission::PUBLIC_MAINNET` (with the approval reference): the network profile on a network node in scope
+/// public-network, with its conditions and the R13, R21 and R26 waivers. For a switched-to network off the public network
+/// chains it pins `ExpectedAdmission::FRESH_NETWORK`, the experimental admission (FRESH-NETWORK-CP.md §1 "Launch
+/// admission", superseded for the mainnet chain by D5), which the rehearsal profile's ceremony genesis boots with. Neither
+/// is the specification admission `LAUNCH`, and the two differ from each other in every field.
 #[test]
 fn the_pinned_fresh_network_admission_is_the_one_a_ceremony_genesis_boots_with(){
-    use pocol_lp4_execution::profile::{NodeKind,ProfileKind};use pocold::readiness::ExpectedAdmission;
+    use pocold::readiness::{AdmissionFacts,ExpectedAdmission};
     let want=ExpectedAdmission::FRESH_NETWORK;
-    assert_eq!((want.scope,want.profile_kind,want.node_kind),(Scope::ExperimentalDevnet,ProfileKind::Simnet,NodeKind::Simnet),"Q3 = a");
+    assert_eq!((want.scope,want.profile_kind,want.node_kind),(Scope::ExperimentalDevnet,ProfileKind::Simnet,NodeKind::Simnet),"Q3 = a, off the public chains");
     assert_eq!(want.differing(&ExpectedAdmission::LAUNCH),["scope","conditions","waivers","profile kind","node kind"]);
-    for (label,profile,chain) in [("fresh-mainnet",MAINNET,MAINNET_CHAIN_ID),("fresh-rehearsal",REHEARSAL,REHEARSAL_CHAIN_ID)]{
+    let public=ExpectedAdmission::PUBLIC_MAINNET;
+    assert_eq!((public.scope,public.profile_kind,public.node_kind),(Scope::PublicNetwork,ProfileKind::Network,NodeKind::Node),"D5");
+    assert_eq!(public.differing(&ExpectedAdmission::LAUNCH),["scope","conditions","waivers"]);
+    assert_eq!(public.differing(&want),["scope","conditions","waivers","profile kind","node kind"]);
+    for (label,profile,chain,want) in [("fresh-rehearsal",REHEARSAL,REHEARSAL_CHAIN_ID,want),("public-mainnet",MAINNET,MAINNET_CHAIN_ID,public)]{
         let out=Temp::new(label);testnet::prepare(ceremony_filled(&json(profile),1_000_000).to_string().as_bytes(),&out.0).unwrap();
         let spec=boot(&out.0,&testnet::local_for_network(&out.0).unwrap()).unwrap();let a=spec.admission();
         assert_eq!(spec.chain_id(),chain);
@@ -195,9 +212,270 @@ fn the_pinned_fresh_network_admission_is_the_one_a_ceremony_genesis_boots_with()
         assert_eq!(got,ExpectedAdmission{conditions:&[],waivers:&[],..want},"{label}");
         assert_eq!(a.report().conditions.iter().map(|c|c.id).collect::<Vec<_>>(),want.conditions,"{label}");
         assert_eq!(a.report().waivers.iter().map(|w|w.rule).collect::<Vec<_>>(),want.waivers,"{label}");
-        // Its facts are the booted node's: readiness reports the same admission blockers from either.
-        assert_eq!(want.facts(chain),pocold::readiness::AdmissionFacts::of(a),"{label}");
+        // Its facts are the booted node's: readiness reports the same technical items from either, and the pin matches.
+        assert_eq!(want.facts(chain),AdmissionFacts::of(a),"{label}");
+        assert!(want.matches(&AdmissionFacts::of(a))&&want.mismatches(&AdmissionFacts::of(a)).is_empty(),"{label}");
+        assert_eq!(want.facts(chain).network_profile,chain==MAINNET_CHAIN_ID,"{label}: R22");
     }
+    // The mainnet ceremony genesis does not boot with it.
+    let out=Temp::new("fresh-mainnet");testnet::prepare(ceremony_filled(&json(MAINNET),1_000_000).to_string().as_bytes(),&out.0).unwrap();
+    let spec=boot(&out.0,&testnet::local_for_network(&out.0).unwrap()).unwrap();let a=spec.admission();
+    let got=ExpectedAdmission{scope:a.scope(),conditions:&[],waivers:&[],profile_kind:a.profile().kind(),node_kind:a.profile().node_kind()};
+    assert_eq!(got.differing(&ExpectedAdmission{conditions:&[],waivers:&[],..want}),["scope","profile kind","node kind"]);
+    assert_ne!(want.facts(MAINNET_CHAIN_ID),AdmissionFacts::of(a));
+    assert_eq!(want.mismatches(&AdmissionFacts::of(a)),["scope","conditions","waivers","profile kind","node kind"]);
+}
+
+/// allocRoot and genesisHash of `ceremony_filled(MAINNET, 1_000_000)`, computed at main 8b465b9, before
+/// OWNER-DECISIONS-2026-11-20 D5, where init-testnet built and admitted every genesis as a Simnet profile on a Simnet node
+/// in scope experimental-devnet (`zz` probe test run on that tree, removed). The public-network build must give the same
+/// bytes: the kind is not an input of the genesis (design 2e).
+const BASE_8B465B9_ALLOC_ROOT:&str="0x49fbf7d34d8494bba0e7933aa057953b4b979ad8a80d88aa6fe1667cfc556de4";
+const BASE_8B465B9_GENESIS_HASH:&str="0xe56e48be8d68b8ad7b9b71d8cf5a6ec855d7fbcbd3b9bdf919f1e711fc5e67f2";
+
+/// OWNER-DECISIONS-2026-11-20 D5: a ceremony-filled mainnet profile (chain 2656089850, public test founders, a temp dir
+/// only, never a launch genesis) is built and booted as the public network: the network profile on a network node in
+/// scope public-network, never specification compliance, every condition and waiver reported (the R13 and R21 waivers
+/// with their details), and the same genesis bytes as the Simnet build of 8b465b9.
+#[test]
+fn a_ceremony_filled_mainnet_genesis_boots_as_the_public_network_with_every_condition_and_waiver(){
+    let p=ceremony_filled(&json(MAINNET),1_000_000);
+    // init-testnet, through the binary: the summary names the admission and the kinds.
+    let d=Temp::new("public");std::fs::create_dir_all(&d.0).unwrap();let config=d.0.join("v3-profile.json");std::fs::write(&config,p.to_string()).unwrap();
+    let out=d.0.join("genesis");
+    let o=std::process::Command::new(env!("CARGO_BIN_EXE_pocold")).args(["init-testnet","--config",config.to_str().unwrap(),"--out",out.to_str().unwrap()]).output().unwrap();
+    assert!(o.status.success(),"{}",String::from_utf8_lossy(&o.stderr));
+    let summary:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!((summary["scope"].as_str(),summary["profileKind"].as_str(),summary["nodeKind"].as_str()),(Some("public-network"),Some("network"),Some("node")));
+    assert_eq!(summary["specificationCompliant"],false,"the ceremony script checks it: never specification compliance");
+    assert_eq!(summary["chainId"],MAINNET_CHAIN_ID);
+    // OWNER-DECISIONS-2026-11-20 D4: the ceremony's genesis is not pinned by this release yet, so it is not approved:
+    // exactly the pin and the approval are missing; its technical readiness lists the open gates and the admission's
+    // scope, conditions and waivers; its identity fields are the facts': the mainnet chain, the booted scope, no name.
+    let ids=|v:&serde_json::Value|->Vec<String>{v.as_array().unwrap().iter().map(|b|b["id"].as_str().unwrap().to_string()).collect()};
+    assert_eq!((summary["publicLaunchApproved"].as_bool(),summary["publicLaunchReady"].as_bool()),(Some(false),Some(false)));
+    assert!(summary["launchApprovalReference"].is_null()&&summary["networkName"].is_null(),"{summary}");
+    assert_eq!((summary["networkEnvironment"].as_str(),summary["networkScope"].as_str()),(Some("mainnet"),Some("public-network")));
+    assert_eq!(ids(&summary["launchBlockers"]),["network-not-release-pinned","launch-not-approved"],"{summary}");
+    let mut want:Vec<String>=pocold::readiness::PLAN_GATES_OPEN.iter().map(|(g,_)|format!("plan-gate-{g}")).collect();
+    want.push("admission-scope".into());
+    want.extend(pocold::readiness::ExpectedAdmission::PUBLIC_MAINNET.conditions.iter().map(|c|format!("admission-condition-{c}")));
+    want.extend(pocold::readiness::ExpectedAdmission::PUBLIC_MAINNET.waivers.iter().map(|w|format!("admission-waiver-{w}")));
+    assert_eq!(ids(&summary["technicalReadiness"]["pending"]),want,"no profile-kind: the network profile on a network node");
+    assert_eq!(summary["technicalReadiness"]["complete"],false);
+    // The genesis bytes are the base's.
+    assert_eq!(pocold::types::hex(&spec_in(&out).alloc_root),BASE_8B465B9_ALLOC_ROOT);
+    let info=info_in(&out);
+    assert_eq!(info["genesisHash"],BASE_8B465B9_GENESIS_HASH);assert_eq!(summary["genesisHash"],BASE_8B465B9_GENESIS_HASH);
+    // devnet.json says what was admitted, truthfully per chain.
+    assert_eq!(info["profileKind"],"network");
+    assert_eq!(info["note"],"Public network genesis admitted in scope public-network with its reported conditions and waivers; not specification compliance; launch approval and readiness are reported by a node booted on it.");
+    assert_eq!((info["admission"]["scope"].as_str(),info["admission"]["specificationCompliant"].as_bool()),(Some("public-network"),Some(false)));
+    // The builder facts and the timing exist for the public chain.
+    let bytes=pocold::types::unhex(std::fs::read_to_string(out.join("genesis.spec.hex")).unwrap().trim()).unwrap();
+    let alloc=devnet::alloc_from_json(&json(&std::fs::read_to_string(out.join("alloc.json")).unwrap())).unwrap();
+    let t=pocol_lp4_execution::admission::measure(&bytes,&alloc,1).unwrap();assert_eq!(pocold::types::hex(&t.genesis_hash),BASE_8B465B9_GENESIS_HASH);
+    // Booted by the launcher.
+    let spec=boot(&out,&testnet::local_for_network(&out).unwrap()).unwrap();let a=spec.admission();
+    assert_eq!((spec.chain_id(),a.scope(),a.profile().kind(),a.profile().node_kind()),(MAINNET_CHAIN_ID,Scope::PublicNetwork,ProfileKind::Network,NodeKind::Node));
+    assert!(!a.specification_compliant());assert_eq!(pocold::types::hex(&a.genesis_hash()),BASE_8B465B9_GENESIS_HASH);
+    let r=a.report();
+    let conditions:Vec<&str>=r.conditions.iter().map(|c|c.id).collect();
+    assert_eq!(conditions,["rpc-absent","continuous-protocol","timing-not-a-bound","gas-monotonicity-assumed","gate-deferred-general-R18","gate-deferred-general-R21","gate-deferred-caps64"]);
+    assert!(r.conditions.iter().all(|c|!c.detail.is_empty()));
+    let waivers:Vec<&str>=r.waivers.iter().map(|w|w.rule).collect();assert_eq!(waivers,["R13","R21","R26"]);
+    assert_eq!(r.waivers[0].detail,"continuous protocol on the network profile; R13 admits it only for a simnet profile on a simnet node; waived by OWNER-DECISIONS-2026-11-20 D5");
+    assert!(r.r21_exception&&r.historical_bytes>pocol_lp4_execution::admission::HIST_TRIE_BUDGET);
+    assert_eq!(r.waivers[1].detail,format!("retained-state bound {} B exceeds HIST_TRIE_BUDGET 1717986918 B; waived by OWNER-DECISIONS-2026-11-20 D5, with the 4 GB server risk accepted by D2",r.historical_bytes));
+    assert_eq!(r.waivers[2].detail,"RpcGuard predicates that read fields this node does not enforce are not evaluated");
+    println!("FN4-PUBLIC {}",serde_json::json!({"conditions":conditions,"waivers":waivers,"historicalBytes":r.historical_bytes}));
+    // The boot reproduces the admission init-testnet recorded (the binding aside: it hashes the local parameters).
+    let (mut now,mut recorded)=(pocold::admission_json(a),info["admission"].clone());
+    now.as_object_mut().unwrap().remove("binding");recorded.as_object_mut().unwrap().remove("binding");assert_eq!(now,recorded);
+    let w=&now["waivers"];assert_eq!((w[0]["rule"].as_str(),w[1]["rule"].as_str(),w[2]["rule"].as_str()),(Some("R13"),Some("R21"),Some("R26")));
+    assert!(w.as_array().unwrap().iter().all(|w|w["detail"].as_str().is_some_and(|d|!d.is_empty())));
+    // Readiness reads it as the network profile on a network node, exactly the pinned public admission.
+    use pocold::readiness::{AdmissionFacts,ExpectedAdmission};
+    assert!(AdmissionFacts::of(a).network_profile);
+    assert!(ExpectedAdmission::PUBLIC_MAINNET.matches(&AdmissionFacts::of(a)));
+    assert!(ExpectedAdmission::PUBLIC_MAINNET.facts(MAINNET_CHAIN_ID).network_profile);
+    // A booted node reports what init-testnet reported for the same build and genesis.
+    let mut status=serde_json::json!({});pocold::readiness::annotate(&mut status,&pocold::readiness::of_admitted(a));
+    for (k,v) in status.as_object().unwrap(){assert_eq!(&summary[k],v,"{k}")}
+    // `pocol start` prints the same computed values, and the mainnet chain's PCOL is not a test currency.
+    assert!(!pocold::readiness::test_currency(MAINNET_CHAIN_ID));
+    assert_eq!(pocold::readiness::start_line(a),format!("PoCol node booted: network, chain {MAINNET_CHAIN_ID}, environment mainnet, admission scope public-network (specification compliant: false); publicLaunchApproved false, publicLaunchReady false, technical readiness complete false ({} pending); currency PCOL. pocol_status lists every launch blocker and pending item. Admission, memory and lifetime limits apply.",want.len()));
+}
+
+/// OWNER-DECISIONS-2026-11-20 D6 B, end to end on a test-only pin: a ceremony-filled genesis on the mainnet chain (public
+/// test founders, a temp dir only, never a launch genesis), booted by the launcher, under this build's facts with only
+/// NETWORK_PROFILES replaced by the entry set_network_identity.py writes for it (`PUBLIC_MAINNET` and the approval
+/// reference). Nothing else is set: the booted node is approved and ready, names PoCol Mainnet, the mainnet environment
+/// and scope public-network, and its technical readiness still reports every open gate, the scope, every condition and
+/// every waiver (tests done and risks left are reported, not cleared). Without the pin, with a pin of another genesis or
+/// without the approval reference, it is not approved, and the launcher never is.
+#[test]
+fn a_booted_mainnet_genesis_pinned_with_its_approval_is_approved_and_reports_what_remains(){
+    use pocold::readiness::{self,Admission,Build,ExpectedAdmission,Network,NetworkProfile,Subject,PUBLIC_MAINNET_APPROVAL};
+    let out=Temp::new("approved");testnet::prepare(ceremony_filled(&json(MAINNET),1_000_000).to_string().as_bytes(),&out.0).unwrap();
+    let spec=boot(&out.0,&testnet::local_for_network(&out.0).unwrap()).unwrap();let a=spec.admission();
+    let n=Network::admitted(a);assert_eq!((n.chain_id,n.genesis_hash),(MAINNET_CHAIN_ID,a.genesis_hash()));
+    let pin=NetworkProfile{chain_id:n.chain_id,genesis_hash:n.genesis_hash,admission:ExpectedAdmission::PUBLIC_MAINNET,approval:Some(PUBLIC_MAINNET_APPROVAL)};
+    assert!(pocold::identity::PINNED,"a pinned tree (re-pin the consensus lock: tests/consensus_guard.rs)");
+    let build=Build{network_profiles:vec![pin],..Build::this()};
+    assert!(build.test_features.is_empty()&&build.v3_launch_blockers.is_empty()&&build.spec_version>=2);
+    let r=readiness::readiness(&build,Subject::Network(&n));
+    assert!(r.approved&&r.ready()&&r.blockers.is_empty(),"{r:?}");
+    let mut status=serde_json::json!({});readiness::annotate(&mut status,&r);
+    assert_eq!((status["networkName"].as_str(),status["networkEnvironment"].as_str(),status["networkScope"].as_str()),(Some("PoCol Mainnet"),Some("mainnet"),Some("public-network")));
+    assert_eq!((status["publicLaunchApproved"].as_bool(),status["publicLaunchReady"].as_bool()),(Some(true),Some(true)));
+    assert_eq!(status["launchApprovalReference"],"OWNER-DECISIONS-2026-11-20 D1");
+    assert_eq!(status["launchBlockers"],serde_json::json!([]));
+    let pending:Vec<String>=r.pending.iter().map(|b|b.id.clone()).collect();
+    let mut want:Vec<String>=readiness::PLAN_GATES_OPEN.iter().map(|(g,_)|format!("plan-gate-{g}")).collect();
+    want.push("admission-scope".into());
+    want.extend(a.report().conditions.iter().map(|c|format!("admission-condition-{}",c.id)));
+    want.extend(a.report().waivers.iter().map(|w|format!("admission-waiver-{}",w.rule)));
+    assert_eq!(pending,want);assert_eq!(status["technicalReadiness"]["complete"],false,"the public-network scope is never specification");
+    // Each missing term withholds the approval, with its blocker.
+    let ids=|b:&Build,n:&Network|->(bool,Vec<String>){let r=readiness::readiness(b,Subject::Network(n));(r.approved,r.blockers.into_iter().map(|x|x.id).collect())};
+    let unpinned=Build{network_profiles:vec![],..Build::this()};
+    assert_eq!(ids(&unpinned,&n),(false,vec!["network-not-release-pinned".to_string(),"launch-not-approved".into()]));
+    let other=Build{network_profiles:vec![NetworkProfile{genesis_hash:[0;32],..pin}],..Build::this()};
+    assert_eq!(ids(&other,&n).1,["network-not-release-pinned","launch-not-approved"]);
+    let unapproved=Build{network_profiles:vec![NetworkProfile{approval:None,..pin}],..Build::this()};
+    assert_eq!(ids(&unapproved,&n),(false,vec!["launch-not-approved".to_string()]));
+    let test_build=Build{test_features:vec!["caps-test"],..build.clone()};
+    assert_eq!(ids(&test_build,&n),(false,vec!["test-features".to_string()]));
+    // The launcher's view of the same network: never approved, the same reference and technical readiness.
+    let launcher=Network{admission:Admission::Recorded(readiness::AdmissionFacts::recorded(&info_in(&out.0),n.chain_id)),..n.clone()};
+    let l=readiness::readiness(&build,Subject::Network(&launcher));
+    assert_eq!((l.approved,l.blockers.iter().map(|b|b.id.as_str()).collect::<Vec<_>>()),(false,vec!["admission-not-booted"]));
+    assert_eq!((l.approval_reference,&l.pending,l.network_name),(r.approval_reference,&r.pending,r.network_name));
+}
+
+/// One JSON-RPC call to a node's loopback RPC port: its result, None until it answers.
+fn rpc_call(rpc:std::net::SocketAddr,method:&str)->Option<serde_json::Value>{
+    use std::io::{Read,Write};
+    let body=format!(r#"{{"jsonrpc":"2.0","id":1,"method":"{method}","params":[]}}"#);
+    let mut s=std::net::TcpStream::connect(rpc).ok()?;s.set_read_timeout(Some(std::time::Duration::from_secs(5))).ok()?;
+    s.write_all(format!("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len()).as_bytes()).ok()?;
+    let mut out=String::new();let _=s.read_to_string(&mut out);
+    let v=serde_json::from_str::<serde_json::Value>(out.split("\r\n\r\n").nth(1)?).ok()?["result"].clone();(!v.is_null()).then_some(v)
+}
+
+/// The cross-interface consistency of the approval and readiness fields (final design §6 test 4) on the public chain,
+/// through the binaries: a ceremony-filled mainnet genesis (public test founders, a temp dir only) as init-testnet
+/// reports it, as a running `pocold run --state-store` node reports it (the in-memory store does not fit the A13 memory
+/// budget at the mainnet CP, so a mainnet node runs with the state store, as `pocol start` does) (pocol_status), as `pocold status` reports it offline, as the
+/// launcher describes its invitation (`pocol network`, `pocol inspect`) and as both build-info commands report the build.
+/// No producer reports approved or ready where the booted node reports false; the booted producers agree exactly on
+/// every field; the launcher agrees on the approval reference, the technical readiness, the name and the environment,
+/// adds admission-not-booted and reports no scope; build-info reports no-network and no identity.
+#[test]
+fn every_producer_reports_the_booted_public_network_nodes_approval_and_readiness(){
+    let fields=["publicLaunchApproved","launchApprovalReference","publicLaunchReady","launchBlockers","technicalReadiness","networkName","networkEnvironment","networkScope"];
+    let ids=|v:&serde_json::Value|->Vec<String>{v["launchBlockers"].as_array().unwrap_or_else(||panic!("{v}")).iter().map(|b|b["id"].as_str().unwrap().to_string()).collect()};
+    let d=Temp::new("producers");std::fs::create_dir_all(&d.0).unwrap();
+    let config=d.0.join("v3-profile.json");std::fs::write(&config,ceremony_filled(&json(MAINNET),1_000_000).to_string()).unwrap();
+    let out=d.0.join("genesis");
+    let run=|bin:&str,args:&[&str]|->serde_json::Value{
+        let o=std::process::Command::new(bin).args(args).output().unwrap();
+        assert!(o.status.success(),"{args:?}: {}",String::from_utf8_lossy(&o.stderr));serde_json::from_slice(&o.stdout).unwrap()};
+    let (pocold,pocol)=(env!("CARGO_BIN_EXE_pocold"),env!("CARGO_BIN_EXE_pocol"));
+    let summary=run(pocold,&["init-testnet","--config",config.to_str().unwrap(),"--out",out.to_str().unwrap()]);
+    assert_eq!((summary["chainId"].as_u64(),summary["networkEnvironment"].as_str(),summary["networkScope"].as_str()),(Some(MAINNET_CHAIN_ID),Some("mainnet"),Some("public-network")));
+    // A running node.
+    let rpc={let l=std::net::TcpListener::bind("127.0.0.1:0").unwrap();l.local_addr().unwrap()};
+    let data=d.0.join("data");
+    let mut node=std::process::Command::new(pocold).args(["run","--network",out.to_str().unwrap(),"--data",data.to_str().unwrap(),"--rpc",&rpc.to_string(),"--no-discovery","--state-store"])
+        .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().unwrap();
+    let t=std::time::Instant::now();let mut seen=None;
+    while seen.is_none()&&t.elapsed()<std::time::Duration::from_secs(60){
+        if let Some(s)=node.try_wait().unwrap(){panic!("pocold run exited with {s}")}
+        seen=rpc_call(rpc,"pocol_status").filter(|v|v.is_object());if seen.is_none(){std::thread::sleep(std::time::Duration::from_millis(50));}
+    }
+    let _=node.kill();let _=node.wait();
+    let status=seen.expect("pocol_status within 60 s");
+    for k in fields{assert_eq!(status[k],summary[k],"{k}: the running node reports what init-testnet reported for the same build and genesis")}
+    assert_eq!((status["chainId"].as_u64(),status["genesisHash"].as_str()),(Some(MAINNET_CHAIN_ID),summary["genesisHash"].as_str()));
+    assert_eq!((status["admission"]["scope"].as_str(),status["admission"]["specificationCompliant"].as_bool()),(Some("public-network"),Some(false)),"{status}");
+    let waivers:Vec<&str>=status["admission"]["waivers"].as_array().unwrap().iter().map(|w|w["rule"].as_str().unwrap()).collect();assert_eq!(waivers,["R13","R21","R26"]);
+    assert_eq!(ids(&status),["network-not-release-pinned","launch-not-approved"]);
+    let offline=run(pocold,&["status","--network",out.to_str().unwrap(),"--data",data.to_str().unwrap(),"--state-store"]);
+    for k in fields{assert_eq!(offline[k],status[k],"{k}: pocold status")}
+    // The launcher's description of the same network.
+    let invitation=d.0.join("network.pocol.json");
+    let packed=run(pocol,&["network","--from",out.to_str().unwrap(),"--seed","127.0.0.1:30300","--out",invitation.to_str().unwrap()]);
+    let described=run(pocol,&["inspect","--network",invitation.to_str().unwrap()]);
+    for (label,l) in [("network",&packed),("inspect",&described)]{
+        let mut want=ids(&status);want.push("admission-not-booted".into());assert_eq!(ids(l),want,"{label}");
+        for k in ["launchApprovalReference","technicalReadiness","networkName","networkEnvironment"]{assert_eq!(l[k],status[k],"{label} {k}")}
+        assert!(l["networkScope"].is_null(),"{label}: the launcher booted nothing");
+        assert_eq!(l["consensusIdentity"],status["consensusIdentity"],"{label}: the identity a node of this genesis sends");
+    }
+    // The build alone.
+    for bin in [pocold,pocol]{
+        let info=run(bin,&["build-info"]);assert!(ids(&info).iter().any(|b|b=="no-network"),"{info}");
+        for k in ["launchApprovalReference","networkName","networkEnvironment","networkScope"]{assert!(info[k].is_null(),"{k}: {info}")}
+        assert_eq!(info["compatibilitySha256"],status["compatibilitySha256"],"the node runs this build");
+    }
+    // No producer claims more than the booted node.
+    for (label,v) in [("init-testnet",&summary),("pocold status",&offline),("pocol network",&packed),("pocol inspect",&described)]{
+        for k in ["publicLaunchApproved","publicLaunchReady"]{assert!(!(v[k]==true&&status[k]==false),"{label} {k}")}
+    }
+}
+
+/// R22 stays two-way on the public chain, and the public-network scope is chain-gated: a Simnet request on 2656089850 is
+/// refused as R22 at validate and at admission (whose gate reports it), and a public-network request on the rehearsal
+/// chain, the local test chain or 777001 is refused as R22.
+#[test]
+fn r22_refuses_a_simnet_mainnet_and_a_public_network_request_on_any_other_chain(){
+    use pocol_lp4_execution::{admission::{self,Request},profile::{ProfileError,ProfileIdentity}};
+    // The rules `admit` refuses the genesis in `dir` with (empty: admitted), for the kinds and scope given, with the
+    // calibration devnet.json records, a timing measured now and the network's own local parameters.
+    let rules=|dir:&Path,kind:ProfileKind,node:NodeKind,scope:Scope|->Vec<String>{
+        let b=pocold::types::unhex(std::fs::read_to_string(dir.join("genesis.spec.hex")).unwrap().trim()).unwrap();
+        let alloc=devnet::alloc_from_json(&json(&std::fs::read_to_string(dir.join("alloc.json")).unwrap())).unwrap();
+        let info=info_in(dir);let class=if info["calibration"]["class"]=="measurement"{FactClass::Measurement}else{FactClass::SyntheticFixture};
+        let t=admission::measure(&b,&alloc,1).unwrap();let local=testnet::local_for_network(dir).unwrap();
+        admission::admit(&Request{spec_bytes:&b,alloc:&alloc,forks:&[(1,0)],kind,node,local:&local,
+            calibration:Some((info["calibration"]["hashesPerSecond"].as_u64().unwrap(),class)),timing:Some(&t),scope}).err().map(|e|e.rules).unwrap_or_default()
+    };
+    let main=Temp::new("r22-main");testnet::prepare(ceremony_filled(&json(MAINNET),1_000_000).to_string().as_bytes(),&main.0).unwrap();
+    let b=pocold::types::unhex(std::fs::read_to_string(main.0.join("genesis.spec.hex")).unwrap().trim()).unwrap();
+    assert_eq!(ProfileIdentity::validate(&b,&gs::genesis_hash(&b),MAINNET_CHAIN_ID,ProfileKind::Simnet,NodeKind::Simnet,&[(1,0)]).unwrap_err(),ProfileError::R22);
+    assert_eq!(ProfileIdentity::validate(&b,&gs::genesis_hash(&b),MAINNET_CHAIN_ID,ProfileKind::Synthetic,NodeKind::Simnet,&[(1,0)]).unwrap_err(),ProfileError::R22);
+    assert_eq!(rules(&main.0,ProfileKind::Simnet,NodeKind::Simnet,Scope::ExperimentalDevnet),["R22"],"no ExperimentalDevnet boot of the mainnet chain (the gate's R22)");
+    assert_eq!(rules(&main.0,ProfileKind::Simnet,NodeKind::Simnet,Scope::PublicNetwork),["R22"]);
+    assert!(rules(&main.0,ProfileKind::Network,NodeKind::Node,Scope::PublicNetwork).is_empty(),"the network profile is admitted");
+    let rehearsal=Temp::new("r22-rehearsal");testnet::prepare(ceremony_filled(&json(REHEARSAL),1_000_000).to_string().as_bytes(),&rehearsal.0).unwrap();
+    let flagged=built("r22-test",&json(MAINNET));
+    for (label,dir) in [("rehearsal",&rehearsal.0),("local test chain",&flagged.0)]{
+        assert_eq!(rules(dir,ProfileKind::Network,NodeKind::Node,Scope::PublicNetwork),["R22"],"{label}");
+        assert!(rules(dir,ProfileKind::Simnet,NodeKind::Simnet,Scope::ExperimentalDevnet).is_empty(),"{label}: still the experimental devnet");
+    }
+    // 777001: R22's own network chain is never a pocold genesis (init-testnet refuses it), so no public-network boot of it
+    // exists; boot_admission does not request one.
+    let mut on_777001=ceremony_filled(&json(MAINNET),1_000_000);on_777001["chainId"]=serde_json::json!(777001);
+    let o=Temp::new("r22-777001");assert!(testnet::prepare(on_777001.to_string().as_bytes(),&o.0).is_err());assert!(!o.0.exists());
+    for chain in [MAINNET_CHAIN_ID,REHEARSAL_CHAIN_ID,testnet::TEST_CHAIN_ID,777001]{
+        let want=if chain==MAINNET_CHAIN_ID{(ProfileKind::Network,NodeKind::Node,Scope::PublicNetwork)}else{(ProfileKind::Simnet,NodeKind::Simnet,Scope::ExperimentalDevnet)};
+        assert_eq!(pocold::boot_admission(chain),want,"{chain}");
+    }
+}
+
+/// PUBLIC_NETWORK_CHAINS (p1_profile.rs, R22) is exactly the mainnet profile's chain: never the rehearsal chain, the
+/// local test chain or a retired network.
+#[test]
+fn the_public_network_chains_are_exactly_the_mainnet_profiles_chain(){
+    use pocol_lp4_execution::profile::{network_chain,PUBLIC_NETWORK_CHAINS};
+    assert_eq!(PUBLIC_NETWORK_CHAINS,&[json(MAINNET)["chainId"].as_u64().unwrap()]);
+    let retired:Vec<u64>=json(RETIRED)["retired"].as_array().unwrap().iter().map(|e|e["chainId"].as_u64().unwrap()).collect();
+    for id in [REHEARSAL_CHAIN_ID,777990,testnet::TEST_CHAIN_ID].into_iter().chain(retired){
+        assert!(!PUBLIC_NETWORK_CHAINS.contains(&id)&&!network_chain(id),"{id}");
+    }
+    assert!(network_chain(MAINNET_CHAIN_ID)&&network_chain(777001));
 }
 
 #[test]

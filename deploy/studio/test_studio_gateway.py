@@ -85,6 +85,21 @@ class ValidationTests(unittest.TestCase):
             with self.subTest(method=method):
                 self.assertEqual(g.sanitize(method, {**fields, 'peers': ['private'], 'lastIncompatibleReason': 'peer x'}), fields)
 
+    def test_status_relays_the_readiness_booleans_only(self):
+        # OWNER-DECISIONS-2026-11-20 D4: publicLaunchApproved, publicLaunchReady and technicalReadiness.complete pass as
+        # the booleans the node computed; the blockers, the pending items, their details and the reference do not, a
+        # non-boolean value is dropped, and pocol_getParams relays none of them.
+        status = {'publicLaunchApproved': True, 'publicLaunchReady': False, 'launchApprovalReference': 'OWNER-DECISIONS-2026-11-20 D1',
+                  'launchBlockers': [{'id': 'admission-mismatch', 'detail': 'peer x'}],
+                  'technicalReadiness': {'complete': False, 'pending': [{'id': 'plan-gate-K1', 'detail': 'private'}]}, 'networkScope': 'public-network'}
+        self.assertEqual(g.sanitize('pocol_status', {'chainId': g.CHAIN_ID, **status, 'peers': ['private']}),
+                         {'chainId': g.CHAIN_ID, 'publicLaunchApproved': True, 'publicLaunchReady': False, 'technicalReadiness': {'complete': False}})
+        self.assertEqual(g.sanitize('pocol_getParams', {'chainId': g.CHAIN_ID, **status}), {'chainId': g.CHAIN_ID})
+        for bad in ('true', 1, None, [True], {'complete': True}):
+            value = {'chainId': g.CHAIN_ID, 'publicLaunchApproved': bad, 'publicLaunchReady': bad, 'technicalReadiness': {'complete': bad}}
+            self.assertEqual(g.sanitize('pocol_status', value), {'chainId': g.CHAIN_ID}, bad)
+        self.assertEqual(g.sanitize('pocol_status', {'chainId': g.CHAIN_ID, 'technicalReadiness': [True]}), {'chainId': g.CHAIN_ID})
+
     def test_metadata_fields_do_not_expand_methods_or_accept_remote_activation(self):
         # FN-1 (C9) adds pocol_getCaps, read-only and parameterless; Sites W1 eth_maxPriorityFeePerGas and the two
         # locally answered methods; nothing else.

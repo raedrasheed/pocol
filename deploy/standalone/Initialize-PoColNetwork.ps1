@@ -1,16 +1,25 @@
-# One-time genesis ceremony of the fresh v3 network (FN-7; development/decisions/FRESH-NETWORK-CP.md): installs PoCol
-# on three freshly provisioned Linux servers, collects only their public addresses, creates this PC's own fresh
-# identity, fills the committed network profile (v3-rehearsal-profile.json or v3-profile.json, shipped and checksummed
-# in this package) and admits its genesis with pocold init-testnet. Never exports, copies or forwards a private key.
+# One-time genesis ceremony of PoCol Mainnet (FN-7; development/decisions/FRESH-NETWORK-CP.md, OWNER-DECISIONS-2026-11-20
+# D1 and D3): installs PoCol on three freshly provisioned Linux servers, collects only their public addresses, creates
+# this PC's own fresh identity, fills the committed network profile (v3-profile.json, shipped and checksummed in this
+# package) and admits its genesis with pocold init-testnet. Never exports, copies or forwards a private key.
 #
 # The four founders are the three servers (founders 1-3, in the order of -Servers) and this PC (founder 4); each key
 # is generated on its own device. Founders 1-3 are paid to the owner-held reward addresses -ServerRewardAddresses
 # (owner decision 2026-11-16): made offline with pocol-key on another device, never on a server, they receive the
 # 999,980 PCOL allocations and every mining reward; each server keeps only its miner key and its 20 PCOL bond in Escrow.
-# Founder 4 (this PC) is its own reward address. The chain id is the profile's (CP section 5): -Network Rehearsal 1656550731, -Network Mainnet
-# 2656089850. The rehearsal and the mainnet are separate ceremonies with separate fresh keys: before the mainnet run,
-# the servers are re-provisioned (install-linux.sh refuses an existing installation), the package is extracted into a
-# new directory, and this PC's rehearsal home (%LOCALAPPDATA%\PoCol) is moved aside after its key is backed up.
+# Founder 4 (this PC) is its own reward address. The chain id is the profile's (CP section 5): Mainnet 2656089850.
+# -Network Mainnet is the default and the launch (OWNER-DECISIONS-2026-11-20 D1: a public launch without a separate
+# rehearsal). -Network Rehearsal (chain 1656550731, v3-rehearsal-profile.json) is kept only as a devnet option for a
+# test, never a launch step; its keys are throwaway and never reused: servers or a PC it ran on are re-provisioned
+# (install-linux.sh refuses an existing installation) and their wallet home (%LOCALAPPDATA%\PoCol) moved aside first.
+#
+# The admission init-testnet reports is checked against the genesis's chain (OWNER-DECISIONS-2026-11-20 D5): on a
+# public network chain ($PublicNetworkChains, the profile code's PUBLIC_NETWORK_CHAINS) the network profile on a network
+# node in scope public-network, never specification compliance, with exactly the conditions and owner waivers of
+# readiness.rs PUBLIC_MAINNET; on any other chain (the rehearsal, a dry run's test chain) the experimental admission.
+# The launch approval and readiness it reports are computed by pocold and printed verbatim: a genesis this release does
+# not pin yet is never approved (network-not-release-pinned, launch-not-approved); a node booted on it reports the
+# approval once the identity-pin release pins it.
 #
 # -HashesPerSecond is measured before the run: `pocol hashrate --seconds 60` on each server (from the verified package in
 # a scratch folder) and `pocol.exe hashrate --seconds 60` on this PC, each the median of three runs, summed.
@@ -20,14 +29,15 @@
 # the launch second and moves the genesis to the local test chain id, so a dry run is always a TEST GENESIS.
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('Rehearsal','Mainnet')][string]$Network,
+    # Mainnet by default; Rehearsal is a devnet option only (header).
+    [ValidateSet('Rehearsal','Mainnet')][string]$Network = 'Mainnet',
     # The three servers' public IPv4 addresses. P2P stays on TCP 30300: install-linux.sh's service listens there.
     [Parameter(Mandatory=$true)][ValidateCount(3,3)][string[]]$Servers,
     # The owner-held reward addresses of founders 1-3, in -Servers order (pocol-key address output, lower-case 0x hex).
     # Required for a real run; a dry run without them uses three throwaway reward identities.
     [ValidateCount(3,3)][string[]]$ServerRewardAddresses,
     # The founders' measured aggregate hash rate in H/s (R25d): the sum of the four devices' `pocol hashrate` values,
-    # each measured on its own device before this run (README.md); for the mainnet, the rehearsal's networkHashrateEst.
+    # each measured on its own device before this run (the three servers and this PC; README "Before the run").
     [Parameter(Mandatory=$true)][uint64]$HashesPerSecond,
     # The synchronized launch second (unix time), or a delay from the moment the genesis is created. Exactly one.
     [uint64]$GenesisTime = 0,
@@ -51,9 +61,21 @@ $Ceremony = @('/genesisTime', '/hashRate/hashesPerSecond',
     '/founders/2/id', '/founders/2/reward', '/founders/3/id', '/founders/3/reward')
 # install-linux.sh's service listens on this port on every interface; the invitation's seeds and the firewall rule use it.
 $P2pPort = 30300
-# init-testnet's summary must report the experimental admission (design C8) and must not report a non-release build.
-$RequiredBlockers = @('admission-scope', 'profile-kind')
-$RefusedBlockers = @('consensus-unpinned', 'test-features', 'spec-version', 'v3-inactive')
+# The public network chains: the profile code's PUBLIC_NETWORK_CHAINS (p1_profile.rs, R22), the mainnet's chain.
+$PublicNetworkChains = @([uint64]2656089850)
+# init-testnet's summary of a new genesis: no release pins it yet, so its launch is not approved
+# (OWNER-DECISIONS-2026-11-20 D4), and it must not report a non-release build among its launch blockers.
+$RequiredBlockers = @('network-not-release-pinned', 'launch-not-approved')
+$RefusedBlockers = @('consensus-unpinned', 'test-features', 'spec-version', 'v3-inactive', 'v3-launch-blocker')
+# On a public network chain: technical readiness reports the scope and exactly the admission's conditions and owner
+# waivers of readiness.rs ExpectedAdmission::PUBLIC_MAINNET, in its order, and no profile-kind (D5).
+$PublicPending = @('admission-scope')
+$PublicAdmissionItems = @('admission-condition-rpc-absent', 'admission-condition-continuous-protocol',
+    'admission-condition-timing-not-a-bound', 'admission-condition-gas-monotonicity-assumed',
+    'admission-condition-gate-deferred-general-R18', 'admission-condition-gate-deferred-general-R21',
+    'admission-condition-gate-deferred-caps64', 'admission-waiver-R13', 'admission-waiver-R21', 'admission-waiver-R26')
+# On any other chain: the experimental admission (design C8) in technical readiness.
+$ExperimentalPending = @('admission-scope', 'profile-kind')
 # The genesis is created at least this long before its launch second: the invitation still has to reach three servers
 # (each asks for its sudo password) and this PC's wallet has to start. Allow more for a slow operator.
 $MinLeadSeconds = 300
@@ -183,7 +205,7 @@ $Tag = 'pocol-setup-' + [Guid]::NewGuid().ToString('N')
 $Work = Join-Path $Here $Tag
 New-Item -ItemType Directory -Path $Work | Out-Null
 Write-Host "Creates the $($Selected.Name) genesis (chain id $($Selected.ChainId)) with four founders: the three servers and this PC."
-Write-Host 'Experimental admission (a Simnet profile in ExperimentalDevnet scope): the network runs publicly and permissionlessly, and reports that it is not public-launch-ready.'
+Write-Host 'Its admission, launch approval and readiness are computed by pocold init-testnet and printed verbatim below.'
 if ($DryRun) {
     Write-Host 'DRY RUN: no server is contacted and no wallet home is created; the genesis is a TEST GENESIS on the local test chain id.'
 } else {
@@ -265,7 +287,8 @@ for ($i = 0; $i -lt 4; $i++) {
 $ConfigFile = Join-Path $Work $Selected.Profile
 [IO.File]::WriteAllText($ConfigFile, $Config, (New-Object Text.UTF8Encoding($false)))
 
-# Genesis admission. The summary on stdout carries the readiness (publicLaunchReady and every launch blocker).
+# Genesis admission. The summary on stdout carries the admission, the launch approval and readiness with every launch
+# blocker, the technical readiness with every pending item, and the identity fields (readiness.rs).
 $Genesis = Join-Path $Work 'genesis'
 $TestFlag = @(); if ($DryRun) { $TestFlag = @('--test-placeholders') }
 $Summary = (& $Daemon init-testnet --config $ConfigFile --out $Genesis @TestFlag) -join "`n"
@@ -280,16 +303,46 @@ if ($DryRun) {
 } elseif ($IsTest -or [uint64]$Admitted.chainId -ne $Selected.ChainId) {
     throw 'pocold did not admit the filled profile under its own chain id'
 }
-if ($Admitted.scope -cne 'experimental-devnet' -or $Admitted.publicLaunchReady -isnot [bool] -or $Admitted.publicLaunchReady) {
-    throw 'Unexpected admission: the fresh network is admitted in experimental-devnet scope and reports publicLaunchReady false'
+# The admission the genesis's chain gets (header): a dry run's test chain and the rehearsal's are not public chains.
+$IsPublic = $PublicNetworkChains -contains [uint64]$Admitted.chainId
+if ($Admitted.specificationCompliant -isnot [bool] -or $Admitted.specificationCompliant) { throw 'Unexpected admission: a ceremony genesis is admitted in scope public-network or experimental-devnet, never as specification compliance' }
+if ($IsPublic) {
+    if ($Admitted.scope -cne 'public-network' -or $Admitted.profileKind -cne 'network' -or $Admitted.nodeKind -cne 'node') {
+        throw "Unexpected admission on the public network chain $($Admitted.chainId): expected the network profile on a network node in scope public-network, got $($Admitted.scope), $($Admitted.profileKind) on a $($Admitted.nodeKind) node"
+    }
+} elseif ($Admitted.scope -cne 'experimental-devnet' -or $Admitted.profileKind -cne 'simnet' -or $Admitted.nodeKind -cne 'simnet') {
+    throw "Unexpected admission on chain $($Admitted.chainId): expected the experimental admission (a simnet profile on a simnet node in scope experimental-devnet), got $($Admitted.scope), $($Admitted.profileKind) on a $($Admitted.nodeKind) node"
+}
+# No release pins a genesis created now, so it is never approved or ready here; the values are pocold's, not these.
+if ($Admitted.publicLaunchApproved -isnot [bool] -or $Admitted.publicLaunchApproved -or $Admitted.publicLaunchReady -isnot [bool] -or $Admitted.publicLaunchReady) {
+    throw 'Unexpected readiness: a genesis no release pins yet reports publicLaunchApproved and publicLaunchReady false'
 }
 $Blockers = @($Admitted.launchBlockers)
 $Ids = @($Blockers | ForEach-Object { $_.id })
-foreach ($Id in $RequiredBlockers) { if ($Ids -cnotcontains $Id) { throw "The admission does not report the $Id blocker of the experimental admission" } }
+$Pending = @($Admitted.technicalReadiness.pending)
+$PendingIds = @($Pending | ForEach-Object { $_.id })
+foreach ($Id in $RequiredBlockers) { if ($Ids -cnotcontains $Id) { throw "The summary does not report the $Id launch blocker of a genesis no release pins yet" } }
 foreach ($Id in $RefusedBlockers) { if ($Ids -ccontains $Id) { throw "Refusing a genesis with the $Id blocker: use the release build of this package" } }
+if ($IsPublic) {
+    foreach ($Id in $PublicPending) { if ($PendingIds -cnotcontains $Id) { throw "The admission does not report the $Id item of the public network admission" } }
+    if ($PendingIds -ccontains 'profile-kind') { throw 'The public network admission reports profile-kind: it is not the network profile on a network node' }
+    $Items = @($PendingIds | Where-Object { $_ -cmatch '^admission-(condition|waiver)-' })
+    if (($Items -join ',') -cne ($PublicAdmissionItems -join ',')) {
+        throw "The public network admission reports the conditions and waivers $($Items -join ', '), not exactly those of PUBLIC_MAINNET ($($PublicAdmissionItems -join ', '))"
+    }
+} else {
+    foreach ($Id in $ExperimentalPending) { if ($PendingIds -cnotcontains $Id) { throw "The admission does not report the $Id item of the experimental admission" } }
+}
 Write-Host "Genesis hash: $($Admitted.genesisHash)"
-Write-Host 'Public launch ready: false. Launch blockers, verbatim:'
+Write-Host "Admission, verbatim: scope $($Admitted.scope) (specification compliant: $($Admitted.specificationCompliant)), profile $($Admitted.profileKind) on a $($Admitted.nodeKind) node."
+# networkName is left out where the facts support no name (before a release pins the genesis); a null reference is none.
+$ShownName = 'none'; if ($Admitted.PSObject.Properties.Name -contains 'networkName') { $ShownName = $Admitted.networkName }
+$Reference = $Admitted.launchApprovalReference; if ($null -eq $Reference) { $Reference = 'none' }
+Write-Host "Network name: $ShownName. Environment: $($Admitted.networkEnvironment). Scope: $($Admitted.networkScope). Launch approval reference: $Reference."
+Write-Host "Public launch approved: $($Admitted.publicLaunchApproved). Public launch ready: $($Admitted.publicLaunchReady). Launch blockers, verbatim:"
 foreach ($Blocker in $Blockers) { Write-Host "  $($Blocker.id): $($Blocker.detail)" }
+Write-Host "Technical readiness complete: $($Admitted.technicalReadiness.complete). Pending, verbatim:"
+foreach ($Item in $Pending) { Write-Host "  $($Item.id): $($Item.detail)" }
 
 # The invitation: the genesis and the three servers as its seeds (the explorer's seed list comes from it, W9).
 $Target = $Invitation; if ($DryRun) { $Target = Join-Path $Work 'network.pocol.json' }

@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Real native wallet on an earn-in network: a new miner with only a fee's worth of PCOL joins.
 
-Opt-in and slow (about 10 minutes; T_blk=10 s is fixed by the testnet profile). Three genesis
+Run on its own: the unittest suites do not run it; CI runs it in public-mainnet-e2e.yml. Its config states
+no profile, so `pocold init-testnet` gives the builder's default timing, T_blk = 10 s, with a genesis hash rate of
+(1 << 18) / 10 H/s (about 2^18 hashes a block). On a host that hashes faster, blocks come faster than T_blk until
+ASERT (tau 600 s) adjusts, so the run time depends on the host: one run took 34 s and ended at height 24. Its
+status waits add up to at most 3,270 s (about 55 minutes). Three genesis
 miners run as `pocol start`; a fourth home holds nothing and has never
 sent a transaction. Through the wallet pipes it must:
 - get its first fee from the fee faucet (deploy/faucet, the real service, signer and node);

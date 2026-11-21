@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 import pocol_identity
-from node_operator import BINARIES, SCHEMA, digest, files, identity, read_json, verify, write_json
+from node_operator import BINARIES, PUBLIC_NETWORK_CHAINS, SCHEMA, digest, files, identity, read_json, supported_admission, verify, write_json
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -78,7 +78,13 @@ def validate_inventory(value, rehearsal=False, join=False):
     return value
 
 
-def service(node):
+def unit_description(chain_id):
+    """The unit's name for the network of `chain_id`: PoCol Mainnet on a public network chain (OWNER-DECISIONS-2026-11-20
+    D5, D6 D), and the experimental test network it is on any other chain."""
+    return 'PoCol Mainnet node' if chain_id in PUBLIC_NETWORK_CHAINS else 'PoCol experimental public testnet'
+
+
+def service(node, chain_id=None):
     # TasksMax holds pocold's A13 thread inventory, 2*(peers_max + 8) + 4*peers + 3*S + 1 + 40 tasks with S = 5 automatic
     # outbound slots (PR2b; 164 at the default 32 established inbound and 7 peers, 368 at --peers-max 128 with S = 9);
     # pocold refuses to boot past it. Seeds and joining
@@ -98,7 +104,7 @@ ExecStartPre=/usr/bin/install -m 0600 ${CREDENTIALS_DIRECTORY}/miner.key /run/po
 ''' if node['minerAddress'] else ''
     key_arg = ' --key-file /run/pocol-testnet/miner.pocol-key' if node['minerAddress'] else ''
     return f'''[Unit]
-Description=PoCol experimental public testnet ({node['name']})
+Description={unit_description(chain_id)} ({node['name']})
 Wants=network-online.target time-sync.target
 After=network-online.target time-sync.target
 StartLimitIntervalSec=300
@@ -200,7 +206,9 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
     if set(files(network)) != {'genesis.spec.hex', 'alloc.json', 'devnet.json'}:
         raise ValueError('Network directory must contain exactly the three public genesis files')
     info = read_json(network / 'devnet.json')
-    if info.get('keyMode') != 'independent-key-files' or info['admission']['scope'] != 'experimental-devnet':
+    # init-testnet admits public-network on a public network chain and experimental-devnet on another chain
+    # (OWNER-DECISIONS-2026-11-20 D5); node_operator.verify checks the same rule in every bundle.
+    if info.get('keyMode') != 'independent-key-files' or not supported_admission(info['admission']['scope'], info['chainId']):
         raise ValueError('Generate independent genesis with init-testnet, not label-based init-devnet')
     # The public GenesisSpec itself, not the devnet.json declaration alone: its version and chain ID must match the
     # declaration, and it must be a genesis the node admits: spec 2 (v3), the v3 program set and nonceMode 1; a retired
@@ -234,7 +242,7 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
             'rpc': f"127.0.0.1:{node['rpcPort']}", 'peers': peers}
         if join: config.update(seeds=[] if node.get('seedsRetired') else list(node['seeds']), bootstrap=list(node.get('bootstrap', [])))
         write_json(bundle / 'node.json', config); write_json(bundle / 'build-info.json', build)
-        (bundle / 'pocol-testnet.service').write_text(service(node))
+        (bundle / 'pocol-testnet.service').write_text(service(node, info['chainId']))
         (bundle / 'nginx.conf').write_text(nginx(node))
         (bundle / 'README.md').write_text((HERE / 'README.md').read_text())
         manifest = {'schema': SCHEMA, 'rehearsalOnly': rehearsal,
@@ -250,7 +258,10 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
         'compatibilitySha256': build['compatibilitySha256'], 'consensusRulesVersion': build['consensusRulesVersion'],
         'consensusIdentity': pocol_identity.for_network(info, build),
         'bundleManifestSha256': manifests, 'rehearsalOnly': rehearsal,
-        'admission': info['admission'], 'publicLaunchReady': False, 'deploymentPerformed': False,
+        # The build alone is never approved or ready (pocold build-info computes it: no-network); a node booted on the
+        # network reports the network's (pocol_status, monitor.py).
+        'admission': info['admission'], 'publicLaunchApproved': build['publicLaunchApproved'], 'publicLaunchReady': build['publicLaunchReady'],
+        'deploymentPerformed': False,
         'seeds': sorted(set(p for n in nodes for p in n['seeds']) | {f"{n['ip']}:{n['p2pPort']}" for n in nodes})}
     write_json(out / 'release.json', release)
     return release

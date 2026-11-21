@@ -56,6 +56,8 @@ def run():
                 assert s['lifetime']['continuous'] and s['lifetime']['finalHeight'] is None
                 assert not s['miningEnabled'] and not s['miningEligible'] and s['balance']=='1000000',s
                 assert s['appMode']=='wallet',('the device role defaults to wallet only',s)
+                # A devnet chain's PCOL is a test currency; only a public network chain's is not (readiness::test_currency).
+                assert s['currency']=='PCOL' and s['testCurrency'] is True,s
             # Wallet only (the default) never mines; Wallet and miner keeps the earlier rules (eligibility first).
             e=a.request({'method':'mining','enabled':True},'error');assert 'wallet only' in e['message'],e
             s=a.request({'method':'set_mode','mode':'miner'},'mode');assert s['appMode']=='miner' and not s['miningEnabled'],s

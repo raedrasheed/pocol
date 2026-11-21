@@ -11,7 +11,7 @@ touched.
 The copy is built from the committed blobs into a new directory, so a failed build stops there and no older copy is
 left to install. The installer also compares it with this checkout's explorer snapshot (its include list, checked
 against its SHA256SUMS.txt) and refuses one that differs, unless --accept-site names that copy's site id (a copy meant
-to differ, such as a bundle switched for a rehearsal network).
+to differ, such as a bundle switched for a devnet).
 
 Run it from a checkout of the release commit (it installs the gateway sources beside it). It needs Python 3.10+,
 systemd, a running Caddy, the operator's /etc/pocol-explorer-gateway/network.json (deploy/rewards/README.md) and the

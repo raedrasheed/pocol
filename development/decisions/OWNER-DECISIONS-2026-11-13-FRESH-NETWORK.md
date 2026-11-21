@@ -75,7 +75,9 @@ Summary:
 - 10c: new miners register for free; the first 20 PCOL of their rewards is held as a bond, forfeited on misbehaviour;
   after that rewards are paid in full. The four founders' 20 PCOL bond comes from their genesis allocation.
 - 10d: no account-creation fee; new accounts pay ordinary gas only.
-- 6: a closed rehearsal on the three US servers before the public launch.
+- 6: a closed rehearsal on the three US servers before the public launch. (Superseded by owner decision 2026-11-20 D1,
+  [OWNER-DECISIONS-2026-11-20.md](OWNER-DECISIONS-2026-11-20.md): PoCol Mainnet launches publicly without a separate
+  rehearsal.)
 - 15: founding miners: the three US servers and the owner's computer; the phone is a wallet/observer.
 - Domain: pocol.net.
 

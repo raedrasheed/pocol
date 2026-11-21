@@ -87,7 +87,9 @@ def main():
                       'checks':['restrictive umask bundle readable by service','credential copied to service-owned private runtime key',
                                 'runtime key removed on stop',
                                 'root restore assigns service UID/GID','restored StateDirectory starts and preserves roots'],
-                      'restoredHeight':after['head']['height'],'publicLaunchReady':False}
+                      'restoredHeight':after['head']['height'],
+                      # The restored node's own computed approval and readiness (pocol_status), never a label here.
+                      'publicLaunchApproved':after.get('publicLaunchApproved') is True,'publicLaunchReady':after.get('publicLaunchReady') is True}
             op.write_json(a.out,result); print(json.dumps(result))
         finally:
             subprocess.run(['systemctl','stop','pocol-testnet'],capture_output=True)

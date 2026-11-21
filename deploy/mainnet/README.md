@@ -2,21 +2,27 @@
 
 PoCol launches a brand-new network from a fresh genesis
 ([owner decisions, 2026-11-13](../../development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)):
-new keys, a new chain ID, four founding miners, and nothing carried over from the retired network. Nothing in
-this directory deploys anything, and no step below runs on a server without the owner's approval.
+new keys, a new chain ID, four founding miners, and nothing carried over from the retired network. PoCol Mainnet
+launches as a public network directly from its ceremony, without a separate rehearsal
+([owner decisions, 2026-11-20](../../development/decisions/OWNER-DECISIONS-2026-11-20.md) D1). Nothing in this
+directory deploys anything, and no step below runs on a server without the owner's approval.
 
 ## Launch runbook (stub)
 
 This runbook is completed once the genesis parameters are fixed. The steps, in order:
 
 1. **Ceremony packages.** Build the packages the ceremony runs on with `POCOL_RELEASE=1` from a pinned tree in CI
-   (five-device-build). The rehearsal and the mainnet ceremony run on those CI artifacts, which the owner downloads
+   (five-device-build). The mainnet ceremony runs on those CI artifacts, which the owner downloads
    from that CI run and checks against its `SHA256SUMS`: integrity only, not a release signature. No signed release
    exists yet: the assembler refuses every release until the identity switch (step 7), and the switch changes the
    native binaries (`network_display.rs`) as well as the extension version, so these packages are never published.
-2. **Prepare the servers.** The three US servers start from a clean install (`deploy/standalone/install-linux.sh`
-   refuses a host that already has a PoCol install). The owner's computer runs the fourth founding miner; the
-   phone is a wallet.
+2. **Prepare the servers.** The three founder servers, `108.165.128.89`, `108.165.128.90` and `108.165.128.91`
+   (D3; also the seeds), start from a clean install (`deploy/standalone/install-linux.sh` refuses a host that
+   already has a PoCol install). Each has 4 GB of RAM, a risk the owner accepted (D2; 8 GB is recommended): that
+   is below the unit's `MemoryMax=7G`, so if a node outgrows its host the kernel, not the unit, stops it and
+   systemd restarts it, at most 5 times in 300 s ([FINDINGS.md](../../development/public-network/FINDINGS.md), F-23,
+   F-93). The owner's computer
+   runs the fourth founding miner; the phone is a wallet.
 3. **Fresh keys.** Each founding miner generates its miner key on its own device: on each server `install-linux.sh`
    runs `pocol identity --home /var/lib/pocol-standalone` as the `pocol-standalone` user, and on the PC the ceremony
    runs `pocol.exe identity` in the wallet's home `%LOCALAPPDATA%\PoCol`. Only the public miner ID leaves the device.
@@ -27,14 +33,19 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    `pocol-sign --chain-id ID --address --backup BACKUP`, which prints the same address; `pocol-sign --backup BACKUP`
    signs from it. Only the 20 PCOL bond is tied to each server. Founder 4 (the owner's PC) keeps its own
    address. Each reward account starts at nonce 1 (PAY-02): its first offline transaction uses `pocol-sign --nonce 1`.
-4. **Genesis.** Start from the committed profile, `v3-profile.json` (for the rehearsal, `v3-rehearsal-profile.json`).
+4. **Genesis.** Start from the committed profile, `v3-profile.json` (`v3-rehearsal-profile.json` is only a test and
+   devnet profile, never a launch step).
    It holds the chain ID and the consensus parameters recorded in
    [FRESH-NETWORK-CP.md](../../development/decisions/FRESH-NETWORK-CP.md), and the four founders' allocations
    (999,980 PCOL each, plus the 20 PCOL HELD bond minted into Escrow). Fill its `PLACEHOLDER` values: the launch
-   second, the founders' measured aggregate hash rate, each founder's public miner ID and reward address (the
+   second, the founders' measured aggregate hash rate (`pocol hashrate` on the four founder devices), each founder's
+   public miner ID and reward address (the
    owner-held ones for founders 1-3). Then
    run `pocold init-testnet --config PROFILE.json --out NEW_DIR` once, and record the printed chain ID and genesis
-   hash. While any placeholder remains, the builder refuses. `--test-placeholders` fills them with public test keys
+   hash. Its summary reports the admission (scope public-network, the network profile on a network node, never
+   specification compliance, with its conditions and the owner's waivers) and, since no release pins the new genesis
+   yet, `publicLaunchApproved` false with `network-not-release-pinned` and `launch-not-approved`. While any
+   placeholder remains, the builder refuses. `--test-placeholders` fills them with public test keys
    for a local test genesis only; that genesis runs on the local test chain ID 777990 (the profile's ID is recorded
    as `profileChainId`), is marked `testPlaceholders` and is never a launch genesis.
    The hash rate is measured before the genesis, on each founding device with its own copy of the release binary,
@@ -52,19 +63,17 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    times the real rate, the first 100 blocks average about 8.7 s at k = 0.8 and 11.4 s at k = 1.25, stay inside T6's
    5-20 s from about k = 0.5 to k = 4, and miss it at k = 8, whose first blocks take about 80 s, close to D_att. A
    benchmark slightly overstates the network's rate (nobody hashes while a template is built), which gives a few slow
-   blocks at the start. For the mainnet ceremony the measured aggregate is the rehearsal's `networkHashrateEst`
-   (`pocol_finality`, averaged over 360 blocks).
+   blocks at the start.
    The late-start check on the final CP (FRESH-NETWORK-CP.md §8, ceremony step 3) is
    `prototypes/pocold/tests/launch_delay_asert.rs`. CI runs it at eight rates spanning the ceremony's admissible range
    (1 to 2^53-1 H/s), not at every rate and not at the measured one. Its ignored `ceremony_filled_profile_record` runs
-   it on the filled profile (`<setup folder>\v3-rehearsal-profile.json` or `v3-profile.json`, public values only),
+   it on the filled profile (`<setup folder>\v3-profile.json`, public values only),
    from a development checkout at the release commit, never on a founding device:
    `POCOL_FILLED_PROFILE=<absolute path of the filled profile> cargo +1.99.1 test --release --locked --manifest-path
    prototypes/pocold/Cargo.toml --test launch_delay_asert -- --ignored --nocapture` (cargo runs the test from
    `prototypes/pocold`, so a relative path is not found). Keep its printed collapse
    threshold and near-free burst with the ceremony record. `Initialize-PoColNetwork.ps1` fills the profile and runs
-   `init-testnet` in one run, for the mainnet as for the rehearsal, so on either network this run comes after the
-   genesis: it is a record, not a gate. Making it a gate needs a pause in the ceremony before `init-testnet`, which
+   `init-testnet` in one run, so this run comes after the genesis: it is a record, not a gate. Making it a gate needs a pause in the ceremony before `init-testnet`, which
    is the owner's decision (proposal, not decided).
 5. **Invitation.** The ceremony packs the genesis files with the three seed addresses into the network invitation
    (`pocol network`) and prints its file SHA-256. Each server checks its copy against that value before installing it.
@@ -72,19 +81,24 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    device compares and the owner announces. `pocol inspect --network FILE` prints `networkFingerprint`, a different
    value: the SHA-256 of the parsed invitation, which reformatting the JSON leaves unchanged. It is not the file's
    SHA-256.
-6. **Closed rehearsal.** Run the ceremony with the rehearsal profile on the four founding devices, the three US
-   servers and the owner's PC (founder 4), as `Initialize-PoColNetwork.ps1` makes them: it refuses any other founder
-   set. Then repeat from step 2 for the public launch, with re-provisioned servers and fresh keys on every founding
-   device (`deploy/standalone/README.md`, "Rehearsal, then mainnet").
+6. **Founders boot on the genesis.** The four founding devices, the three servers and the owner's PC (founder 4) as
+   `Initialize-PoColNetwork.ps1` makes them, start from the invitation; this genesis is the launch genesis (no
+   rehearsal, no wipe and repeat). Each founder checks with `pocol_status` that its node reports
+   the recorded chain ID and genesis hash, `networkScope` public-network and `networkEnvironment` mainnet, and the
+   computed approval and readiness, unchanged by any label.
 7. **Pin the identity in the clients.** Switch every client from the identity the tree pins today to the new
    one with `set_network_identity.py` (below), in one reviewed PR, and release the clients: rebuild the native
    packages and the 0.5.0 extension from the switched tree, then assemble, sign and verify them
-   (`deploy/release/README.md`, owner procedure). This is the first signed release. The same PR publishes on the
+   (`deploy/release/README.md`, owner procedure). This is the first signed release; no package is signed before it.
+   The switch writes the release pin with the approval reference "OWNER-DECISIONS-2026-11-20 D1", so a node of this
+   release booted on PoCol Mainnet reports `publicLaunchApproved` and `publicLaunchReady` true while its
+   `technicalReadiness` still lists what is open. The same PR publishes on the
    pocol.net extension and download pages the two values users compare: the extension ID
    `gggcoflmedlhlkcdhebmoepmggdnafmp` (`prototypes/pocol-extension/release/manifest-key.pub`) and the release key
    fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` (`deploy/release/allowed_signers`).
 8. **Public launch.** Publish the invitation on pocol.net, signed with the release key like every download
-   (`deploy/release`), and open the seeds.
+   (`deploy/release`), and open the seeds. The launch evidence ([REHEARSAL.md](../../development/public-network/REHEARSAL.md))
+   is measured on PoCol Mainnet after the launch.
 
 ## Tools
 
@@ -105,25 +119,26 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
   writes anything. It also writes the release's pinned launch network, `NETWORK_PROFILES` in
   `prototypes/pocold/src/readiness.rs` (V3-28 H2): the `--to` entry replaces the `--from` one, unless `--to` is a
   retired network or the rehearsal network (the chain ID of `v3-rehearsal-profile.json`), which get no entry, and
-  `--check` refuses a missing or extra entry. Each entry is written on the declaration's one line, entries separated
-  by `,`, as
-  `NetworkProfile{chain_id:CHAIN,genesis_hash:genesis_hash("HEX"),admission:ExpectedAdmission::FRESH_NETWORK}`
-  (`HEX` the 64 lower-case hex digits of the genesis hash, decoded at compile time). `FRESH_NETWORK` is the decided
-  launch admission (`development/decisions/FRESH-NETWORK-CP.md` §1, "Launch admission": a Simnet profile on a Simnet
-  node in scope experimental-devnet, with the conditions and waivers its boot reports; `pocold`'s
-  `tests/fn4_profiles.rs` checks it against a boot of both profiles). It is not `ExpectedAdmission::LAUNCH` (scope
-  specification, no condition, no waiver, the Network profile on a Node), and the tool never writes that one: pinning
-  the specification admission is the owner's decision (V3-28 H2 (1)). The entry removes only
-  `network-not-release-pinned` for its network. A booted node still reports the admission it booted with
-  (`admission-scope`, each `admission-condition-*` and `admission-waiver-*`, `profile-kind`), and the launcher still
-  reports `admission-not-booted` (its detail names the fields in which the pin differs from the specification
-  admission) and the blockers of the admission devnet.json records. On the fresh network's chains (the mainnet and
-  rehearsal profiles' chain IDs) `profile-kind` stays in any case, since R22 allows the Network profile only on chain
-  777001. The tree pins a retired network today, so the list is empty and every network reports
-  `network-not-release-pinned` (and, in the launcher, `admission-not-booted`). The readiness report is node-local and
-  refuses nothing.
-- `v3-profile.json`, `v3-rehearsal-profile.json`: the fresh network's mainnet and rehearsal profiles (FN-4). They
-  differ only in the chain ID and the launch second. `test_v3_profiles.py` checks them; `pocold`'s
+  `--check` refuses a missing or extra entry, or an entry of the other chain's form. Each entry is written on the
+  declaration's one line, entries separated by `,` (`HEX` the 64 lower-case hex digits of the genesis hash, decoded at
+  compile time). On a public network chain (`PUBLIC_NETWORK_CHAINS` of the profile code, the mainnet profile's chain,
+  which a test keeps equal to `v3-profile.json`) the entry is
+  `NetworkProfile{chain_id:CHAIN,genesis_hash:genesis_hash("HEX"),admission:ExpectedAdmission::PUBLIC_MAINNET,approval:Some("OWNER-DECISIONS-2026-11-20 D1")}`:
+  the public network's admission (scope public-network, the network profile on a network node, with the conditions and
+  the owner's R13, R21 and R26 waivers its boot reports; `pocold`'s `tests/fn4_profiles.rs` checks it against a boot)
+  and the owner's launch approval (D1). On any other allowed network it is
+  `NetworkProfile{chain_id:CHAIN,genesis_hash:genesis_hash("HEX"),admission:ExpectedAdmission::FRESH_NETWORK,approval:None}`
+  (the experimental admission, which approves nothing and removes only `network-not-release-pinned`). The tool never
+  writes `ExpectedAdmission::LAUNCH` (scope specification, no condition, no waiver). A booted node of the pinned
+  network reports `publicLaunchApproved` true only when its booted admission matches the pin exactly (otherwise
+  `admission-mismatch`, naming the fields that differ), and its `technicalReadiness` still lists `admission-scope`,
+  each `admission-condition-*` and `admission-waiver-*`, and every open gate. The launcher boots nothing: it reports
+  the pin's approval reference and keeps `admission-not-booted`. The tree pins a retired network today, so the list is
+  empty and every network reports `network-not-release-pinned` and `launch-not-approved` (and, in the launcher,
+  `admission-not-booted`). The report is node-local: it never stops a node from running, mining or serving sites.
+- `v3-profile.json`, `v3-rehearsal-profile.json`: the fresh network's mainnet profile and the rehearsal profile,
+  which is kept only as a test and devnet profile (FN-4; OWNER-DECISIONS-2026-11-20). They differ only in the chain ID
+  and the launch second. `test_v3_profiles.py` checks them; `pocold`'s
   `tests/fn4_profiles.rs` builds and admits them.
 - `retired-networks.json`: the identities the clients were switched away from, append-only. Every switch adds
   its `--from` network, and the tool refuses a listed network as `--to` (swapped `--from`/`--to` included):

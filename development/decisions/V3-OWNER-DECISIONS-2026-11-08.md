@@ -96,4 +96,6 @@ Each step is its own pull request, merged when CI passes:
 10. the cutover rehearsal.
 
 This order was carried out as V3-DESIGN.md's PR-0 to PR-8. The cutover rehearsal (10) is moot (O-33); the fresh
-network's closed rehearsal takes its place (V3-DESIGN.md §3, fresh v3 genesis launch).
+network's closed rehearsal takes its place (V3-DESIGN.md §3, fresh v3 genesis launch). (Superseded by owner decision
+2026-11-20 D1, [OWNER-DECISIONS-2026-11-20.md](OWNER-DECISIONS-2026-11-20.md): there is no rehearsal; PoCol Mainnet
+launches publicly from its ceremony.)

@@ -1,47 +1,71 @@
-# Rehearsal: the launch-evidence plan
+# The launch-evidence plan (measured on PoCol Mainnet after the launch)
 
-This is the plan for the closed rehearsal of the fresh v3 network: what it measures, the threshold each measure is
-read against, and the remedy when a measure misses its threshold. The thresholds T1-T8, M1-M4, R-off, D1, S1 and S2
-and the risks they measure are the owner-approved fresh-network design's §4b and §4a (FRESH-NETWORK-DESIGN.md, kept
-outside this repository), committed here with the same numbers. Sections 4 and 5 add the drills and the resource bound
-that gate L1 lists ([PLAN.md](PLAN.md)).
+This is the plan for the launch evidence of the fresh v3 network: what it measures, the threshold each measure is read
+against, and the remedy when a measure misses its threshold. The thresholds T1-T8, M1-M4, R-off, D1, S1 and S2 and the
+risks they measure are the owner-approved fresh-network design's §4b and §4a (FRESH-NETWORK-DESIGN.md, kept outside
+this repository), committed here with the same numbers. Sections 4 and 5 add the drills and the resource bound that
+gate L1 lists ([PLAN.md](PLAN.md)).
+
+The plan was written for a closed rehearsal before the launch. On 2026-11-20 the owner decided to launch PoCol Mainnet
+publicly without a separate rehearsal ([OWNER-DECISIONS-2026-11-20.md](../decisions/OWNER-DECISIONS-2026-11-20.md) D1),
+accepting the documented risks. So **none of these measures has pre-launch evidence from the founders' devices**: the
+profile values (WAN timing, caps, gas and memory bounds) are decided values, not measured results. The measures are
+taken on PoCol Mainnet after the launch, or on a devnet where a measure would change the public network's state
+(section 1a). This is one of the accepted risks of D1 (the decision record, "Accepted risks (D1, D2)").
 
 This plan runs nothing and marks no gate closed. A gate closes only with its implementation and evidence
-([PLAN.md](PLAN.md)). The gates are reported, and the node's readiness report (`publicLaunchReady`, `launchBlockers`)
-is node-local and refuses nothing: it never stops a node from running, mining or serving sites.
+([PLAN.md](PLAN.md)). The node reports what is open in `technicalReadiness.pending` (each `plan-gate-<id>`), apart
+from launch approval (`publicLaunchApproved`, `launchBlockers`; OWNER-DECISIONS-2026-11-20 D4). Neither stops a node
+from running, mining or serving sites.
 
-**Remedies.** Each measure names a remedy, and the affected measures are run again after it. A remedy that changes a
-profile value (for example GAS_LIMIT, BODY_MAX, D_att, τ, S_max, κm or, as a last resort, T_blk) changes the
-consensus parameters before the genesis: it needs the owner's approval, is recorded in
-[FRESH-NETWORK-CP.md](../decisions/FRESH-NETWORK-CP.md), and both profiles (`deploy/mainnet/v3-profile.json` and
-`v3-rehearsal-profile.json`) change together. A remedy in code (the relay, the wallet, a program, the gateway) is an
-ordinary reviewed change. A node-local declaration (Δ2 instead of Δ1) changes no CP field.
+**Remedies.** Each measure names a remedy, and the affected measures are run again after it. After the launch the
+genesis CP is fixed: a remedy that changes a consensus parameter (for example GAS_LIMIT, BODY_MAX, D_att, τ, S_max, κm
+or, as a last resort, T_blk) is a fork, a new fork version (4 or later) with its own implementation, review and lock
+re-pin. It needs the owner's approval, is recorded in [FRESH-NETWORK-CP.md](../decisions/FRESH-NETWORK-CP.md), and is
+announced at least 24 h (8,640 blocks) before it activates (owner decision 2026-11-16). A remedy in code that changes no
+consensus rule (the relay, the wallet, the gateway) is an ordinary reviewed release. A node-local declaration (Δ2
+instead of Δ1) changes no CP field.
 
 ## 1. Run conditions
 
-- **Profile and build.** The final CP ([FRESH-NETWORK-CP.md](../decisions/FRESH-NETWORK-CP.md)) with the rehearsal
-  chain id **1656550731** (`deploy/mainnet/v3-rehearsal-profile.json`), on the release candidate built with
-  `POCOL_RELEASE=1` from a pinned tree ([PLAN.md](PLAN.md), "Launch order"), with fresh keys on every founder's device.
-- **Duration.** At least 24 h, plus the M1 fill (about 2,500 blocks, about 7 h).
-- **Founders.** The design runs the rehearsal with all 4 founders mining: the three servers and the owner's home PC.
+- **Profile and build.** PoCol Mainnet's ceremony genesis (`deploy/mainnet/v3-profile.json`, chain id
+  **2656089850**, the final CP of [FRESH-NETWORK-CP.md](../decisions/FRESH-NETWORK-CP.md)) on the release built with
+  `POCOL_RELEASE=1` from a pinned tree ([PLAN.md](PLAN.md), "Launch order"), with the founders' fresh keys. A devnet
+  run (section 1a) uses the rehearsal profile (`v3-rehearsal-profile.json`, chain 1656550731) as a devnet, never a
+  launch step, with throwaway keys.
+- **Duration.** At least 24 h from the launch for the passive measures.
+- **Founders.** All 4 founders mine: the three servers (`108.165.128.89`, `.90`, `.91`) and the owner's home PC (D3).
   The ceremony (`deploy/standalone/Initialize-PoColNetwork.ps1`) makes exactly these four founders, the PC as founder
-  4, and refuses any other set ([deploy/mainnet/README.md](../../deploy/mainnet/README.md), step 6). The owner
-  approves the step before it runs.
+  4, and refuses any other set ([deploy/mainnet/README.md](../../deploy/mainnet/README.md)). Each step that touches a
+  founder's device needs the owner's approval.
 - **Home-PC steps.** A home-PC off/on step of 10 min, and a near-BODY_MAX site publish while the PC is the proposer.
-- **If the PC cannot join,** use `tc netem` with 150 ± 30 ms and a 1-5 Mbit/s upload limit.
-- **After the rehearsal** the devices are re-provisioned and every founder key is made fresh again for the mainnet
-  ceremony ([deploy/standalone/README.md](../../deploy/standalone/README.md), "Rehearsal, then mainnet").
+- **If the PC cannot join,** its link conditions cannot be emulated on the public network; T1 and T7 are then read from
+  the servers alone and the PC's part is recorded as not measured.
+
+### 1a. Where each measure is taken
+
+| Measure | Taken on | Why |
+|---|---|---|
+| T1-T7, M2, M4, D1, section 5 | PoCol Mainnet, from its operation after the launch | They read the running network and change nothing |
+| T8 | PoCol Mainnet, at the launch itself | The founders' start at g_ts is the launch; there is no earlier run to practise it |
+| M1 (full set), M3, R-off | A devnet, or recorded as not measured | On the public network a fill would take up to 10,000 of its M_max seats with idle identities, and R-off evicts a founder; the harness (section 7) refuses the mainnet chain by default |
+| S1 | PoCol Mainnet for the publishes and fetches; the near-full-cap refusal on a cap-test devnet | The cap-test build is never a mainnet build |
+| S2 | A cap-test devnet, or recorded as not measured | It fills ACCT_CAP and activates the cap raise, which on mainnet is a scheduled fork |
+| Section 4 drills | PoCol Mainnet with the owner's approval (4.2, 4.3, 4.4), or a devnet (4.1) | A partition of a founder on the public network interrupts its production |
+
+Which devnet hosts these runs, and whether a measure is recorded as not measured instead, is the owner's choice: until
+then each of them stays unmeasured, and L1 stays open.
 
 ## 2. Thresholds (design §4b)
 
 | # | Measure | Pass | Remedy |
 |---|---|---|---|
-| T1 | `pocol_templateLatency` per pair | late 0; sinceParentMs p99 ≤ 1,000 ms (Δ1) or ≤ 2,000 ms (Δ2); max < Δ_rel − 2 s, including full-body templates from the PC | Peer the PC to the US servers only, declare Δ2 (same CP), require ≥ 5 Mbit/s upload, or run the PC as a non-mining node (N3). Last resort: T_blk 20-30 s before genesis. |
+| T1 | `pocol_templateLatency` per pair | late 0; sinceParentMs p99 ≤ 1,000 ms (Δ1) or ≤ 2,000 ms (Δ2); max < Δ_rel − 2 s, including full-body templates from the PC | Peer the PC to the US servers only, declare Δ2 (same CP), require ≥ 5 Mbit/s upload, or run the PC as a non-mining node (N3). Last resort: T_blk 20-30 s, after the launch only through a fork. |
 | T2 | Clock offsets | pairwise ≤ 500 ms; zero future-queued templates | Fix NTP. φ = 2 still passes at dFbWait 8. |
 | T3 | t_exec | worst block (GAS_LIMIT, site publish): validate+commit p99 ≤ 1 s on every founder; R14/R19 admitted | Lower GAS_LIMIT or BODY_MAX, or replace the slow founder. |
 | T4 | Empty blocks | a=0 ≤ 0.5 %, a≥1 ≤ 0.2 % (outside off/on windows) | Raise D_att. |
 | T5 | Forks | siblings ≤ 2 %, max reorg ≤ 2, `reorgs_ge_k_safe` 0 at `safe` 6, no alarm at 60 | Fix relay, then T_blk 20-30 s. |
-| T6 | Intervals | 24 h mean 10 s ± 5 %; difficulty noise ≤ ±10 %; re-converges ≤ 150 blocks after a 25 % step; first 100 blocks' mean in 5-20 s | Re-measure hashRate; τ 1,200-1,800. |
+| T6 | Intervals | 24 h mean 10 s ± 5 %; difficulty noise ≤ ±10 %; re-converges ≤ 150 blocks after a 25 % step; first 100 blocks' mean in 5-20 s | Before the genesis: re-measure the hash rate (`pocol hashrate`). After the launch: τ 1,200-1,800 through a fork. |
 | T7 | Home-PC shares | ≥ 99 % credited; credited fraction ≥ 0.95 × hashrate fraction | As T1. |
 | T8 | Launch drill | all founders mining within D_att of g_ts | Scripted start. |
 | M1 | **Full set:** a registration harness registers up to 10,000 identities (about 2,500 blocks ≈ 7 h), mostly idle, with some ACCRUING miners | child_ctx p99 < 100 ms; RSS within the A13 bound; history growth per day within C6's target; gateway reward computation < 1 s per block; T4 and T5 unchanged | Finish or repair FN-3 or the child-context caching (FN-1, FN-1b), then run M1 again. |
@@ -70,7 +94,7 @@ Reading the measures on the node (section 8's collector records T1, T2, T5 and T
 - **M1.** C6's history target is 100 MB a day for the membership part of history.redb
   ([FN-3C-C6-EVIDENCE](../decisions/FN-3C-C6-EVIDENCE-2026-11-14.md)). The A13 bound is in section 5. The fill and the
   M3 and R-off registrations are made with the harness of section 7.
-- **S2** follows [OPERATIONS.md](OPERATIONS.md), "Activating the cap raise (FN-5, C10; rehearsal S2)", step 7.
+- **S2** follows [OPERATIONS.md](OPERATIONS.md), "Activating the cap raise (FN-5, C10; launch evidence S2)", step 7.
 
 ## 3. The risks these measures read (design §4a)
 
@@ -88,14 +112,15 @@ Reading the measures on the node (section 8's collector records T1, T2, T5 and T
 | 10. Site throughput and lifetime | One full chunk per block is about 2.4 KiB/s. A 4 MiB site takes about 29 min (175 blocks) and pushes the base fee from 0.01 to about 15 gwei (about 1.9 PCOL burned). The explorer bundle (1.66 MB) takes about 70 blocks. The IDE bundle (20.6 MB, one 10.8 MB file) stays hosted. CODE_CAP is the lifetime limit. | S1 |
 | 11. Disk | The journal is never compacted: worst case BODY_MAX × 8,640 ≈ 1.7 GB per day (about 620 GB per year). Size the servers' disks for at least 2 years of worst case, or measure and alarm. | D1, section 5 |
 | 13. R_KEEP 5.7 h | A longer partition forces a resync. | section 4.1 |
-| 14. Admission label | The release reports `publicLaunchReady: false` with its launch blockers (Q3). The report is node-local and refuses nothing. Owner decision 2026-11-18: the launch disclosures carry no "not public-launch-ready" item. | (reported, not measured) |
+| 14. Admission label | PoCol Mainnet is admitted in scope public-network (OWNER-DECISIONS-2026-11-20 D5, superseding Q3 = a for its chain), never specification compliance, with its conditions and the owner's R13, R21 and R26 waivers reported in `technicalReadiness`. Launch approval is computed apart from it (D4). Owner decision 2026-11-18: the launch disclosures carry no "not public-launch-ready" item. | (reported, not measured) |
 
-Risk 12 (process: FN-2b's same-PR rule and the one-shot lock reset) is a development rule, not a rehearsal measure.
+Risk 12 (process: FN-2b's same-PR rule and the one-shot lock reset) is a development rule, not a launch-evidence
+measure.
 
 ## 4. Operations drills (gate L1)
 
-Each drill runs on the rehearsal network and records its timestamps; its window is left out of T4 and T5, like the
-home-PC off/on window. The
+Each drill runs where section 1a says, with the owner's approval on PoCol Mainnet, and records its timestamps; its
+window is left out of T4 and T5, like the home-PC off/on window. A drill not run is recorded as not run. The
 server commands use the paths of `deploy/standalone/install-linux.sh` (`/opt/pocol-standalone`, the
 `pocol-standalone` user and home `/var/lib/pocol-standalone`, RPC on `127.0.0.1:8545`). A node's state is read with
 RPC on the host, for example:
@@ -132,8 +157,8 @@ Pass: the node reopens without a `LOCAL CAPACITY` refusal at open ([OPERATIONS.m
 ### 4.3 Backup and restore
 
 1. On one server, back up the miner key encrypted and check the backup, as the `pocol-standalone` user
-   ([RECOVERY.md](RECOVERY.md), section 1: `pocol-key export`, then `pocol-sign --chain-id 1656550731 --address
-   --backup BACKUP`).
+   ([RECOVERY.md](RECOVERY.md), section 1: `pocol-key export`, then `pocol-sign --chain-id 2656089850 --address
+   --backup BACKUP`; 1656550731 on a devnet of the rehearsal profile).
 2. Restore it as in [RECOVERY.md](RECOVERY.md), section 2 (`pocol-key import` for a missing key file; `pocol
    import-key` into a re-provisioned home), with the server's node stopped. Never run two nodes with one miner key.
 3. On the PC, back up and restore the wallet key (Settings → Key backup, or `pocol.exe export-key` and `import-key`;
@@ -171,7 +196,7 @@ migration tool yet (the G3 TODO in OPERATIONS.md). Remedy: fix the build identit
 
 ## 5. Resource-growth bound
 
-RSS and disk are recorded on every founder over the whole run, M1 included, and read against the A13 store-mode bound
+RSS and disk are recorded on every founder over the whole run, and on the devnet's nodes during M1, and read against the A13 store-mode bound
 ([A13-DERIVATION](../audit-2026-10-22/A13-DERIVATION.md), sections "FN-3c" and "FN-1b";
 [FN-3C-C6-EVIDENCE](../decisions/FN-3C-C6-EVIDENCE-2026-11-14.md)).
 
@@ -179,13 +204,17 @@ RSS and disk are recorded on every founder over the whole run, M1 included, and 
   the committed v3 profile, as a founder opens it in store mode, at 5,512,153,289 B (5.13 GiB,
   `prototypes/pocold/tests/network_budget.rs`), under the usable 5,637,144,576 B (7/8 of the 6 GiB default budget,
   `POCOL_MEMORY_BUDGET_BYTES`). The model leaves out allocator overhead and fragmentation, so it is not a ceiling on
-  RSS. The server unit sets `MemoryMax=7G` and `MemorySwapMax=0` and no `MemoryHigh` (`install-linux.sh`), so each
-  server needs at least 8 GiB of RAM. Sample the node's RSS, for example
+  RSS. The server unit sets `MemoryMax=7G` and `MemorySwapMax=0` and no `MemoryHigh` (`install-linux.sh`): it is sized
+  for a host with at least 8 GiB of RAM. PoCol Mainnet's founder servers have 4 GB, a risk the owner accepted
+  (OWNER-DECISIONS-2026-11-20 D2; FINDINGS.md F-23, F-93). There the 7G limit is never reached and the host's memory
+  is the limit (RSS cannot reach the A13 bound): a node that outgrows the host is stopped by the kernel's OOM killer
+  and restarted by systemd (`Restart=on-failure`, at most 5 starts in 300 s). Sample the node's RSS, for example
   `ps -o rss= -p "$(systemctl show -p MainPID --value pocol-standalone)"`, the unit's
   `systemctl show -p MemoryCurrent pocol-standalone` (which includes page cache) and `pocol_status` `a13.boundBytes`
   and `a13.budgetBytes`. Pass: peak RSS stays within the bound and does not grow with height across the run (A13 §2g,
-  windowed history), and no service restart is caused by `MemoryMax` (a node stopped by it shows as a restart, which
-  is a miss). The `LOCAL CAPACITY warning` is expected at the default budget ([OPERATIONS.md](OPERATIONS.md), "LOCAL
+  windowed history), and no restart is caused by running out of memory, whether by the unit's `MemoryMax` or by the
+  kernel's OOM killer (`journalctl -k` reports an out-of-memory kill of the node's process); either shows as a
+  restart (`NRestarts`), which is a miss. The `LOCAL CAPACITY warning` is expected at the default budget ([OPERATIONS.md](OPERATIONS.md), "LOCAL
   CAPACITY"); the stop is not. Remedy: size the host's memory and the unit's limits (owner approval), or reduce the
   node's memory use in code with A13 re-derived.
 - **Disk (D1).** Record the daily growth of the journal, history.redb and state.redb, and the node's `diskObserved` and
@@ -202,7 +231,8 @@ RSS and disk are recorded on every founder over the whole run, M1 included, and 
 ## 6. Recording
 
 Record each measure with its value, its threshold, pass or miss, and any remedy applied, under
-[evidence/](evidence/) for the rehearsal run. The evidence holds only public data: addresses, hashes, heights,
+[evidence/](evidence/), naming where it was taken (PoCol Mainnet after the launch, or a devnet). A measure not taken
+is recorded as not measured, never as passed. The evidence holds only public data: addresses, hashes, heights,
 timings and counters, never a key file, a backup or a passphrase. A gate in [PLAN.md](PLAN.md) changes its status only
 with that evidence. Section 8's collector writes only such data: it never stores a node's peer list or discovery state,
 which name the peers' IP addresses (the PC's home address among them).
@@ -210,8 +240,8 @@ which name the peers' IP addresses (the PC's home address among them).
 ## 7. The registration fill harness (M1, M3, R-off)
 
 `deploy/rehearsal/registration_fill.py` makes the registrations M1, M3 and R-off need, over the node's JSON-RPC. It is
-tooling: it changes no consensus rule or CP value, judges no threshold and closes no gate. M1 is measured in the
-rehearsal itself, and the measures are read against section 2 and recorded as section 6 says.
+tooling: it changes no consensus rule or CP value, judges no threshold and closes no gate. It runs on a devnet
+(section 1a), not on PoCol Mainnet, and the measures are read against section 2 and recorded as section 6 says.
 
 **What it does.** `fill` registers up to `--count` fresh identities (default 10,000, clamped to the free seats:
 M_max less the active members, and REG_RECORDS_MAX less the records), mostly idle zero-bond (ACCRUING) members,
@@ -248,9 +278,9 @@ node's pending layer holds counts as sent, since the operator's balance at `pend
 already paid it; one the pending layer does not hold (parked, or no longer held) is charged. `--dry-run` reads no pool
 and charges such a transfer.
 
-**Refusals.** Chain id 2656089850 (the mainnet) is refused unless `--allow-mainnet-chain` is given;
-`--expect-chain-id 1656550731` refuses any other chain. A harness directory belongs to the chain and genesis it was
-first used on.
+**Refusals.** Chain id 2656089850 (PoCol Mainnet) is refused unless `--allow-mainnet-chain` is given, which this plan
+never uses; `--expect-chain-id 1656550731` (a devnet of the rehearsal profile) refuses any other chain. A harness
+directory belongs to the chain and genesis it was first used on.
 
 **Setup.** Run the harness as an ordinary, non-root user that can reach the node's RPC (and read its `/proc` entry,
 for `--node-pid`), not as root and not as the `pocol-standalone` user: the harness's keys are that user's, and its
@@ -269,7 +299,8 @@ reward address) and the mining identities' rewards. The harness moves none of it
 and move the balances first where they matter. Without `--discard-funds`, `delete-keys` is refused and names the
 recorded identities, bonds and miners.
 
-**M1.** On a founder server, from a checkout of this repository (the harness imports
+**M1.** On a host of the devnet that runs M1 (section 1a; never a founder server while it runs PoCol Mainnet),
+installed with `install-linux.sh` as the paths below assume, from a checkout of this repository (the harness imports
 `deploy/rewards/pocol_rewards.py`; it is not part of the release package), as that user. `--network` is the network's
 invitation (`network.pocol.json`), which the mining identities' nodes start from:
 
@@ -440,7 +471,7 @@ during the refund wait writes no result (exit 1); it stays saved and the same co
 replacement is saved, `replace` with another `--victim` is refused (exit 3). The PC's own registration again
 (20 PCOL, HELD; once with 0, ACCRUING) is made from its wallet.
 
-**After the rehearsal.** `stop-miners --dir DIR` stops the mining identities' nodes (their homes are recorded as
+**After a fill.** `stop-miners --dir DIR` stops the mining identities' nodes (their homes are recorded as
 absolute paths, so any spelling of DIR finds them); `delete-keys --dir DIR --discard-funds` deletes every harness key
 and the miners' homes (and with them what those keys control, see Funding), and is refused while one of those nodes
 runs or may run. A recorded pid that is alive but whose command line
@@ -461,11 +492,14 @@ part of the release package). It reads the node's loopback RPC and the host's cl
 user (not root, not `pocol-standalone`); it signs, sends and asks for nothing secret. It refuses any `--rpc` other than
 `http://127.0.0.1:PORT` (or `[::1]`), and ignores proxy variables.
 
+On PoCol Mainnet (section 1a) the collector runs on each founder server against its own node; it only reads, so,
+unlike the fill harness, it needs no override for the mainnet chain.
+
 **On each server**, for the whole run (in a `tmux` or `screen` session, or a user service), one sample a minute:
 
 ```sh
 python3 collect_measures.py sample --rpc http://127.0.0.1:8545 --label s1 --out ~/measures --every 60 \
-  --expect-chain-id 1656550731
+  --expect-chain-id 2656089850
 ```
 
 Each sample is one JSON line in `~/measures/measures-s1-<startUTC>.jsonl`, written and synced at once: the service's
@@ -490,8 +524,10 @@ It measures as `Initialize-PoColNetwork.ps1` does (`w32tm /stripchart` against t
 **At the end**, on one server (a second server's copy cross-checks it), the canonical blocks:
 
 ```sh
-python3 collect_measures.py blocks --rpc http://127.0.0.1:8545 --out ~/blocks.jsonl --expect-chain-id 1656550731
+python3 collect_measures.py blocks --rpc http://127.0.0.1:8545 --out ~/blocks.jsonl --expect-chain-id 2656089850
 ```
+
+(On a devnet of the rehearsal profile, section 1a, pass `--expect-chain-id 1656550731` instead, to both commands.)
 
 The export is one chain or nothing. Each block must extend the block read before it, and when the export runs to the
 head, its last block must be the head recorded before the read. If the chain reorganizes during the export, it is

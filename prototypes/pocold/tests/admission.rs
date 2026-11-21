@@ -235,6 +235,7 @@ fn held_profile()->DevnetConfig{let mut c=DevnetConfig::new(777917,1_700_000_000
 /// network's report, admission.rs of 28e295f), binding removed. Two texts moved:
 /// the R18 gas condition names GAS_ENVELOPE_V3 (the only table since phase 6a), and R26's RpcGuard log checks are
 /// derived from the v3 per-block log caps (4,368 logs, 256 KiB of data) instead of the spec-1 546 and 32 KiB.
+/// OWNER-DECISIONS-2026-11-20 D5 added each waiver's `detail` (the R26 waiver's reason); nothing else changed.
 #[test] fn a_generated_continuous_networks_admission_report_is_reproduced_at_boot(){
     let d=tmp("continuous");continuous::continuous_network(&d);
     let info:serde_json::Value=serde_json::from_slice(&std::fs::read(d.join("devnet.json")).unwrap()).unwrap();
@@ -352,6 +353,7 @@ const CONTINUOUS_ADMISSION:&str=r#"{
     "enforceSlack<=500",
     "sendSockBuf<=64KiB"
    ],
+   "detail": "RpcGuard predicates that read fields this node does not enforce are not evaluated",
    "rule": "R26",
    "waived": [
     "derive",

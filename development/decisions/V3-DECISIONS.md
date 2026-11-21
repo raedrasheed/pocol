@@ -269,7 +269,7 @@ checks the advertised `capRaise` against the trusted schedule's fork-3 height), 
 identity tool (`pocol_identity.py`, default bound 3, otherwise build-info's `maxForkVersion`) and the public gateways,
 which pass `capRaise` through. A client release with bound 2 fails closed from the moment its node advertises the new
 schedule, so no activation may be attempted with one in use. `pocol inspect-upgrade` shows the raise (`capRaise`), and
-development/public-network/OPERATIONS.md has the activation and rehearsal-S2 procedure.
+development/public-network/OPERATIONS.md has the activation and the launch-evidence S2 procedure (a cap-test devnet).
 
 ### D-V3-24
 
@@ -302,6 +302,20 @@ Approved within the owner rule; NODE-LOCAL (docs); beacon DEFER. Principle check
 Computed launch-readiness flag and a real network-admission path (CONS-4, MAT-02, EXEC-03). Compute readiness from specification admission, no conditions or waivers and completed launch gates; expose blockers. Never turn deployment branding into readiness evidence.
 
 Approved within the owner rule; NODE-LOCAL. Principle check: kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md.
+
+**Superseded in part by owner decision 2026-11-20 ([OWNER-DECISIONS-2026-11-20.md](OWNER-DECISIONS-2026-11-20.md) D4,
+D5, D6): launch approval is computed apart from technical readiness, and PoCol Mainnet has its own admission.** The
+notes below keep their text. Since then `readiness.rs` reports `publicLaunchApproved` (the build's hard facts, v3
+active, a `NETWORK_PROFILES` pin with an approval reference and the expected admission `PUBLIC_MAINNET` or `LAUNCH`,
+and a booted admission matching it exactly), `launchApprovalReference`, `publicLaunchReady` (approved with no launch
+blocker), `launchBlockers` (the hard blockers only, with the new `launch-not-approved` and `admission-mismatch`) and
+`technicalReadiness` {complete, pending}, to which the `plan-gate-*`, `admission-scope`, `admission-condition-*`,
+`admission-waiver-*` and `profile-kind` items moved. The launcher's LAUNCH stand-in is removed: the launcher always
+reports `admission-not-booted` and is never approved. R22 allows the network profile on 777001 and on
+`PUBLIC_NETWORK_CHAINS` (PoCol Mainnet's 2656089850), where the network boots in scope public-network with the owner's
+explicit R13, R21 and R26 waivers, so `profile-kind` no longer applies there; `set_network_identity.py` pins PoCol
+Mainnet with `PUBLIC_MAINNET` and the approval reference "OWNER-DECISIONS-2026-11-20 D1", and any other allowed
+network with `FRESH_NETWORK` without one. A recorded network profile counts on 777001 and the public network chains.
 
 **Implementation note (H1, N5).** `prototypes/pocold/src/readiness.rs` replaces the literal `publicLaunchReady:false`
 (`build.rs`, `launcher.rs`, `testnet.rs`) with a computed value: `publicLaunchReady` is true only when
@@ -457,6 +471,6 @@ Seeds (owner statement, V3-OWNER-DECISIONS-2026-11-08.md §3): the three operato
 
 ## Validation and operational boundaries
 
-Each implementation PR starts from newest main and merges only after all CI jobs are green and valid review findings are fixed or answered. Never skip or disable a test. Require exact A13 accounting, ParamGate R1-R26 at the committed profiles (FN-4, `fn4_profiles.rs`) and a pinned consensus-sources lock. The rehearsal runs on a closed network with the rehearsal chain id (1656550731) before the mainnet ceremony. Do not run the genesis ceremony or choose the launch date without the owner.
+Each implementation PR starts from newest main and merges only after all CI jobs are green and valid review findings are fixed or answered. Never skip or disable a test. Require exact A13 accounting, ParamGate R1-R26 at the committed profiles (FN-4, `fn4_profiles.rs`) and a pinned consensus-sources lock. The rehearsal runs on a closed network with the rehearsal chain id (1656550731) before the mainnet ceremony. Do not run the genesis ceremony or choose the launch date without the owner. (Superseded by owner decision 2026-11-20 D1: there is no rehearsal; PoCol Mainnet launches directly from its ceremony, and the rehearsal profile is only a test and devnet profile.)
 
-The profile values, particularly WAN timing, caps and gas/memory bounds, are decided values, not measured results. The rehearsal measures them (the launch evidence T1-T8, M1-M4; FRESH-NETWORK-CP.md §9); a failed threshold changes only profile values, recorded in FRESH-NETWORK-CP.md. No implementation or CI result proves PoW-equivalent security or closes the external audit.
+The profile values, particularly WAN timing, caps and gas/memory bounds, are decided values, not measured results. The rehearsal measures them (the launch evidence T1-T8, M1-M4; FRESH-NETWORK-CP.md §9); a failed threshold changes only profile values, recorded in FRESH-NETWORK-CP.md. (Superseded by owner decision 2026-11-20 D1: the launch evidence is measured on PoCol Mainnet after the launch, development/public-network/REHEARSAL.md, and a remedy that changes a consensus parameter is then a fork with notice.) No implementation or CI result proves PoW-equivalent security or closes the external audit.

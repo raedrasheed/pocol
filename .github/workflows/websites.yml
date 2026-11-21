@@ -33,6 +33,24 @@ on:
       - 'deploy/standalone/package.py'
       # Sites W7: explorer_w7.test.mjs checks the decoder's selectors against the Registry signatures there.
       - 'prototypes/lp4-execution/contracts/system/PoColSystemV3.sol'
+      # test_launch_decisions.py (OWNER-DECISIONS-2026-11-20): the readiness fields the status page names, the
+      # public-network scope name, and the client user interface sources it checks for superseded launch claims.
+      - 'prototypes/pocold/src/readiness.rs'
+      - 'prototypes/lp4-execution/src/admission/scope.rs'
+      - 'prototypes/pocol-windows/**'
+      - 'prototypes/pocol-android/app/src/main/**'
+      # test_owner_decision_record.py: the owner decision records that the accepted risks and the approval references
+      # name (the readiness and identity sources it reads are listed above).
+      - 'development/decisions/OWNER-DECISIONS-*.md'
+      # test_launch_decisions.py: the current operator and reference documents it checks for superseded launch claims
+      # (deploy/mainnet is listed above), and the decision records and documents the guide's repository sources pin,
+      # which it reads at their pinned revisions with git (the checkout keeps the history).
+      - 'README.md'
+      - 'development/m1/reference/threat.md'
+      - 'development/public-network/PLAN.md'
+      - 'development/decisions/FRESH-NETWORK-CP.md'
+      - 'deploy/public-testnet/README.md'
+      - 'deploy/standalone/README.md'
       # A config.php anywhere (the .gitignore rule covers only api/ directories) runs the tracked-config.php guard.
       - '**/config.php'
       - '.gitignore'
@@ -60,6 +78,17 @@ on:
       - 'deploy/release/assemble_release.py'
       - 'deploy/standalone/package.py'
       - 'prototypes/lp4-execution/contracts/system/PoColSystemV3.sol'
+      - 'prototypes/pocold/src/readiness.rs'
+      - 'prototypes/lp4-execution/src/admission/scope.rs'
+      - 'prototypes/pocol-windows/**'
+      - 'prototypes/pocol-android/app/src/main/**'
+      - 'development/decisions/OWNER-DECISIONS-*.md'
+      - 'README.md'
+      - 'development/m1/reference/threat.md'
+      - 'development/public-network/PLAN.md'
+      - 'development/decisions/FRESH-NETWORK-CP.md'
+      - 'deploy/public-testnet/README.md'
+      - 'deploy/standalone/README.md'
       - '**/config.php'
       - '.gitignore'
       - '.github/workflows/websites.yml'
@@ -76,6 +105,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # test_launch_decisions.py reads each guide source at the revision it pins (git show).
+          fetch-depth: 0
           persist-credentials: false
       - name: No config.php is tracked
         run: |

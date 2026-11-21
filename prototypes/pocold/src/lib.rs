@@ -134,6 +134,16 @@ pub(crate) mod alloc_meter{
 
 use pocol_lp4_execution::{admission::{self,NodeLocal,Request},devnet,gate::FactClass,profile::{NodeKind,ProfileKind}};
 
+/// The admission a genesis on `chain_id` is booted with (OWNER-DECISIONS-2026-11-20 D5): on a public network chain
+/// (`profile::PUBLIC_NETWORK_CHAINS`) the network profile on a network node in scope public-network, otherwise a simnet
+/// profile on a simnet node in scope experimental-devnet. 777001 is never a pocold devnet chain (init-testnet refuses
+/// it). Boot (`load_spec_calibrated`), init-testnet and the launcher's upgrade check (the kinds) all call this, so the
+/// kinds of a chain are decided in one place; the admission then evaluates R1-R26 on the actual artifacts.
+pub fn boot_admission(chain_id:u64)->(ProfileKind,NodeKind,admission::Scope){
+    if pocol_lp4_execution::profile::PUBLIC_NETWORK_CHAINS.contains(&chain_id){(ProfileKind::Network,NodeKind::Node,admission::Scope::PublicNetwork)}
+    else{(ProfileKind::Simnet,NodeKind::Simnet,admission::Scope::ExperimentalDevnet)}
+}
+
 /// The node-local parameters of a single-host devnet node, with pocold's actual
 /// gossip frame limit (net::MAX_FRAME) for every message type and its RPC limits.
 /// D-A13-BUDGET (local, owner-approved option 1): side_max 8 -> 2 (side-branch states; a pruned
@@ -148,7 +158,7 @@ pub fn single_host_local()->NodeLocal{NodeLocal{gossip:[net::MAX_FRAME as u32;6]
 /// are the per-connection bucket on a connection's one request (rate is vacuous there: RPC_EQUIVALENT
 /// reports it in the admission notes); send_sock_buf is SEND_SOCK_BUF, set on every accepted
 /// connection (one whose buffer cannot be set to it is not served). Four fields stay absent,
-/// never nominal, so admission can only be an experimental-devnet admission: scratch_heavy and scratch_light (only the log handlers are charged; the
+/// never nominal, so admission can only be an admission that is never specification compliance: experimental-devnet, or public-network on a public chain: scratch_heavy and scratch_light (only the log handlers are charged; the
 /// others, eth_call's EVM memory included, are not), mem_total (pocold bounds RPC memory through its
 /// own A13 budget, not a 192 MiB field), and cancel_max_ms (a precompile call is not interruptible,
 /// so the cancellation gap is not bounded by 100 ms).
@@ -180,7 +190,7 @@ pub fn admission_json(a:&admission::Admitted)->serde_json::Value{
     let r=a.report();
     let notes:Vec<String>=r.notes.iter().cloned().chain(RPC_EQUIVALENT.iter().map(|(f,w)|format!("R26 {f}: equivalent, {w}"))).collect();
     serde_json::json!({"scope":r.scope.name(),"specificationCompliant":a.specification_compliant(),"binding":types::hex(&r.binding),
-        "waivers":r.waivers.iter().map(|w|serde_json::json!({"rule":w.rule,"absent":w.absent,"waived":w.waived,"checked":w.checked})).collect::<Vec<_>>(),
+        "waivers":r.waivers.iter().map(|w|serde_json::json!({"rule":w.rule,"absent":w.absent,"waived":w.waived,"checked":w.checked,"detail":w.detail})).collect::<Vec<_>>(),
         "conditions":r.conditions.iter().map(|c|serde_json::json!({"id":c.id,"rules":c.rules,"detail":c.detail})).collect::<Vec<_>>(),
         "notes":notes,"deferred":r.deferred})
 }
@@ -267,9 +277,12 @@ pub fn load_spec_calibrated(dir:&std::path::Path,local:&NodeLocal,mut measure:im
     // `synthetic-fixture` otherwise); anything else stays a synthetic fixture.
     let class=if info["calibration"]["class"]=="measurement"{FactClass::Measurement}else{FactClass::SyntheticFixture};
     let calibration=info["calibration"]["hashesPerSecond"].as_u64().map(|r|(r,class));
+    // The requested admission follows the genesis's own chain id (an undecodable spec is refused by the admission).
+    let chain_id=if spec_bytes.len()<=pocol_lp4_execution::genesis_spec::MAX_SPEC_BYTES{pocol_lp4_execution::genesis_spec::decode(&spec_bytes).map(|s|s.chain_id).unwrap_or(0)}else{0};
+    let (kind,node,scope)=boot_admission(chain_id);
     for attempt in 0..2{
         let measured=measure(&spec_bytes,&alloc);
-        let req=Request{spec_bytes:&spec_bytes,alloc:&alloc,forks:&forks,kind:ProfileKind::Simnet,node:NodeKind::Simnet,local,calibration,timing:measured.as_ref().ok(),scope:admission::Scope::ExperimentalDevnet};
+        let req=Request{spec_bytes:&spec_bytes,alloc:&alloc,forks:&forks,kind,node,local,calibration,timing:measured.as_ref().ok(),scope};
         match admission::admit_with(&req,raise.as_ref()){
             Ok(a)=>return Ok(chain::Spec::new(a)),
             Err(e)=>{

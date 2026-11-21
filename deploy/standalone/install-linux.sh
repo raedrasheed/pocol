@@ -48,8 +48,10 @@ LimitNOFILE=4096
 # A13: the node's model at the v3 profile is 5,512,153,289 B (prototypes/pocold/tests/network_budget.rs), which its
 # gate keeps, with a 1/8 reserve, inside the 6 GiB budget (POCOL_MEMORY_BUDGET_BYTES, default node::MEM_BUDGET). The
 # model leaves out allocator overhead, so the cap adds 1 GiB the budget does not count (binary, page tables, socket
-# buffers, page cache). No MemoryHigh: throttling below the budget would slow a node with 10 s blocks. Host: at least
-# 8 GiB of RAM.
+# buffers, page cache). No MemoryHigh: throttling below the budget would slow a node with 10 s blocks. Sized for a
+# host with at least 8 GiB of RAM. On a smaller host (PoCol Mainnet's founder servers have 4 GB, an accepted risk:
+# OWNER-DECISIONS-2026-11-20 D2, FINDINGS.md F-23) this cap is never reached and the kernel's OOM killer stops the
+# node instead; Restart=on-failure starts it again (at most StartLimitBurst starts in StartLimitIntervalSec).
 MemoryMax=7G
 MemorySwapMax=0
 

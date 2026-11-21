@@ -408,30 +408,42 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{rpc_call(rpc,
     let _=std::fs::remove_dir_all(&d);
 }
 
-/// V3-28 H1: `publicLaunchReady` is computed and reported beside `launchBlockers`, every reason it is false: by
-/// `pocold build-info` and `pocol build-info` (the build alone), by `init-testnet` (the profile it admitted), by a
-/// running node's pocol_status and by `pocold status` (the admission the node booted with). Today it is false for
-/// the build's reasons (the open PLAN.md gates; SPEC_VERSION 2 is the release, so not spec-version) and the network's (experimental-devnet admission with
-/// its conditions, a simnet profile, no release-pinned launch network; since Phase 6a the generated network is v3 from
-/// genesis, so "v3-inactive" is never among them).
+/// V3-28 H1, OWNER-DECISIONS-2026-11-20 D4: launch approval and readiness are computed and reported with every reason
+/// they are false (`launchBlockers`, the hard blockers) and, apart, what is technically open (`technicalReadiness`): by
+/// `pocold build-info` and `pocol build-info` (the build alone), by `init-testnet` (the profile it admitted), by a running
+/// node's pocol_status and by `pocold status` (the admission the node booted with), and by `pocol inspect` (the
+/// launcher, which boots nothing). Today a generated devnet is not approved for the network's reasons (no release pin,
+/// so no launch approval) and reports the open PLAN.md gates and its experimental-devnet admission (conditions, a simnet
+/// profile) as pending; since Phase 6a the generated network is v3 from genesis, so "v3-inactive" is never among them.
+/// The booted producers agree exactly on every readiness field, and the launcher agrees with them on the approval
+/// reference and the technical readiness.
 #[test] fn launch_readiness_is_computed_and_reported_with_its_blockers(){
-    let ids=|v:&serde_json::Value|->Vec<String>{
-        assert_eq!(v["publicLaunchReady"],false,"{v}");
-        let b=v["launchBlockers"].as_array().unwrap_or_else(||panic!("launchBlockers: {v}"));
-        assert!(!b.is_empty()&&b.iter().all(|x|x["id"].is_string()&&x["detail"].as_str().is_some_and(|d|!d.is_empty())),"{v}");
-        b.iter().map(|x|x["id"].as_str().unwrap().to_string()).collect()};
+    let ids=|v:&serde_json::Value,key:&str|->Vec<String>{
+        assert_eq!((v["publicLaunchApproved"].as_bool(),v["publicLaunchReady"].as_bool()),(Some(false),Some(false)),"{v}");
+        let list=|b:&serde_json::Value|->Vec<String>{
+            let b=b.as_array().unwrap_or_else(||panic!("{key}: {v}"));
+            assert!(b.iter().all(|x|x["id"].is_string()&&x["detail"].as_str().is_some_and(|d|!d.is_empty())),"{v}");
+            b.iter().map(|x|x["id"].as_str().unwrap().to_string()).collect()};
+        let hard=list(&v["launchBlockers"]);assert!(!hard.is_empty(),"not ready, so a blocker says why: {v}");
+        let pending=list(&v["technicalReadiness"]["pending"]);
+        assert_eq!(v["technicalReadiness"]["complete"].as_bool(),Some(pending.is_empty()),"{v}");
+        if key=="launchBlockers"{hard}else{pending}};
     let has=|got:&[String],want:&[&str]|for w in want{assert!(got.iter().any(|g|g==w),"{w}: {got:?}")};
-    let build=["plan-gate-A1","plan-gate-Q1"];
+    let gates=["plan-gate-A1","plan-gate-Q1"];
+    let fields=["publicLaunchApproved","launchApprovalReference","publicLaunchReady","launchBlockers","technicalReadiness","networkName","networkEnvironment","networkScope"];
     for bin in [env!("CARGO_BIN_EXE_pocold"),env!("CARGO_BIN_EXE_pocol")]{
         let o=Command::new(bin).arg("build-info").output().unwrap();assert!(o.status.success(),"{}",text(&o.stderr));
         let info:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
         assert_eq!(info["scope"],"mainnet","build-info scope label (owner decision 7)");
         assert_eq!(info["version"],env!("CARGO_PKG_VERSION"),"build-info release version (owner decision 1)");
-        let got=ids(&info);has(&got,&build);has(&got,&["no-network"]);
-        assert!(!got.iter().any(|g|g=="v3-inactive"||g.starts_with("admission-")),"the build alone has no network facts: {got:?}");
+        let got=ids(&info,"launchBlockers");has(&got,&["no-network"]);
+        has(&ids(&info,"technicalReadiness"),&gates);has(&ids(&info,"technicalReadiness"),&["no-network"]);
+        assert!(!got.iter().any(|g|g=="v3-inactive"||g.starts_with("admission-")||g.starts_with("plan-gate-")),"the build alone has no network facts: {got:?}");
         assert!(info.get("v3Preview").is_none()&&!got.iter().any(|g|g=="spec-version"||g=="v3-preview-build"),"no preview build, spec 2 is the release: {got:?}");
+        for k in ["launchApprovalReference","networkName","networkEnvironment","networkScope"]{assert!(info[k].is_null(),"{k}: {info}")}
     }
-    let network=["network-not-release-pinned","admission-scope","admission-condition-calibration-synthetic","profile-kind"];
+    let network=["network-not-release-pinned","launch-not-approved"];
+    let admission=["admission-scope","admission-condition-calibration-synthetic","profile-kind"];
     let d=tmp("launch-ready");std::fs::create_dir_all(&d).unwrap();
     let miner=pocol_lp4_execution::devnet::miner_identity("launch-ready");
     let config=d.join("public.json");
@@ -441,8 +453,12 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{rpc_call(rpc,
     let o=pocold(&["init-testnet","--config",config.to_str().unwrap(),"--out",out.to_str().unwrap()]);assert!(o.status.success(),"{}",text(&o.stderr));
     let summary:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
     assert_eq!(summary["scope"],"experimental-devnet");
-    let got=ids(&summary);has(&got,&build);has(&got,&network);assert!(!got.iter().any(|g|g=="no-network"||g=="v3-inactive"),"{got:?}");
-    // A running node answers pocol_status with the same computed fields; `pocold status` prints the same list.
+    assert_eq!((summary["networkScope"].as_str(),summary["networkEnvironment"].as_str()),(Some("experimental-devnet"),Some("devnet")));
+    assert!(summary["networkName"].is_null()&&summary["launchApprovalReference"].is_null(),"{summary}");
+    let got=ids(&summary,"launchBlockers");assert_eq!(got,network,"{summary}");
+    let pending=ids(&summary,"technicalReadiness");has(&pending,&gates);has(&pending,&admission);
+    assert!(!got.iter().chain(&pending).any(|g|g=="no-network"||g=="v3-inactive"),"{got:?}");
+    // A running node answers pocol_status with the same computed fields; `pocold status` prints the same.
     let rpc={let l=std::net::TcpListener::bind("127.0.0.1:0").unwrap();l.local_addr().unwrap()};
     let data=d.join("data");
     let mut c=Command::new(env!("CARGO_BIN_EXE_pocold")).args(["run","--network",out.to_str().unwrap(),"--data",data.to_str().unwrap(),"--rpc",&rpc.to_string(),"--no-discovery"])
@@ -457,14 +473,27 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{rpc_call(rpc,
     let _=c.kill();let _=c.wait();
     let status=seen.expect("pocol_status within 60 s");
     assert_eq!(client,Some(serde_json::json!(format!("pocold/{}",env!("CARGO_PKG_VERSION")))),"web3_clientVersion");
-    let live=ids(&status);has(&live,&build);has(&live,&network);
-    assert_eq!(status["launchBlockers"],summary["launchBlockers"],"the node reports what init-testnet reported for the same build and profile");
+    ids(&status,"launchBlockers");
+    for k in fields{assert_eq!(status[k],summary[k],"{k}: the node reports what init-testnet reported for the same build and profile")}
     assert_eq!(status["admission"]["scope"],"experimental-devnet");
     let conditions:Vec<String>=status["admission"]["conditions"].as_array().unwrap().iter().map(|c|format!("admission-condition-{}",c["id"].as_str().unwrap())).collect();
-    has(&live,&conditions.iter().map(String::as_str).collect::<Vec<_>>());
+    has(&ids(&status,"technicalReadiness"),&conditions.iter().map(String::as_str).collect::<Vec<_>>());
     let o=pocold(&["status","--network",out.to_str().unwrap(),"--data",data.to_str().unwrap()]);assert!(o.status.success(),"{}",text(&o.stderr));
     let offline:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
-    assert_eq!(offline["publicLaunchReady"],false);assert_eq!(offline["launchBlockers"],status["launchBlockers"]);
+    ids(&offline,"launchBlockers");
+    for k in fields{assert_eq!(offline[k],status[k],"{k}")}
+    // The launcher's description of the same network boots nothing: never approved, admission-not-booted, and the
+    // same approval reference and technical readiness (devnet.json records the admission init-testnet made).
+    let invitation=d.join("network.pocol.json");
+    let o=Command::new(env!("CARGO_BIN_EXE_pocol")).args(["network","--from",out.to_str().unwrap(),"--seed","127.0.0.1:30300","--out",invitation.to_str().unwrap()]).output().unwrap();
+    assert!(o.status.success(),"{}",text(&o.stderr));
+    let o=Command::new(env!("CARGO_BIN_EXE_pocol")).args(["inspect","--network",invitation.to_str().unwrap()]).output().unwrap();
+    assert!(o.status.success(),"{}",text(&o.stderr));
+    let described:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    let hard=ids(&described,"launchBlockers");
+    assert_eq!(hard,["network-not-release-pinned","launch-not-approved","admission-not-booted"],"{described}");
+    for k in ["launchApprovalReference","technicalReadiness","networkName","networkEnvironment"]{assert_eq!(described[k],status[k],"{k}")}
+    assert!(described["networkScope"].is_null(),"the launcher booted nothing");
     let _=std::fs::remove_dir_all(&d);
 }
 /// Phase 5a: init-devnet derives H_half from the chosen T_blk (four years of blocks, FRESH-NETWORK-CP row 52), as

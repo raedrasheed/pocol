@@ -103,7 +103,14 @@ Site truth (owner decision 4, 2026-11-18: no text states anything untrue or pres
 conditional). The explorer bundle's installer step names `deploy/explorer/install_explorer_gateway.py --site DIR` and
 its gateway note says that the gateway listens on 127.0.0.1:8088 behind Caddy (`tools/site-truth-edits.json`, applied
 once with `--edits` after W7). pocol.net, DEPLOY-README-AR.txt and the Studio app were edited directly. The status page
-reports the open gates and says that the node's readiness report is node-local and stops nothing. The retired
+reports the open gates and says that the node's readiness report is node-local and stops nothing. Since
+OWNER-DECISIONS-2026-11-20 (D1, D4 to D6) it describes PoCol Mainnet as the public network (launched without a separate
+rehearsal, admitted in scope public-network with the owner's R13, R21 and R26 waivers reported) and names the launch
+approval fields (`publicLaunchApproved`, `launchApprovalReference`, `publicLaunchReady`, `launchBlockers`) apart from
+`technicalReadiness`, as the node computes them; it states no value of either, and `tests/test_launch_decisions.py`
+refuses the old experimental-admission text, a fixed readiness value and a launch after a closed rehearsal in the
+served files and in the clients' user interface sources. The Studio note and the extension's Options page also call
+PoCol Mainnet the public network. The retired
 network's upgrade, migration and Android-update texts are replaced: nothing carries over to the new network. The
 static source lists are the guide's, and the README, V3 program and CP links pin main at `4db2652`. The 0.5.0
 download links and names, the published extension ID and key fingerprint, and the IDE's "0.4.0 or later" messages

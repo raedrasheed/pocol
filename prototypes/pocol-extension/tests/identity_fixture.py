@@ -62,7 +62,9 @@ def invitation(spec):
 
 def switch(root, out):
     out.mkdir(parents=True, exist_ok=True)
-    rels = set(ni.FILES) | {ni.ANCHOR, ni.NODE_SPEC, ni.RETIRED, ni.INSTALLER, ni.PROFILES, ni.REHEARSAL_PROFILE} \
+    # PUBLIC_CHAINS: the profile code's PUBLIC_NETWORK_CHAINS, which decides the admission and approval of the entry the
+    # switch pins (OWNER-DECISIONS-2026-11-20 D5).
+    rels = set(ni.FILES) | {ni.ANCHOR, ni.NODE_SPEC, ni.RETIRED, ni.INSTALLER, ni.PROFILES, ni.REHEARSAL_PROFILE, ni.PUBLIC_CHAINS} \
         | set(ni.INSTALLER_SOURCES.values()) \
         | {page for page, _ in ni.VERSIONED} | {rel for _, rel in ni.VERSIONED}
     copy(root, out, sorted(rels))

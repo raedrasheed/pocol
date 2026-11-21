@@ -1,8 +1,9 @@
 # Key recovery runbook (gate K1)
 
 How to back up and restore the keys of the fresh network's founders and of the fee faucet, and what to do when a key
-is lost. It belongs to gate K1 in [PLAN.md](PLAN.md), which stays open: the runbook is drilled in the rehearsal
-([REHEARSAL.md](REHEARSAL.md), section 4.3), and an encrypted keystore or HSM remains. The commands are the ones the
+is lost. It belongs to gate K1 in [PLAN.md](PLAN.md), which stays open: the drill of this runbook
+([REHEARSAL.md](REHEARSAL.md), section 4.3) was planned for the rehearsal, which the owner's decision of 2026-11-20 (D1)
+removed, and has not run; an encrypted keystore or HSM remains. The commands are the ones the
 tools implement: `pocol-key` (`prototypes/pocold/src/bin/pocol-key.rs`), `pocol-sign` (`pocol-sign.rs`), `pocol`
 (`pocol.rs`: `identity`, `export-key`, `inspect-key-backup`, `import-key`) and the server layout of
 `deploy/standalone/install-linux.sh`. The key formats and checks are in [KEYS.md](KEYS.md).
@@ -26,7 +27,8 @@ Rules for every key:
 | Offline reward keys (founders 1-3) | the owner's offline device | the 999,980 PCOL allocation of each server founder, its rewards and any bond refund | an encrypted backup and paper copies, held offline by the owner (section 3) |
 | Faucet operator key | `/var/lib/pocol-faucet/operator.pocol-key`, owned by `pocol-faucet` | the faucet's float only, at most 10 PCOL on mainnet | none needed: replace it (section 5) |
 
-Chain ids for `pocol-sign`: 1656550731 on the rehearsal network, 2656089850 on mainnet. With `--address` it only
+Chain ids for `pocol-sign`: 2656089850 on PoCol Mainnet, 1656550731 on a devnet of the rehearsal profile (a test
+profile only). With `--address` it only
 prints the key's address and signs nothing.
 
 ## 1. Server miner key: back up
@@ -249,5 +251,5 @@ sudo -u pocol-faucet /opt/pocol-standalone/pocol-key generate --out /var/lib/poc
 `"state": "unknown"` with the old operator account's nonce (`eth_getTransactionCount` of the old address), as the
 faucet README says. Keep the ledger: it records claims by claimant address, so it stays valid with the new key. Fund
 the new address with at most the float, then `sudo systemctl start pocol-faucet`. The faucet reads the operator
-address from the signer at start. On a rehearsal server use `/opt/pocol-testnet/bin/pocol-key` instead, with
+address from the signer at start. On a devnet server of the rehearsal profile use `/opt/pocol-testnet/bin/pocol-key` instead, with
 `config.example.json` (signer `/opt/pocol-testnet/bin/pocol-sign`), as deploy/faucet/README.md says.

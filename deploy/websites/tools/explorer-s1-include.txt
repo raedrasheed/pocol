@@ -1,4 +1,4 @@
-# Sites W5: the explicit file list of the explorer's on-chain copy for rehearsal S1 (SITES-PLAN.md W5, W15).
+# Sites W5: the explicit file list of the explorer's on-chain copy for S1 (REHEARSAL.md; published on PoCol Mainnet) (SITES-PLAN.md W5, W15).
 # Published only from the git-tracked snapshot (tools/site_snapshot.py reads the committed blobs), never from a host docroot.
 # Not listed, and refused whatever this list says: SHA256SUMS.txt, and any dotfile or api/** (the snapshot holds none
 # since Sites W8: the gateway host serves it as static files and answers its /api reads, deploy/explorer).

@@ -25,14 +25,16 @@ retired network's; the clients are switched to the new identity in one reviewed 
 and clients decode a version-2 `GenesisSpec` (CP schema v2) by default; a release of rules 1, or a network
 invitation for them, is refused at import.
 
-The Mainnet name is a deployment designation. The engine still reports its actual
-experimental admission scope, `specificationCompliant: false` and
-`publicLaunchReady: false`, computed with the `launchBlockers` that keep it false
-(V3-28 H1, `pocold status`, `pocold build-info`); these are not overridden by branding. The `scope`
-field of `pocold build-info` (and of `pocol identity` and `pocol inspect`) reads `mainnet`, the deployment the build is
-for, beside its `version` (0.5.0); the admission scope in `pocold status` and `init-testnet` stays
-`experimental-devnet`, and `publicLaunchReady` stays computed. Independent
-external security review and the technical conditions in
+PoCol Mainnet is the public network, launched from its ceremony without a separate rehearsal
+([owner decisions, 2026-11-20](development/decisions/OWNER-DECISIONS-2026-11-20.md) D1). The engine reports what it
+computes, never a label: a node booted on the mainnet chain admits it as the network profile on a network node in
+scope `public-network` (D5), with `specificationCompliant: false`, its admission conditions and the owner's R13, R21
+and R26 waivers; launch approval (`publicLaunchApproved`, `launchApprovalReference`, `publicLaunchReady`,
+`launchBlockers`) apart from technical readiness (`technicalReadiness`) (D4; V3-28 H1, `pocold status`,
+`pocol_status`, `pocold build-info`). Branding overrides none of these. The `scope` field of `pocold build-info` (and
+of `pocol identity` and `pocol inspect`) reads `mainnet`, the release label of the deployment the build is for,
+beside its `version` (0.5.0); it is not the admission scope, which `pocold status` and `init-testnet` report.
+Independent external security review and the technical conditions in
 [Current status and limits](#current-status-and-limits) remain outstanding.
 
 ---
@@ -321,7 +323,8 @@ the V3 system programs, nonceMode 1, a continuous chain, the 20 PCOL bond and a 
 and caps are devnet-scale: use the current timing defaults, **`T_blk=4`, `dFbWait=3`**, on one host (`init-devnet` records
 the single-host `localTiming` Δ 1, φ 0, t_exec 1 in `devnet.json`, and `run` derives its local timing from it).
 Some historical LP10 examples use older values. Do not copy `--t-blk 2` into the current profile by itself; timing must satisfy
-admission and fallback rules. The devnet builder deliberately refuses the network chainId **777001**.
+admission and fallback rules. The devnet builder deliberately refuses every network chain: **777001** and the
+public network chains (`PUBLIC_NETWORK_CHAINS`, PoCol Mainnet's chain).
 
 Only run one network on these ports. Do not call `start` twice on a running network or expose RPC publicly.
 `prototypes/pocold/target/release/pocold help` lists direct node commands and options.
@@ -547,20 +550,33 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
 
 **Not established, or still open:**
 
-- **Open gates, reported by the software.** PoCol Mainnet is admitted as a Simnet profile in `ExperimentalDevnet`
-  scope, and reports `publicLaunchReady: false` with its `launchBlockers`.
-  - Rule R22 binds the separately defined `Network` profile to chainId 777001, so `profile-kind` and
-    `admission-scope` cannot clear on this network as designed. Renaming a deployment does not change either.
-  - Rule R21 holds at the network's caps only through the simnet `retentionStress` exception.
-  - The open launch gates (identities, enrollment, admission, historical state, Internet exposure, sustained
-    operation, economics, release review) are in [PLAN.md](development/public-network/PLAN.md). The network launches
-    with them open; the software reports them (`launchBlockers`).
+- **Open gates, reported by the software.** PoCol Mainnet is admitted in scope `public-network`, which is not
+  specification compliance (OWNER-DECISIONS-2026-11-20 D5). The node reports in `technicalReadiness.pending` what is
+  open, never as passed:
+  - `admission-scope` and each admission condition (`admission-condition-*`);
+  - the owner's explicit waivers (`admission-waiver-R13`, `-R21`, `-R26`): R13 for the continuous protocol on the
+    network profile, R21 for the retained-state bound above `HIST_TRIE_BUDGET` at the network's caps (the
+    retained-blocks term stays enforced), and R26 for the RpcGuard predicates that read fields the node does not
+    enforce;
+  - the open launch gates (identities, enrollment, admission, historical state, Internet exposure, sustained
+    operation, economics, release review) of [PLAN.md](development/public-network/PLAN.md), as `plan-gate-*`. The
+    network launches with them open; they do not withhold launch approval (D4, D6).
+
+  The accepted risks are listed in the decision record, "Accepted risks (D1, D2)", with their entries in
+  [FINDINGS.md](development/public-network/FINDINGS.md) (among them F-10, F-92 and F-93).
 - **The memory bound.** At 10,000 members the store-mode bound is 5,485,767,089 B at the network's parameters, inside
   the usable 5.25 GiB (7/8 of the 6 GiB budget) with a thin margin
   ([FN-3c evidence](development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md)). Whole-state mode was not measured at
   these parameters, and not every worst case has been measured.
-- **The rehearsal and the ceremony.** The launch evidence (T1-T8, M1-M4) is measured in the rehearsal on the
-  founders' devices, which has not run yet ([FRESH-NETWORK-CP.md](development/decisions/FRESH-NETWORK-CP.md) §9).
+- **No rehearsal; the ceremony.** There is no separate rehearsal (D1). The launch evidence (T1-T8, M1-M4) has no
+  pre-launch measurement on the founders' devices; it is measured on PoCol Mainnet after the launch, or on a devnet
+  where a measure would change the public network's state
+  ([REHEARSAL.md](development/public-network/REHEARSAL.md)). The ceremony has not run yet.
+- **Founder servers with 4 GB of RAM.** The owner accepted the risk (D2): a server node that outgrows its host's
+  memory is stopped by the kernel's OOM killer and restarted by systemd (the unit's `MemoryMax=7G` is sized for 8 GiB
+  hosts and is never reached there; systemd restarts it at most 5 times in 300 s). While all three servers are down,
+  blocks come only from the owner's PC (founder 4) and any other registered miner; with none of them mining, block
+  production stops until a server is back. 8 GB is recommended.
 - **Decisions pending with the owner.** The launch-disclosure wording and the reward page S1 wording
   ([STATUS-EN.md](development/STATUS-EN.md)). Decided on 2026-11-16: native release 0.5.0; release
   signing with ssh-keygen ed25519 ([deploy/release](deploy/release/README.md)); English and Arabic sites; owner-held
@@ -569,7 +585,10 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
   `explorer.pocol.net`. Decided on 2026-11-18
   ([OWNER-DECISIONS-2026-11-18.md](development/decisions/OWNER-DECISIONS-2026-11-18.md)): the owner's extension
   manifest key and release signing key; the automated fee faucet on mainnet, with the owner's limits
-  ([deploy/faucet](deploy/faucet/README.md)).
+  ([deploy/faucet](deploy/faucet/README.md)). Decided on 2026-11-20
+  ([OWNER-DECISIONS-2026-11-20.md](development/decisions/OWNER-DECISIONS-2026-11-20.md)): the public launch without a
+  separate rehearsal, the 4 GB founder servers, the founders and seeds, launch approval apart from technical
+  readiness, the public-network admission and a launch in which every value is computed.
 - **Design objectives.** PoW-equivalent security, fairness and Sybil resistance are not proven.
 - **No external audit.** No independent external human security audit has been done.
 - **Unresolved findings and public limitations.** They are listed, with their scope and sources, in

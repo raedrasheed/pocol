@@ -1,5 +1,6 @@
 //! LP3 S2 schema/identity view. Never a boot authorization or complete ParamGate.
-//! Sources: consensus.md:7-34; governance.md R22/R24 and network chainId 777001.
+//! Sources: consensus.md:7-34; governance.md R22/R24: the network profile's chains are chainId 777001 and the public
+//! network chains `PUBLIC_NETWORK_CHAINS` (`network_chain`).
 use crate::fixed::U256;
 use crate::genesis_spec::{self, GenesisSpec, GsError, Upper, CP_LEN, CP_V2_LEN};
 use crate::hashes::H256;
@@ -237,6 +238,26 @@ pub enum NodeKind {
     Simnet,
 }
 
+/// Chains on which the network profile (ProfileKind::Network, NodeKind::Node) is allowed besides 777001 (R22): the
+/// public network chains, each by owner decision (OWNER-DECISIONS-2026-11-20 D5). 2656089850 is PoCol Mainnet, the
+/// chain of deploy/mainnet/v3-profile.json. No devnet, rehearsal, test or retired chain is listed.
+pub const PUBLIC_NETWORK_CHAINS: &[u64] = &[2656089850];
+/// R22: the network profile's chains: 777001 or a public network chain (`PUBLIC_NETWORK_CHAINS`). Every kind decision
+/// that tests a chain for the network profile calls this.
+pub const fn network_chain(chain_id: u64) -> bool {
+    if chain_id == 777001 {
+        return true;
+    }
+    let mut i = 0;
+    while i < PUBLIC_NETWORK_CHAINS.len() {
+        if PUBLIC_NETWORK_CHAINS[i] == chain_id {
+            return true;
+        }
+        i += 1;
+    }
+    false
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ProfileError {
     Genesis(GsError),
@@ -372,7 +393,7 @@ impl ProfileIdentity {
         if chain_id != spec.chain_id {
             return Err(ProfileError::ChainId);
         }
-        if (node_kind == NodeKind::Node && kind != ProfileKind::Network) || ((kind == ProfileKind::Network) != (chain_id == 777001)) {
+        if (node_kind == NodeKind::Node && kind != ProfileKind::Network) || ((kind == ProfileKind::Network) != network_chain(chain_id)) {
             return Err(ProfileError::R22);
         }
         let forks = ForkSchedule::new(forks)?;
@@ -428,6 +449,13 @@ impl ProfileIdentity {
     }
     pub fn bootable(&self) -> bool {
         false
+    }
+    /// The same identity with other profile and node kinds, unchecked (R22 is not applied): only for tests that show
+    /// a value does not depend on the kind (design 2e, OWNER-DECISIONS-2026-11-20 D5).
+    #[cfg(test)]
+    #[allow(dead_code)]
+    pub(crate) fn with_kinds_for_test(&self, kind: ProfileKind, node_kind: NodeKind) -> Self {
+        Self { kind, node_kind, ..self.clone() }
     }
 }
 

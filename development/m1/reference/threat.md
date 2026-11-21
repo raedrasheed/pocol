@@ -62,7 +62,7 @@
   - X^W = max(Φ+1+Δ_fb_wait, Δ+t_exec+Δ_rel).
 
   Values are 6/11 s at the fresh network's declared locals (Δ, φ, t_exec) = (1, 1, 1), 7/11 s at the fallback declaration (2, 1, 1), and 6/10 in P11. Collusion invalidates them (T10b(iv-v)).
-- 10 s blocks (design estimates, FRESH-NETWORK design §4a, measured in the rehearsal): they need a measured Δ ≤ 2 s and φ ≤ 1 s. Natural forks run at about 0.8-1.4 %, a home PC pays a latency tax of about 1-2.5 %, and the withholding gain is 1.6 times the 30 s value (+0.105 at f = 0.2).
+- 10 s blocks (design estimates, FRESH-NETWORK design §4a; with no rehearsal, OWNER-DECISIONS-2026-11-20 D1, they are measured on PoCol Mainnet after the launch): they need a measured Δ ≤ 2 s and φ ≤ 1 s. Natural forks run at about 0.8-1.4 %, a home PC pays a latency tax of about 1-2.5 %, and the withholding gain is 1.6 times the 30 s value (+0.105 at f = 0.2).
 - Launch: a founder that starts mining more than D_att (90 s) after g_ts produces fallback-only blocks, and a wrong target_g gives a burst of fast blocks or slow blocks for 75 or more blocks; the ceremony measures the founders' aggregate hash rate.
 
 **Timestamp and ASERT**
@@ -212,4 +212,4 @@ Breaking cryptography, device compromise, Chrome vulnerabilities, modification o
 - Adequacy of the RP work bound and numeric RPC limits.
 - Timer accuracy on other devices and the bound between socket acceptance and client reading.
 - Absence of JSON-parsing vulnerabilities in BridgeAuth's implementation.
-- Public-launch readiness. The release reports publicLaunchReady false and admits the fresh network as a Simnet profile in ExperimentalDevnet scope (governance.md); the network still runs publicly, and the release reports those blockers. No independent audit is claimed, and the planned external analysis remains outstanding. (The launch-disclosure wording is drafted in deploy/standalone/README.md; owner decision pending on that wording.)
+- Public-launch readiness. PoCol Mainnet is admitted as the network profile on a network node in scope public-network, on its chain only (PUBLIC_NETWORK_CHAINS, R22; governance.md), which is not specification compliance; the admission's scope, its conditions and the owner's R13, R21 and R26 waivers are reported in technicalReadiness.pending with the open gates of the launch ledger, none claimed passed (OWNER-DECISIONS-2026-11-20 D5). publicLaunchApproved and publicLaunchReady are computed by a booted node (D4): before a release pins the genesis both are false, with network-not-release-pinned and launch-not-approved in launchBlockers, which holds only hard blockers; they become true only on a release that pins the genesis with its approval reference. The network runs publicly either way. No independent audit is claimed, and the planned external analysis remains outstanding. (The launch-disclosure wording is drafted in deploy/standalone/README.md; owner decision pending on that wording.)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sites W5: build the publish directory of a site's on-chain copy (rehearsal S1) from the git-tracked snapshot.
+"""Sites W5: build the publish directory of a site's on-chain copy (S1) from the git-tracked snapshot.
 
     python3 deploy/websites/tools/site_snapshot.py --out DIR \\
         [--site deploy/websites/explorer.pocol.net] [--include deploy/websites/tools/explorer-s1-include.txt] [--rev HEAD]

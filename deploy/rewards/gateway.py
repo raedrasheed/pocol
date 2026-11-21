@@ -131,6 +131,13 @@ def sanitize(method, value):
                 'networkName', 'networkEnvironment') + IDENTITY_FIELDS
         result = {k:value.get(k) for k in keys}
         result['peerCount'] = len(value.get('peers', []))
+        # The launch approval, readiness and technical-readiness completeness (pocold readiness.rs, OWNER-DECISIONS-
+        # 2026-11-20 D4), booleans only: each passes only as the boolean the node computed and is left out otherwise;
+        # the blockers, the pending items and their details are always left out.
+        for k in ('publicLaunchApproved', 'publicLaunchReady'):
+            if type(value.get(k)) is bool: result[k] = value[k]
+        technical = value.get('technicalReadiness')
+        if isinstance(technical, dict) and type(technical.get('complete')) is bool: result['technicalReadiness'] = {'complete': technical['complete']}
         result['stats'] = {k:value.get('stats', {}).get(k) for k in ('reorgs', 'mined', 'imported')}
         return result
     if method == 'pocol_getParams':

@@ -593,3 +593,97 @@ fn r23_v3_m3_supply_bound() {
     assert_eq!(future_issuance(&other.cp, false, false), U512::mul_u256_u64(&pow(111), other.cp.H_END));
     assert_eq!(future_issuance(&other.cp, true, false), U512::mul_u256_u64(&pow(111), u64::MAX), "continuous: u64::MAX blocks");
 }
+
+/// OWNER-DECISIONS-2026-11-20 D5: R22 binds the network profile to 777001 and the public network chains
+/// (`PUBLIC_NETWORK_CHAINS`, PoCol Mainnet 2656089850) and to no other chain, both ways: a simnet profile on a public
+/// network chain is refused as R22 like one on 777001.
+#[test]
+fn r22_network_profile_on_777001_and_the_public_network_chains_only() {
+    for (chain, network) in [(777001u64, true), (2656089850, true), (1656550731, false), (777990, false), (777905, false), (2656089851, false)] {
+        let mut n = profile(false);
+        n.chain_id = chain;
+        refresh(&mut n);
+        let v = verdict(&n, NodeKind::Node);
+        if network {
+            assert!(v.accepted(), "{chain}: {:?}", v.violations);
+        } else {
+            assert_eq!(v.violations, ["R22"], "{chain}");
+        }
+        let mut e = profile(true);
+        e.chain_id = chain;
+        refresh(&mut e);
+        let v = verdict(&e, NodeKind::Simnet);
+        if network {
+            assert_eq!(v.violations, ["R22"], "simnet on {chain}");
+        } else {
+            assert!(v.accepted(), "simnet on {chain}: {:?}", v.violations);
+        }
+    }
+}
+
+/// `GateReport::terms` names each failing sub-term of R13 and R21; the verdicts are unchanged (both rules still fail
+/// for the network profile on a network node whenever a term fails, whatever the scope admission later applies).
+#[test]
+fn gate_terms_name_each_failing_r13_and_r21_clause() {
+    let mut n = profile(false);
+    n.chain_id = 2656089850;
+    refresh(&mut n);
+    let v = verdict(&n, NodeKind::Node);
+    assert!(v.accepted() && v.terms.is_empty(), "{:?} {:?}", v.violations, v.terms);
+    // A finite malformed schedule: R13's schedule term.
+    let mut m = n.clone();
+    m.cp.H_CLOSE = m.cp.H_END - m.cp.Z_close as u64 + 1;
+    refresh(&mut m);
+    let v = verdict(&m, NodeKind::Node);
+    assert_eq!((v.violations.clone(), v.terms.clone()), (vec!["R13".to_string()], vec!["R13:schedule"]));
+    // The continuous protocol on the network profile: R13's continuous-kind term (and only it).
+    let mut c = n.clone();
+    c.cp.H_END = 0;
+    c.cp.H_CLOSE = 0;
+    c.cp.T_END = 0;
+    c.cp.T_CLOSE = 0;
+    refresh(&mut c);
+    let v = verdict(&c, NodeKind::Node);
+    assert!(v.violations.contains(&"R13".to_string()), "{:?}", v.violations);
+    assert_eq!(v.terms.iter().filter(|t| t.starts_with("R13:")).collect::<Vec<_>>(), [&"R13:continuous-kind"]);
+    // The same continuous CP on a simnet profile on a simnet node: no R13 term.
+    let mut s = profile(true);
+    s.cp.H_END = 0;
+    s.cp.H_CLOSE = 0;
+    s.cp.T_END = 0;
+    s.cp.T_CLOSE = 0;
+    refresh(&mut s);
+    assert!(!verdict(&s, NodeKind::Simnet).terms.iter().any(|t| t.starts_with("R13:")));
+    // R21: each term alone, and both together.
+    let (r, i, cal) = facts(&n);
+    let run = |r: &ResourceFacts| check(&n, Some(r), Some(&i), Some(&cal), NodeKind::Node);
+    let mut short = r.clone();
+    short.retained_blocks = 31;
+    let v = run(&short);
+    assert_eq!((v.violations.clone(), v.terms.clone()), (vec!["R21".to_string()], vec!["R21:retained-blocks"]));
+    let mut big = r.clone();
+    big.historical_trie_bytes = n.local.hist_trie_budget + 1;
+    let v = run(&big);
+    assert_eq!((v.violations.clone(), v.terms.clone()), (vec!["R21".to_string()], vec!["R21:history-budget"]));
+    // retentionStress is a simnet exception: it changes nothing for the network profile.
+    let mut stressed = n.clone();
+    stressed.local.retention_stress = true;
+    let (mut sr, si, sc) = facts(&stressed);
+    sr.historical_trie_bytes = u64::MAX;
+    let v = check(&stressed, Some(&sr), Some(&si), Some(&sc), NodeKind::Node);
+    assert_eq!((v.violations.clone(), v.terms.clone()), (vec!["R21".to_string()], vec!["R21:history-budget"]));
+    let mut both = big.clone();
+    both.retained_blocks = 0;
+    assert_eq!(run(&both).terms, ["R21:retained-blocks", "R21:history-budget"]);
+    // Missing resource facts.
+    let v = check(&n, None, Some(&i), Some(&cal), NodeKind::Node);
+    assert!(v.violations.contains(&"R21".to_string()) && v.terms.contains(&"R21:resource-facts"), "{:?}", v.terms);
+    assert!(!v.terms.iter().any(|t| *t == "R21:retained-blocks" || *t == "R21:history-budget"));
+    // The simnet retentionStress exception: a simnet profile on a simnet node with the flag has no history-budget term.
+    let mut e = profile(true);
+    e.local.retention_stress = true;
+    let (mut er, ei, ec) = facts(&e);
+    er.historical_trie_bytes = u64::MAX;
+    let v = check(&e, Some(&er), Some(&ei), Some(&ec), NodeKind::Simnet);
+    assert!(v.accepted() && v.terms.is_empty());
+}

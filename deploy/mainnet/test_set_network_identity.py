@@ -10,9 +10,11 @@ tree no longer pins; and the shipped release texts that are true only on the ret
 pins a network that is not retired; the extension's built-in profile placeholder (D1) is proven, placed only into the
 placeholder files, and replaced (with its mark) by the switch; the release's NETWORK_PROFILES (readiness.rs) holds
 exactly the entry of the tree's identity unless that is a retired or the rehearsal network (then none, as today), each
-entry a NetworkProfile expecting ExpectedAdmission::FRESH_NETWORK (the decided launch admission, never
-ExpectedAdmission::LAUNCH) in exactly the form readiness.rs's WRITTEN test compiles: a switch writes the --to entry and
-removes the --from one, --check refuses a missing or extra entry, and a round trip restores the file byte for byte.
+entry a NetworkProfile in exactly the forms readiness.rs's WRITTEN test compiles: on a public network chain
+(PUBLIC_NETWORK_CHAINS, equal to the mainnet profile's chain) ExpectedAdmission::PUBLIC_MAINNET with the approval
+reference of OWNER-DECISIONS-2026-11-20 D1, on any other chain ExpectedAdmission::FRESH_NETWORK without one (never
+ExpectedAdmission::LAUNCH, and never the other chain's form): a switch writes the --to entry and removes the --from one,
+--check refuses a missing or extra entry, and a round trip restores the file byte for byte.
 
 The tests name no network: the --from fixture is the tree's current identity (the GenesisSpec the node file pins)
 and the --to fixtures are derived from it, so they pass whatever network the tree pins."""
@@ -174,19 +176,29 @@ STEP3 = {
     'prototypes/pocol-studio/dist/app.js': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
 }
 TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, ni.NODE_SPEC, ni.RETIRED, ni.PROFILES,
-                                                                  ni.REHEARSAL_PROFILE]
+                                                                  ni.REHEARSAL_PROFILE, ni.PUBLIC_CHAINS, ni.MAINNET_PROFILE]
 # The rehearsal network's chain ID (read independently of the tool): never a launch network.
 REHEARSAL_CHAIN = json.loads((ni.ROOT / ni.REHEARSAL_PROFILE).read_text(encoding='utf-8'))['chainId']
 
+# The public network chains (read independently of the tool): PUBLIC_NETWORK_CHAINS of the profile code, and the
+# mainnet profile's chain, which it must equal.
+PUBLIC = frozenset(int(c) for c in re.search(r'(?m)^pub const PUBLIC_NETWORK_CHAINS: &\[u64\] = &\[([0-9, ]*)\];',
+                   (ni.ROOT / 'prototypes/lp4-execution/src/p1_profile.rs').read_text(encoding='utf-8')).group(1).split(', ') if c)
+MAINNET_CHAIN = json.loads((ni.ROOT / 'deploy/mainnet/v3-profile.json').read_text(encoding='utf-8'))['chainId']
 # One NETWORK_PROFILES entry as readiness.rs compiles it (read independently of the tool): a NetworkProfile with the
-# chain ID, the decoded genesis hash and the fresh network's decided launch admission.
-ENTRY = re.compile(r'NetworkProfile\{chain_id:([0-9]+),genesis_hash:genesis_hash\("([0-9a-f]{64})"\),admission:ExpectedAdmission::FRESH_NETWORK\}')
+# chain ID, the decoded genesis hash and, on a public network chain, the public network's admission with the owner's
+# approval reference, on any other chain the experimental admission without one.
+ENTRY = re.compile(r'NetworkProfile\{chain_id:([0-9]+),genesis_hash:genesis_hash\("([0-9a-f]{64})"\),'
+                   r'(admission:ExpectedAdmission::PUBLIC_MAINNET,approval:Some\("OWNER-DECISIONS-2026-11-20 D1"\)|admission:ExpectedAdmission::FRESH_NETWORK,approval:None)\}')
 
 def entries_of(body):
-    """[(chain ID, genesis hash hex)] of a list body of ENTRY entries; every NetworkProfile in it must be one."""
-    found = [(int(c), g) for c, g in ENTRY.findall(body)]
+    """[(chain ID, genesis hash hex)] of a list body of ENTRY entries; every NetworkProfile in it must be one, in the
+    form of its chain."""
+    found = [(int(c), g, t) for c, g, t in ENTRY.findall(body)]
     assert body.count('NetworkProfile{') == len(found), f'an entry not in the written form: {body}'
-    return found
+    for c, _, t in found:
+        assert ('PUBLIC_MAINNET' in t) == (c in PUBLIC), f'chain {c}: an entry in the other chain form: {body}'
+    return [(c, g) for c, g, _ in found]
 
 def profiles(root):
     """[(chain ID, genesis hash hex)] of NETWORK_PROFILES, read independently of the tool."""
@@ -208,7 +220,7 @@ def without_profiles(rel, text):
     line of that file stays under the guard."""
     if rel != ni.PROFILES: return text
     try:
-        return ni.with_profiles(text, [])
+        return ni.with_profiles(text, [], PUBLIC)
     except ValueError:
         return text
 
@@ -760,7 +772,7 @@ class SetNetworkIdentity(unittest.TestCase):
         # exactly that network's entry.
         expected = [] if (CUR_CHAIN, CUR_GENESIS) in RETIRED or CUR_CHAIN == REHEARSAL_CHAIN else [(CUR_CHAIN, CUR_GENESIS)]
         self.assertEqual(profiles(ni.ROOT), expected)
-        self.assertEqual(ni.read_profiles((ni.ROOT / ni.PROFILES).read_text(encoding='utf-8')), expected)
+        self.assertEqual(ni.read_profiles((ni.ROOT / ni.PROFILES).read_text(encoding='utf-8'), PUBLIC), expected)
         if not SWITCHED:
             self.assertEqual(expected, [], 'the retired identity is the current one: no launch network is pinned')
         self.assertEqual(ni.launch_profiles((CUR_CHAIN, CUR_GENESIS), RETIRED, ni.rehearsal_chain(ni.ROOT)), expected)
@@ -771,37 +783,92 @@ class SetNetworkIdentity(unittest.TestCase):
         text = (ni.ROOT / ni.PROFILES).read_text(encoding='utf-8')
         self.assertEqual(ni.PROFILES_DECL, 'pub const NETWORK_PROFILES:&[NetworkProfile]=&[')
         self.assertEqual(ni.PROFILES_ADMISSION, 'ExpectedAdmission::FRESH_NETWORK')
+        self.assertEqual((ni.PUBLIC_ADMISSION, ni.PUBLIC_APPROVAL), ('ExpectedAdmission::PUBLIC_MAINNET', 'OWNER-DECISIONS-2026-11-20 D1'))
         decl = '    const WRITTEN:&[NetworkProfile]=&['
         line = next(l for l in text.splitlines() if l.startswith(decl))
         self.assertTrue(line.endswith('];'))
         body = line[len(decl):-2]
         entries = entries_of(body)
         self.assertEqual(len(entries), 2)
+        self.assertEqual([c in PUBLIC for c, _ in entries], [True, False], 'WRITTEN holds one entry of each form')
         self.assertEqual(body.count('},NetworkProfile{'), 1, 'entries separated by ","')
-        self.assertEqual(ni.profiles_text(entries), body)
+        self.assertEqual(ni.profiles_text(entries, PUBLIC), body)
         # The samples start from the file with an empty list, whatever the tree pins (after the switch it holds an entry).
-        empty = ni.with_profiles(text, [])
+        empty = ni.with_profiles(text, [], PUBLIC)
         self.assertEqual(empty.count(ni.PROFILES_DECL + ']'), 1)
-        self.assertEqual(ni.with_profiles(empty, ni.read_profiles(text)), text)
+        self.assertEqual(ni.with_profiles(empty, ni.read_profiles(text, PUBLIC), PUBLIC), text)
         sample = empty.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + body + ']')
-        self.assertEqual(ni.read_profiles(sample), entries)
-        self.assertEqual(ni.read_profiles(ni.with_profiles(text, entries)), entries)
-        self.assertEqual(ni.with_profiles(ni.with_profiles(text, entries), []), empty)
-        # Malformed entries, a duplicate, and an entry that expects any admission other than the fresh network's (the
-        # specification admission LAUNCH included), or names its fields in another order: each is refused.
+        self.assertEqual(ni.read_profiles(sample, PUBLIC), entries)
+        self.assertEqual(ni.read_profiles(ni.with_profiles(text, entries, PUBLIC), PUBLIC), entries)
+        self.assertEqual(ni.with_profiles(ni.with_profiles(text, entries, PUBLIC), [], PUBLIC), empty)
+        # Malformed entries, a duplicate, an entry that expects any admission or approval other than its chain's form
+        # (the specification admission LAUNCH included, the other chain's form, another or a missing approval
+        # reference), or names its fields in another order: each is refused.
         for bad in (body.replace('genesis_hash("0', 'genesis_hash("0x', 1), body.upper(), body + ',', body.replace('(', '( ', 1),
-                    body.replace(str(entries[0][0]), f'{entries[0][0]:_}', 1), ni.profiles_text([entries[0], entries[0]]),
+                    body.replace(str(entries[0][0]), f'{entries[0][0]:_}', 1), ni.profiles_text([entries[0], entries[0]], PUBLIC),
                     body.replace('ExpectedAdmission::FRESH_NETWORK', 'ExpectedAdmission::LAUNCH', 1),
                     body.replace('ExpectedAdmission::FRESH_NETWORK', 'ExpectedAdmission{waivers:&[],'
                                  '..ExpectedAdmission::FRESH_NETWORK}', 1),
                     body.replace('ExpectedAdmission::FRESH_NETWORK', 'FRESH_NETWORK', 1), body.replace('},', '}, ', 1),
                     body.replace('admission:ExpectedAdmission::FRESH_NETWORK', '', 1),
+                    body.replace('admission:ExpectedAdmission::PUBLIC_MAINNET,approval:Some("OWNER-DECISIONS-2026-11-20 D1")',
+                                 'admission:ExpectedAdmission::FRESH_NETWORK,approval:None', 1),
+                    body.replace('admission:ExpectedAdmission::FRESH_NETWORK,approval:None',
+                                 'admission:ExpectedAdmission::PUBLIC_MAINNET,approval:Some("OWNER-DECISIONS-2026-11-20 D1")', 1),
+                    body.replace('approval:Some("OWNER-DECISIONS-2026-11-20 D1")', 'approval:None', 1),
+                    body.replace('approval:None', 'approval:Some("OWNER-DECISIONS-2026-11-20 D1")', 1),
+                    body.replace('OWNER-DECISIONS-2026-11-20 D1', 'OWNER-DECISIONS-2026-11-18 D1', 1),
+                    body.replace(',approval:None', '', 1),
                     body.replace(f'chain_id:{entries[0][0]},genesis_hash:genesis_hash("{entries[0][1]}")',
                                  f'genesis_hash:genesis_hash("{entries[0][1]}"),chain_id:{entries[0][0]}', 1)):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
-                ni.read_profiles(empty.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + bad + ']'))
+                ni.read_profiles(empty.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + bad + ']'), PUBLIC)
         with self.assertRaises(ValueError):
-            ni.read_profiles(text.replace(ni.PROFILES_DECL, ni.PROFILES_DECL.replace('=&[', '= &[')))
+            ni.read_profiles(text.replace(ni.PROFILES_DECL, ni.PROFILES_DECL.replace('=&[', '= &[')), PUBLIC)
+
+    def test_the_public_network_chains_are_the_mainnet_profiles_chain(self):
+        # The tool reads PUBLIC_NETWORK_CHAINS (the R22 list the node's boot admission uses); it is exactly the chain of
+        # the mainnet profile, never the rehearsal chain or a retired network.
+        self.assertEqual(ni.public_chains(ni.ROOT), PUBLIC)
+        self.assertEqual(PUBLIC, frozenset([MAINNET_CHAIN]))
+        self.assertNotIn(REHEARSAL_CHAIN, PUBLIC)
+        self.assertFalse(PUBLIC & {c for c, _ in RETIRED})
+        root = self.copy()
+        rel = root / ni.PUBLIC_CHAINS
+        text = rel.read_text(encoding='utf-8')
+        for bad in (text.replace(ni.PUBLIC_CHAINS_DECL, ni.PUBLIC_CHAINS_DECL + '0x'), text.replace(ni.PUBLIC_CHAINS_DECL, ''),
+                    text + '\n' + ni.PUBLIC_CHAINS_DECL + '];\n'):
+            rel.write_text(bad, encoding='utf-8')
+            with self.subTest(bad=bad[:0]), self.assertRaises(SystemExit):
+                ni.public_chains(root)
+
+    def test_a_switch_to_a_public_network_chain_pins_the_public_admission_with_the_approval(self):
+        # OWNER-DECISIONS-2026-11-20 D1, D4, D5: --to on the mainnet profile's chain writes the PUBLIC_MAINNET entry with
+        # the approval reference, --check requires exactly it, and the experimental form for that chain is refused.
+        root = self.copy()
+        spec = make_spec(chain=MAINNET_CHAIN, version=2, flip=5)
+        (root / 'mainnet.json').write_text(invitation(spec), encoding='utf-8')
+        genesis = ni.keccak256(spec).hex()
+        original = (root / ni.PROFILES).read_bytes()
+        self.assertEqual(self.run_tool(root, target='mainnet.json'), 0)
+        self.assertEqual(profiles(root), [(MAINNET_CHAIN, genesis)])
+        line = next(l for l in (root / ni.PROFILES).read_text(encoding='utf-8').splitlines() if l.startswith(ni.PROFILES_DECL))
+        self.assertEqual(line, ni.PROFILES_DECL + f'NetworkProfile{{chain_id:{MAINNET_CHAIN},genesis_hash:genesis_hash("{genesis}"),'
+                         'admission:ExpectedAdmission::PUBLIC_MAINNET,approval:Some("OWNER-DECISIONS-2026-11-20 D1")}];')
+        self.assertEqual(self.run_tool(root, '--check', target='mainnet.json'), 0)
+        text = (root / ni.PROFILES).read_text(encoding='utf-8')
+        fresh = line.replace('admission:ExpectedAdmission::PUBLIC_MAINNET,approval:Some("OWNER-DECISIONS-2026-11-20 D1")',
+                             'admission:ExpectedAdmission::FRESH_NETWORK,approval:None')
+        for bad in (fresh, line.replace('approval:Some("OWNER-DECISIONS-2026-11-20 D1")', 'approval:None')):
+            with self.subTest(bad=bad):
+                (root / ni.PROFILES).write_text(text.replace(line, bad), encoding='utf-8')
+                self.assertEqual(self.run_tool(root, '--check', target='mainnet.json'), 2)
+        (root / ni.PROFILES).write_text(text, encoding='utf-8')
+        # Switching on to another network replaces the entry with that network's own form.
+        self.assertEqual(self.run_tool(root, source='mainnet.json', target='a.json'), 0)
+        self.assertEqual(profiles(root), [(NEW_CHAIN, HASH_A[2:])])
+        self.assertIn('admission:ExpectedAdmission::FRESH_NETWORK,approval:None', (root / ni.PROFILES).read_text(encoding='utf-8'))
+        self.assertNotEqual((root / ni.PROFILES).read_bytes(), original)
 
     def test_a_switch_writes_the_network_profile_and_check_requires_exactly_it(self):
         root = self.copy()
@@ -818,18 +885,18 @@ class SetNetworkIdentity(unittest.TestCase):
         for entries in ([], [(NEW_CHAIN, HASH_A[2:]), other], [other], [(NEW_CHAIN, HASH_B[2:])],
                         [(NEW_CHAIN, HASH_A[2:]), (NEW_CHAIN, HASH_A[2:])], [(CUR_CHAIN, CUR_GENESIS)]):
             with self.subTest(entries=entries):
-                (root / ni.PROFILES).write_text(text.replace(ni.PROFILES_DECL + ni.profiles_text([(NEW_CHAIN, HASH_A[2:])]),
-                                                            ni.PROFILES_DECL + ni.profiles_text(entries)), encoding='utf-8')
+                (root / ni.PROFILES).write_text(text.replace(ni.PROFILES_DECL + ni.profiles_text([(NEW_CHAIN, HASH_A[2:])], PUBLIC),
+                                                            ni.PROFILES_DECL + ni.profiles_text(entries, PUBLIC)), encoding='utf-8')
                 self.assertNotEqual((root / ni.PROFILES).read_bytes(), switched)
                 self.assertEqual(self.run_tool(root, '--check'), 2)
         # An entry of another network is refused by a switch too, which then writes nothing.
-        (root / ni.PROFILES).write_text(text.replace(ni.PROFILES_DECL + ni.profiles_text([(NEW_CHAIN, HASH_A[2:])]),
-                                                    ni.PROFILES_DECL + ni.profiles_text([(NEW_CHAIN, HASH_A[2:]), other])), encoding='utf-8')
+        (root / ni.PROFILES).write_text(text.replace(ni.PROFILES_DECL + ni.profiles_text([(NEW_CHAIN, HASH_A[2:])], PUBLIC),
+                                                    ni.PROFILES_DECL + ni.profiles_text([(NEW_CHAIN, HASH_A[2:]), other], PUBLIC)), encoding='utf-8')
         before = self.snapshot(root)
         self.assertEqual(self.run_tool(root, source='a.json', target='b.json'), 2)
         self.assertEqual(before, self.snapshot(root))
         # A missing entry is restored by finishing the switch (the tree pins --to already).
-        (root / ni.PROFILES).write_text(text.replace(ni.PROFILES_DECL + ni.profiles_text([(NEW_CHAIN, HASH_A[2:])]),
+        (root / ni.PROFILES).write_text(text.replace(ni.PROFILES_DECL + ni.profiles_text([(NEW_CHAIN, HASH_A[2:])], PUBLIC),
                                                     ni.PROFILES_DECL), encoding='utf-8')
         self.assertEqual(self.run_tool(root), 0)
         self.assertEqual((root / ni.PROFILES).read_bytes(), switched)
@@ -847,7 +914,7 @@ class SetNetworkIdentity(unittest.TestCase):
         self.assertEqual(self.run_tool(root, '--check', target='rehearsal.json'), 0)
         rehearsal_genesis = ni.current_identity(root)[1]
         text = (root / ni.PROFILES).read_text(encoding='utf-8')
-        (root / ni.PROFILES).write_text(text.replace(ni.PROFILES_DECL, ni.PROFILES_DECL + ni.profiles_text([(REHEARSAL_CHAIN, rehearsal_genesis)])), encoding='utf-8')
+        (root / ni.PROFILES).write_text(text.replace(ni.PROFILES_DECL, ni.PROFILES_DECL + ni.profiles_text([(REHEARSAL_CHAIN, rehearsal_genesis)], PUBLIC)), encoding='utf-8')
         self.assertEqual(self.run_tool(root, '--check', target='rehearsal.json'), 2, 'an entry for it is refused')
         (root / ni.PROFILES).write_text(text, encoding='utf-8')
         # From the rehearsal network to a launch network, and back on purpose: the retired network gets no entry.
@@ -879,7 +946,7 @@ class SetNetworkIdentity(unittest.TestCase):
                   (ni.RETIRED, str(CUR_CHAIN))]
         self.assertEqual(unaccounted(exempt), [])
         # In readiness.rs only the NETWORK_PROFILES entry is exempt; a copy anywhere else in that file is flagged.
-        entry = ni.PROFILES_DECL + ni.profiles_text([(CUR_CHAIN, CUR_GENESIS)]) + '];\n'
+        entry = ni.PROFILES_DECL + ni.profiles_text([(CUR_CHAIN, CUR_GENESIS)], PUBLIC) + '];\n'
         self.assertEqual(unaccounted([(ni.PROFILES, entry)]), [])
         for stray in (f'// chain {CUR_CHAIN}\n', f'const G:&str="{CUR_GENESIS}";\n'):
             with self.subTest(stray=stray):

@@ -23,7 +23,8 @@
 //! - timing (R14/R19): a `Timing` record measured on this machine for this exact profile
 //!   (`measure`). Absent or for another genesis: R14/R19 are violated.
 //! - R21: (K_hist + side) snapshots of a state at SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX, checked
-//!   arithmetic. The simnet retentionStress exception is the gate's own (governance.md R21).
+//!   arithmetic. The simnet retentionStress exception is the gate's own (governance.md R21); the
+//!   public-network scope's history-budget waiver is this module's (`Scope::PublicNetwork`).
 //! - calibration (R25d): the recorded H_cal and its class; a devnet records its chosen rate
 //!   as a synthetic fixture.
 //! - RpcGuard (R26): `RpcFacts`. Only fields the node enforces are present; an absent field
@@ -33,7 +34,11 @@
 //! absent or fixture RpcGuard field, a synthetic calibration, a timing measurement that is not
 //! a bound, an assumed gas monotonicity, the gate's deferred LP3 items, the R21 exception).
 //! `Scope::ExperimentalDevnet` admits a simnet profile on a simnet node with those conditions
-//! reported, and waives only the R26 predicates that read absent fields.
+//! reported, and waives only the R26 predicates that read absent fields. `Scope::PublicNetwork`
+//! (public-network, OWNER-DECISIONS-2026-11-20 D5) admits only the network profile on a
+//! network node on a chain of `PUBLIC_NETWORK_CHAINS`, with every condition reported, and waives, each
+//! as a reported `Waiver`, the same R26 predicates, R13's continuous-kind term and R21's history-budget
+//! term, never another term of those rules. Neither scope is specification compliance.
 //!
 //! No bypass: outside this crate a `Genesis` can only be derived from, never built for,
 //! an unadmitted identity, and `Admitted` has no public constructor.
@@ -55,7 +60,7 @@ pub use scope::{Condition,RpcFacts,Scope,Waiver,RPC_FIELDS,R26_PREDICATES,r26_pa
 use revm::{InMemoryDB,primitives::{AccountInfo,Address,B256,Bytecode,Bytes,U256,keccak256}};
 use crate::{apply::{self,BlockInput,Genesis,ParentResult,ProgramSet,Proposer,SystemPrograms},
     gate::{self,Calibration,FactClass,GateProfile,IdentityFacts,LocalParams,Phase,PhaseFacts,ResourceFacts},
-    genesis_spec as gs,hashes::sha256,param_gate::RpcLimits,profile::{ConsensusParams,NodeKind,ProfileIdentity,ProfileKind},resources};
+    genesis_spec as gs,hashes::sha256,param_gate::RpcLimits,profile::{network_chain,ConsensusParams,NodeKind,ProfileIdentity,ProfileKind,PUBLIC_NETWORK_CHAINS},resources};
 
 /// governance.md constants entering R8/R11/R21.
 pub const R_KEEP:u32=2048;pub const K_FINAL:u32=60;pub const K_VIEW:u32=12;pub const HIST_TRIE_BUDGET:u64=1_717_986_918;
@@ -312,12 +317,14 @@ pub struct Report{
     pub binding:[u8;32],
     pub resource_class:Option<FactClass>,pub identity_class:Option<FactClass>,pub calibration_class:Option<FactClass>,
     pub deferred:[&'static str;3],
-    /// R21 bound above HIST_TRIE_BUDGET, admitted only by the simnet retentionStress exception.
+    /// R21 bound above HIST_TRIE_BUDGET, admitted by the simnet retentionStress exception (ExperimentalDevnet) or the
+    /// owner's R21 waiver (PublicNetwork).
     pub r21_exception:bool,
     pub historical_bytes:u64,
     pub notes:Vec<String>,
     pub scope:Scope,
-    /// Rules partly not evaluated (ExperimentalDevnet only).
+    /// Rules partly not evaluated, by rule number: R26 (ExperimentalDevnet and PublicNetwork), R13 and R21
+    /// (PublicNetwork only).
     pub waivers:Vec<Waiver>,
     /// Why this admission is not specification evidence; empty only for `Scope::Specification`.
     pub conditions:Vec<Condition>,
@@ -341,9 +348,9 @@ impl Admitted{
 }
 
 /// Identity used only to derive builder facts: the derived allocRoot depends on the CP,
-/// M_0 and programs, not on profileKind, nodeKind or the fork schedule.
+/// M_0 and programs, not on profileKind, nodeKind or the fork schedule. The kinds are the ones R22 allows on the chain.
 fn fact_identity(bytes:&[u8],hash:&[u8;32],chain_id:u64)->Result<ProfileIdentity,String>{
-    let (k,n)=if chain_id==777001{(ProfileKind::Network,NodeKind::Node)}else{(ProfileKind::Synthetic,NodeKind::Simnet)};
+    let (k,n)=if network_chain(chain_id){(ProfileKind::Network,NodeKind::Node)}else{(ProfileKind::Synthetic,NodeKind::Simnet)};
     ProfileIdentity::validate(bytes,hash,chain_id,k,n,&[(1,0)]).map_err(|e|format!("{e:?}"))
 }
 fn sat_u32(v:u64)->u32{u32::try_from(v).unwrap_or(u32::MAX)}
@@ -462,14 +469,40 @@ pub fn admit_with(r:&Request<'_>,raise:Option<&crate::profile::CapRaise>)->Resul
         report.violations.extend(extra);
         report.violations.sort_by_key(|x|x[1..].parse::<u32>().unwrap_or(u32::MAX));report.violations.dedup();
         for m in at_raised.missing{if !report.missing.contains(&m){report.missing.push(m)}}
+        for t in at_raised.terms{if !report.terms.contains(&t){report.terms.push(t)}}
         notes.push(format!("cap raise at fork 3: ACCT_CAP {} -> {}, SLOT_CAP {} -> {}, CODE_CAP {} -> {}, SYS_SLOT_MAX {} -> {}; R1-R26 evaluated at both CPs",
             cp.ACCT_CAP,rcp.ACCT_CAP,cp.SLOT_CAP,rcp.SLOT_CAP,cp.CODE_CAP,rcp.CODE_CAP,cp.SYS_SLOT_MAX,rcp.SYS_SLOT_MAX));
     }
     let hist=hist.max(raised_hist);
     let hist_exception=hist>HIST_TRIE_BUDGET;
-    let conditions=conditions(&cp,set,r,l,timing,hist_exception,&report.deferred);
+    let conditions=conditions(&cp,set,r,l,timing,hist_exception&&r.scope!=Scope::PublicNetwork,&report.deferred);
     let mut waivers=Vec::new();
     match r.scope{
+        Scope::PublicNetwork=>{
+            // OWNER-DECISIONS-2026-11-20 D5: only the network profile on a network node, only on a public network chain.
+            if r.kind!=ProfileKind::Network||r.node!=NodeKind::Node||!PUBLIC_NETWORK_CHAINS.contains(&spec.chain_id){
+                return Err(terminal("R22","the public-network scope admits only the network profile on a network node on a public network chain".into()))}
+            // R13: only the continuous-kind term, on a continuous CP (at the genesis CP and the raised one), is waived.
+            let continuous=|c:&ConsensusParams|c.H_END==0&&c.H_CLOSE==0&&c.T_END==0&&c.T_CLOSE==0;
+            if report.violations.iter().any(|v|v=="R13")&&continuous(&cp)&&raised.as_ref().map_or(true,continuous)&&only_term(&report.terms,"R13","continuous-kind"){
+                report.violations.retain(|v|v!="R13");
+                waivers.push(Waiver{rule:"R13",absent:vec![],waived:vec!["continuous-kind"],checked:vec!["continuous: H_END=H_CLOSE=T_END=T_CLOSE=0"],
+                    detail:"continuous protocol on the network profile; R13 admits it only for a simnet profile on a simnet node; waived by OWNER-DECISIONS-2026-11-20 D5".into()});
+            }
+            // R21: only the history-budget term is waived; the retained-blocks term and missing resource facts never are.
+            // Independent of l.retention_stress (a simnet stress flag that NodeLocal::single_host sets on every node).
+            if report.violations.iter().any(|v|v=="R21")&&only_term(&report.terms,"R21","history-budget"){
+                report.violations.retain(|v|v!="R21");
+                waivers.push(Waiver{rule:"R21",absent:vec![],waived:vec!["historicalTrieBytes<=HIST_TRIE_BUDGET"],checked:vec!["retainedBlocks>=min(K_hist,H_END)"],
+                    detail:format!("retained-state bound {hist} B exceeds HIST_TRIE_BUDGET {HIST_TRIE_BUDGET} B; waived by OWNER-DECISIONS-2026-11-20 D5, with the 4 GB server risk accepted by D2")});
+            }
+            // R26: exactly as ExperimentalDevnet.
+            if !l.rpc.absent().is_empty(){
+                let (w,failed)=r26_partial_for(&l.rpc,true);
+                if failed.is_empty(){report.violations.retain(|v|v!="R26")}else{notes.push(format!("R26: enforced RpcGuard fields fail {failed:?}"))}
+                waivers.push(w);
+            }
+        }
         Scope::ExperimentalDevnet=>{
             // Only the intended kind: a Simnet profile on a Simnet node (not Network, not Synthetic).
             if r.kind!=ProfileKind::Simnet||r.node!=NodeKind::Simnet{
@@ -500,13 +533,24 @@ pub fn admit_with(r:&Request<'_>,raise:Option<&crate::profile::CapRaise>)->Resul
     let profile=ProfileIdentity::validate_with_raise(r.spec_bytes,&hash,spec.chain_id,r.kind,r.node,r.forks,raise).map_err(|e|terminal(match e{crate::profile::ProfileError::R22=>"R22",_=>"R24"},format!("{e:?}")))?;
     let genesis=Genesis::build(r.alloc,&profile,&programs).map_err(|e|terminal("R24",format!("genesis: {e:?}")))?;
     let r21_exception=hist_exception;
-    if r21_exception{notes.push(format!("R21: retained-state bound {hist} B exceeds {HIST_TRIE_BUDGET} B; admitted by the simnet retentionStress exception"))}
+    if r21_exception{notes.push(if r.scope==Scope::PublicNetwork{
+        format!("R21: retained-state bound {hist} B exceeds {HIST_TRIE_BUDGET} B; admitted by the owner's R21 waiver (scope public-network)")}
+        else{format!("R21: retained-state bound {hist} B exceeds {HIST_TRIE_BUDGET} B; admitted by the simnet retentionStress exception")})}
     Ok(Admitted{profile,genesis,spec_bytes:r.spec_bytes.to_vec(),local:l.clone(),
         report:Report{binding,resource_class:report.resource_class,identity_class:report.identity_class,calibration_class:report.calibration_class,deferred:report.deferred,r21_exception,historical_bytes:hist,notes,
             scope:r.scope,waivers,conditions},timing:timing.cloned()})
 }
 
-/// Every reason the admitted facts are not specification evidence (D-A02-SCOPE).
+/// The PublicNetwork clause rule (OWNER-DECISIONS-2026-11-20 D5): `rule`'s failing gate terms (`GateReport::terms`, the
+/// genesis CP's and the raised CP's merged) are exactly `term`. A rule that fails through any other term, alone or beside
+/// it, is not waived.
+pub(crate) fn only_term(terms:&[&'static str],rule:&str,term:&str)->bool{
+    let mut of_rule=terms.iter().filter_map(|t|t.strip_prefix(rule).and_then(|x|x.strip_prefix(':')));
+    of_rule.next()==Some(term)&&of_rule.next().is_none()
+}
+
+/// Every reason the admitted facts are not specification evidence (D-A02-SCOPE). `hist_exception` is the simnet
+/// retentionStress exception's condition; under PublicNetwork the R21 waiver reports the excess instead.
 fn conditions(cp:&ConsensusParams,set:ProgramSet,r:&Request<'_>,l:&NodeLocal,timing:Option<&Timing>,hist_exception:bool,deferred:&[&'static str;3])->Vec<Condition>{
     let mut c=Vec::new();
     let mut add=|id:&'static str,rules:&'static [&'static str],detail:String|c.push(Condition{id,rules,detail});

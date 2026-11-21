@@ -344,8 +344,11 @@ const V3_MAINNET_STORE_TOTAL:u128=5_512_153_289;
 /// (1, 1, 1; Δ_rel 7, Γ 5, K_hist 32, retentionStress as the launcher sets it), each R1-R26 row re-derived on CP schema v2:
 /// R8 with the v3 registry window (U >= W_act + 2, C_react >= U; gate.rs v3_registry_window_violated), R10 with the
 /// late-share item sizing, R13 for a continuous profile (Simnet profile on a Simnet node), R21 with the simnet
-/// retentionStress exception. Each row must agree with gate::check's own verdict; the launch admission (Simnet,
-/// ExperimentalDevnet) passes, and the Specification scope's refusal is printed. Then pocold's A13 check in both modes.
+/// retentionStress exception. Each row must agree with gate::check's own verdict; this test genesis runs on the local
+/// test chain 777990 (test placeholders), where the experimental admission (Simnet, ExperimentalDevnet) passes; the
+/// mainnet's own chain boots as the network profile in scope public-network with the owner's R13 and R21 waivers
+/// (tests/fn4_profiles.rs, OWNER-DECISIONS-2026-11-20 D5). The Specification scope's refusal is printed. Then pocold's
+/// A13 check in both modes.
 #[test] fn v3_mainnet_profile_boot_gates_itemized(){
     use pocol_lp4_execution::{admission::{self,Request,Scope},gate::{self,FactClass,calibration_target},param_gate::registry_metrics,
         profile::{NodeKind,ProfileKind},timing::metrics};
@@ -392,7 +395,7 @@ const V3_MAINNET_STORE_TOTAL:u128=5_512_153_289;
         println!("V3-MAINNET-GATE {}",serde_json::json!({"rule":rule,"fails":fails,"inputs":inputs,"required":required,"actual":actual}));
         assert_eq!(*fails,gate.iter().any(|g|g==rule),"{rule}: the re-derivation disagrees with gate::check ({gate:?})");
     }
-    assert!(gate.is_empty(),"the launch admission (Simnet, Simnet, ExperimentalDevnet) passes R1-R26: {gate:?}");
+    assert!(gate.is_empty(),"the experimental admission of the test chain (Simnet, Simnet, ExperimentalDevnet) passes R1-R26: {gate:?}");
     assert!(hist>admission::HIST_TRIE_BUDGET&&local.retention_stress,"R21 holds only through the retentionStress exception (FRESH-NETWORK-CP.md §4)");
     // R8's v3 terms are the binding ones at the fresh network's values: U = 380 against W_act + 2 = 34 and C_react = 380 = U.
     assert!(!gate::v3_registry_window_violated(&c)&&c.C_react==c.U);

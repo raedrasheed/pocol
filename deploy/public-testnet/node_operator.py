@@ -25,6 +25,20 @@ LOCKS = {'.operator.lock', 'LOCK'}
 # What a node's state is bound to (plan §4). compatibilitySha256 and protocolVersion are informational: a release
 # that changes only the build digest starts on the existing marker and never rewrites it.
 BOUND = ('chainId', 'genesisHash', 'consensusIdentity', 'stateStore', 'node', 'miner')
+# The admissions an init-testnet genesis boots with (pocold boot_admission, OWNER-DECISIONS-2026-11-20 D5):
+# public-network on a public network chain, experimental-devnet on any other chain but 777001 (R22 binds the network
+# profile to 777001 and the public network chains, and no experimental-devnet boot of a public network chain exists).
+# PUBLIC_NETWORK_CHAINS is the R22 list of the profile code (prototypes/lp4-execution/src/p1_profile.rs); this file
+# ships in every bundle without the repository, so it carries a copy, which test_operations keeps equal to that list.
+ADMISSION_SCOPES = ('experimental-devnet', 'public-network')
+PUBLIC_NETWORK_CHAINS = (2656089850,)
+
+
+def supported_admission(scope, chain_id):
+    """Whether `scope` is the admission init-testnet makes for chain `chain_id` (prepare, verify and monitor agree)."""
+    if type(chain_id) is not int or chain_id == 777001: return False
+    if chain_id in PUBLIC_NETWORK_CHAINS: return scope == 'public-network'
+    return scope == 'experimental-devnet'
 
 
 def digest(path):
@@ -98,8 +112,9 @@ def verify(bundle, expected=None):
     # A release build is pinned (VA-SPEC §2.4) and reports its consensus rules; an unpinned one would peer with nobody.
     if 'consensusRulesVersion' not in build or build.get('consensusPinned') is not True:
         raise ValueError('Unpinned consensus build; use a release build')
-    if info['admission']['scope'] != 'experimental-devnet' or info['chainId'] == 777001:
-        raise ValueError('Only the experimental testnet profile is supported')
+    if not supported_admission(info['admission']['scope'], info['chainId']):
+        raise ValueError('Unsupported admission: only public-network on a public network chain, or experimental-devnet '
+                         'on another chain, is supported')
     # The bundle's public GenesisSpec must be the network devnet.json declares (version and chain ID) and one the node
     # admits (spec 2, the v3 program set, nonceMode 1), as prepare.py checked it; the manifest digests above fix its bytes.
     pocol_identity.public_spec_hex(info, (bundle / 'net/genesis.spec.hex').read_text(encoding='ascii'))
