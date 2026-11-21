@@ -1,19 +1,21 @@
 """Separate compiled signed-wire/fee/receipt controls; compile errors never count as kills."""
 import os,pathlib,shutil,subprocess,json,sys
+from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 fields=[
  ('eip161-cleanup','user_phase.rs','for address in removed{','for address in removed.into_iter().filter(|_|false){','user_phase','sequential_signed_execution_refund_revert_and_commitments'),
  ('user-commitments','user_phase.rs','if candidate.commitments()!=expected','if false && candidate.commitments()!=expected','user_phase','wrong_commitments_and_late_invalid_transaction_leave_snapshot_unchanged'),
  ('gas-reservation','user_phase.rs','if tx.gas_limit>limit.checked_sub(used)','if false && tx.gas_limit>limit.checked_sub(used)','user_phase','wrong_commitments_and_late_invalid_transaction_leave_snapshot_unchanged'),
- ('block-tips','user_phase.rs','tip.checked_mul(U256::from(gas))','U256::ZERO.checked_mul(U256::from(gas))','user_phase','sequential_signed_execution_refund_revert_and_commitments'),
+ ('block-tips','user_phase.rs','tips=tips.checked_add(tip.checked_mul(U256::from(gas)).ok_or(UserError::Arithmetic)?).ok_or(UserError::Arithmetic)?;\n  encoded.push(receipts::encode(signed.kind(),result.result.is_success()','tips=tips.checked_add(U256::ZERO.checked_mul(U256::from(gas)).ok_or(UserError::Arithmetic)?).ok_or(UserError::Arithmetic)?;\n  encoded.push(receipts::encode(signed.kind(),result.result.is_success()','user_phase','sequential_signed_execution_refund_revert_and_commitments'),
  ('cumulative-receipt','user_phase.rs','result.result.is_success(),used,','result.result.is_success(),gas,','user_phase','sequential_signed_execution_refund_revert_and_commitments'),
- ('state-commit','user_phase.rs','state.commit(result.state);','let _ignored=result.state;','user_phase','sequential_signed_execution_refund_revert_and_commitments'),
+ ('state-commit','user_phase.rs','commit_tx_on(&mut state,result.state,profile.is_some());','let _ignored=result.state;','user_phase','sequential_signed_execution_refund_revert_and_commitments'),
 ]
 results=[]
 for name,source,old,new,suite,test in fields:
     folder=out/name
     if folder.exists():shutil.rmtree(folder)
     shutil.copytree(root,folder,ignore=shutil.ignore_patterns('target','work','__pycache__'))
+    anchor_outside(root,folder)
     identity='pocol-lp4-execution-user-'+name
     manifest=folder/'Cargo.toml';text=manifest.read_text();assert text.count('name = "pocol-lp4-execution"')==1
     manifest.write_text(text.replace('name = "pocol-lp4-execution"',f'name = "{identity}"')+'\n[lib]\nname = "pocol_lp4_execution"\n')

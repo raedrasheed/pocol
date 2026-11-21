@@ -1,5 +1,6 @@
 """Compile each control before running its targeted assertion. Preserve failures."""
 import json, os, pathlib, shutil, subprocess, sys
+from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1]
 out=pathlib.Path(sys.argv[1]).resolve(); out.mkdir(parents=True,exist_ok=True)
 source=(root/'src/lib.rs').read_text()
@@ -10,6 +11,7 @@ for name,old,new,test in cases:
     folder=out/name
     if folder.exists():shutil.rmtree(folder)
     shutil.copytree(root,folder,ignore=shutil.ignore_patterns('target','work','__pycache__'))
+    anchor_outside(root,folder)
     manifest=folder/'Cargo.toml'
     manifest.write_text(manifest.read_text().replace('name = "pocol-lp4-execution"', 'name = "pocol-lp4-execution-'+name+'"')+'\n[lib]\nname = "pocol_lp4_execution"\n')
     lock=folder/'Cargo.lock'

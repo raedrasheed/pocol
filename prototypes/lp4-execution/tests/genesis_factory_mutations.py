@@ -1,5 +1,6 @@
 """Compile integration omissions with recomputed genesis identity; no hash-only kill."""
 import json,os,pathlib,shutil,subprocess,sys
+from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 test='system::issuance_tests::sealed_genesis_real_factory_signed_user_creation_issuance_and_late_rollback'
 controls=[
@@ -9,6 +10,7 @@ controls=[
 rows=[]
 for name,old,new in controls:
  folder=out/name;assert not folder.exists(),'Preserve previous evidence';shutil.copytree(root,folder,ignore=shutil.ignore_patterns('target','work','__pycache__'))
+ anchor_outside(root,folder)
  identity='pocol-lp4-execution-genesis-'+name;p=folder/'Cargo.toml';s=p.read_text();assert s.count('name = "pocol-lp4-execution"')==1;p.write_text(s.replace('name = "pocol-lp4-execution"',f'name = "{identity}"')+'\n[lib]\nname = "pocol_lp4_execution"\n');p=folder/'Cargo.lock';p.write_text(p.read_text().replace('name = "pocol-lp4-execution"',f'name = "{identity}"'))
  p=folder/'src/system/issuance_tests.rs';s=p.read_text();assert s.count(old)==1;p.write_text(s.replace(old,new));env=dict(os.environ,CARGO_INCREMENTAL='0');env.pop('LP4_ISSUANCE_REPORT_PATH',None)
  command=['cargo','test','--offline','--locked','--manifest-path',str(folder/'Cargo.toml'),'--lib'];build=subprocess.run(command+['--no-run'],env=env,capture_output=True);(out/(name+'-build.log')).write_bytes(build.stdout+build.stderr)

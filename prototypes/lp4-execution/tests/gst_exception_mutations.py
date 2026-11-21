@@ -2,12 +2,14 @@
 Usage: python gst_exception_mutations.py OUTPUT CORPUS PRIMARY_RECEIPTS
 """
 import pathlib,sys,json,shutil,subprocess,os,hashlib
+from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];work=pathlib.Path(sys.argv[1]).resolve();work.mkdir(parents=True,exist_ok=True);sys.path.insert(0,str(root/'tests'));from gst_exception_audit import verify
 corpus=pathlib.Path(sys.argv[2]);rows=[json.loads(l) for l in open(sys.argv[3])]
-controls=[('nonce-guard','src/native.rs','if nonce==Some(u64::MAX) || snapshot.accounts.get(&caller).map(|a|a.info.nonce==u64::MAX).unwrap_or(false) {','if false {','TR_NonceHasMaxValue'),('wrong-reason','src/bin/cancun_control.rs','format!("{e:?}")','"Transaction(LackOfFundForMaxFee { fee: 1, balance: 0 })"','TR_IntrinsicGas')];results=[]
+controls=[('nonce-guard','src/native.rs','if nonce==Some(u64::MAX) || snapshot.account(&caller).map(|a|a.info.nonce==u64::MAX).unwrap_or(false) {','if false {','TR_NonceHasMaxValue'),('wrong-reason','src/bin/cancun_control.rs','format!("{e:?}")','"Transaction(LackOfFundForMaxFee { fee: 1, balance: 0 })"','TR_IntrinsicGas')];results=[]
 env=os.environ.copy();env.update(CARGO_TARGET_DIR=str(root/'target'),RUSTUP_TOOLCHAIN='1.99.1')
 for name,file,old,new,label in controls:
  clone=work/('exception-control-'+name);shutil.copytree(root,clone,ignore=shutil.ignore_patterns('target','__pycache__'),dirs_exist_ok=False)
+ anchor_outside(root,clone)
  p=clone/file;s=p.read_text();assert old in s;p.write_text(s.replace(old,new))
  cargo=clone/'Cargo.toml';s=cargo.read_text().replace('name = "pocol-lp4-execution"','name = "pocol-exception-'+name+'"');s+='\n[lib]\nname = "pocol_lp4_execution"\n\n[[bin]]\nname = "exception-'+name+'"\npath = "src/bin/cancun_control.rs"\n';cargo.write_text(s)
  lock=clone/'Cargo.lock';lock.write_text(lock.read_text().replace('name = "pocol-lp4-execution"','name = "pocol-exception-'+name+'"'))

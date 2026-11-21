@@ -1,5 +1,6 @@
 """Compiled Solidity + Rust actual Registry/bridge controls; no compile-error credit."""
 import os,pathlib,shutil,subprocess,json,sys,hashlib
+from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 cases=[
  ('paid-as-held','&& ((w>>16)&255)==1;','&& ((w>>16)&255)!=2;','strict_calldata_status_exclusions_and_maximum_bond_failure_are_atomic'),
@@ -23,6 +24,7 @@ cases=[
 baseline=out/'baseline'
 if baseline.exists():shutil.rmtree(baseline)
 shutil.copytree(root,baseline,ignore=shutil.ignore_patterns('target','work','node_modules','__pycache__'))
+anchor_outside(root,baseline)
 source_hashes={name:hashlib.sha256((baseline/name).read_bytes()).hexdigest() for name in ['contracts/RegistryPayment.sol','tests/registry_payment.rs','src/native.rs','Cargo.lock']}
 results=[]
 for name,old,new,test in cases:

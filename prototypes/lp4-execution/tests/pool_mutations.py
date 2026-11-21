@@ -1,5 +1,6 @@
 """Separate compiled signed-wire/fee/receipt controls; compile errors never count as kills."""
 import os,pathlib,shutil,subprocess,json,sys
+from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 fields=[
  ('rpc-chain-code','wire.rs','=>Some(-32015)','=>Some(-32016)','rpc_pool','actual_rpc_handler_rejects_chain_type_unprotected_and_keeps_pool_and_snapshot'),
@@ -18,6 +19,7 @@ for name,source,old,new,suite,test in fields:
     folder=out/name
     if folder.exists():shutil.rmtree(folder)
     shutil.copytree(root,folder,ignore=shutil.ignore_patterns('target','work','__pycache__'))
+    anchor_outside(root,folder)
     identity='pocol-lp4-execution-pool-'+name
     manifest=folder/'Cargo.toml';text=manifest.read_text();assert text.count('name = "pocol-lp4-execution"')==1
     manifest.write_text(text.replace('name = "pocol-lp4-execution"',f'name = "{identity}"')+'\n[lib]\nname = "pocol_lp4_execution"\n')

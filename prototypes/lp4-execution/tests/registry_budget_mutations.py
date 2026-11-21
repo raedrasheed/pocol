@@ -1,11 +1,13 @@
 """Compiled controls for the reproduced write-bound contradiction, not acceptance."""
 import os,pathlib,shutil,subprocess,json,sys
+from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 results=[]
 for index,name in enumerate(['omit-register-counter','omit-reward-counter','omit-claim-counter']):
     folder=out/name
     if folder.exists():shutil.rmtree(folder)
     shutil.copytree(root,folder,ignore=shutil.ignore_patterns('target','work','node_modules','__pycache__'))
+    anchor_outside(root,folder)
     source=folder/'contracts/RegistryWriteBudgetWitness.sol';text=source.read_text()
     needle='sstore(3,add(sload(3),1))' if index else 'sstore(3, add(sload(3),1))'
     if index==0:assert text.count(needle)==1;text=text.replace(needle,'',1)
