@@ -1,6 +1,6 @@
 """Compiled SYS-01 primitive controls. Build failures never count as kills."""
 import os,pathlib,shutil,subprocess,json,sys
-from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
+from mutant_copy import anchor_outside, outputs_before, release_outputs # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 prefix_test='system::tests::'
 controls=[
@@ -38,12 +38,14 @@ for name,old,new,test in controls:
  source=folder/'src/system.rs';s=source.read_text();assert s.count(old)==1,(name,old);source.write_text(s.replace(old,new))
  env=dict(os.environ,CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR',str(root/'target')),CARGO_INCREMENTAL='0');env.pop('LP4_SYS_REPORT_PATH',None)
  command=['cargo','test','--offline','--locked','--manifest-path',str(manifest),'--lib']
+ before=outputs_before(env,folder) # this copy's build outputs are removed once its result is written
  build=subprocess.run(command+['--no-run'],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT);(out/(name+'-build.log')).write_bytes(build.stdout)
  run=subprocess.run(command+[prefix_test+test,'--','--exact','--nocapture'],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT) if build.returncode==0 else None
  if run is not None:(out/(name+'-test.log')).write_bytes(run.stdout)
  killed=build.returncode==0 and run is not None and run.returncode!=0 and b'assertion' in run.stdout and b'1 test' in run.stdout
  results.append(dict(name=name,old=old,new=new,test=prefix_test+test,buildExit=build.returncode,testExit=None if run is None else run.returncode,assertionKilled=killed))
  (out/'results.json').write_text(json.dumps(results,indent=2)+'\n')
+ release_outputs(env,folder,before)
  print(name,build.returncode,None if run is None else run.returncode,killed,flush=True)
 assert len(results)==len(controls) and all(r['assertionKilled'] for r in results),results
 print(f'{len(results)} compiled SYS-01 primitive assertion controls verified; complete integration NOT PASSED')

@@ -2,7 +2,7 @@
 Solidity mutants rebuild the actual manifest/root before semantic word checks.
 """
 import pathlib,os,sys,shutil,subprocess,json
-from mutant_copy import anchor_outside # paths outside the crate stay valid in the copy
+from mutant_copy import anchor_outside, outputs_before, release_outputs # paths outside the crate stay valid in the copy
 root=pathlib.Path(__file__).resolve().parents[1];out=pathlib.Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 base='system::issuance_tests::';positive=base+'signed_user_cannot_see_current_issuance_exact_pending_and_replay_rollback';negative=base+'real_phase2_oog_and_late_commitment_error_erase_user_and_credit';supply=base+'actual_root_matching_supply_overflow_and_r23_bound_reject_before_acceptance'
 controls=[
@@ -33,11 +33,13 @@ for name,file,old,new,test,count in controls:
  if file.endswith('.sol'):
   solc=subprocess.run(['node',str(folder/'tests/compile_pending.cjs'),str(folder/'tests/data/pending-escrow.json')],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT);(out/(name+'-solc.log')).write_bytes(solc.stdout)
  command=['cargo','test','--offline','--locked','--manifest-path',str(folder/'Cargo.toml'),'--lib']
+ before=outputs_before(env,folder) # this copy's build outputs are removed once its result is written
  build=subprocess.run(command+['--no-run'],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT) if solc is None or solc.returncode==0 else None
  if build is not None:(out/(name+'-build.log')).write_bytes(build.stdout)
  run=subprocess.run(command+[test,'--','--exact','--nocapture'],env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT) if build is not None and build.returncode==0 else None
  if run is not None:(out/(name+'-test.log')).write_bytes(run.stdout)
  killed=(solc is None or solc.returncode==0) and build is not None and build.returncode==0 and run is not None and run.returncode==101 and b'assertion' in run.stdout and b'1 test' in run.stdout
  rows.append(dict(name=name,source=file,old=old,new=new,test=test,sourceOccurrences=count,solcExit=None if solc is None else solc.returncode,buildExit=None if build is None else build.returncode,testExit=None if run is None else run.returncode,assertionKilled=killed));(out/'results.json').write_text(json.dumps(rows,indent=2)+'\n');print(name,killed,flush=True)
+ release_outputs(env,folder,before)
 assert len(rows)==13 and all(r['assertionKilled'] for r in rows),rows
 print('13 compiled issuance/pending/actual-builder assertion controls verified; full LP4 NOT PASSED')

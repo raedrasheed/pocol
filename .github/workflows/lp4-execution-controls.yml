@@ -12,7 +12,9 @@ jobs:
     env:
       CARGO_HOME: ${{ github.workspace }}/work/lp4-execution-cargo
       CARGO_INCREMENTAL: '0'
-    timeout-minutes: 30
+    # The steps that need no corpus download took 30 minutes on 4 cores (optimized Rust tests, all mutation controls);
+    # the corpus steps were not measured. 30 minutes cancelled the job inside the Rust tests.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -70,7 +72,10 @@ jobs:
           cmp prototypes/lp4-execution/tests/data/pending-escrow.json work/lp4-controls/pending-escrow.json
           work/lp4-venv/bin/python prototypes/lp4-execution/tests/issuance_signed_fixtures.py work/lp4-controls/issuance-signed.json
           cmp prototypes/lp4-execution/tests/data/issuance-signed.json work/lp4-controls/issuance-signed.json
-          LP4_CHUNK_REPORT_PATH="$PWD/work/lp4-controls/chunk-vectors.json" LP4_ISSUANCE_REPORT_PATH="$PWD/work/lp4-controls/issuance-vectors.json" LP4_ISSUANCE_DIAGNOSTIC_PATH="$PWD/work/lp4-controls/issuance-diagnostic.json" LP4_SYS_REPORT_PATH="$PWD/work/lp4-controls/system-vectors.json" cargo +1.99.1 test --locked --manifest-path prototypes/lp4-execution/Cargo.toml 2>&1 | tee work/lp4-controls/rust-tests.log
+          # Every test, optimized. Unoptimized, the lib tests took 100 minutes (most of it one test) and the admission
+          # timing workload reached its 1 s budget. debug-assertions and overflow-checks stay on, so every debug_assert!
+          # and overflow check still runs.
+          LP4_CHUNK_REPORT_PATH="$PWD/work/lp4-controls/chunk-vectors.json" LP4_ISSUANCE_REPORT_PATH="$PWD/work/lp4-controls/issuance-vectors.json" LP4_ISSUANCE_DIAGNOSTIC_PATH="$PWD/work/lp4-controls/issuance-diagnostic.json" LP4_SYS_REPORT_PATH="$PWD/work/lp4-controls/system-vectors.json" cargo +1.99.1 test --locked --release --config profile.release.debug-assertions=true --config profile.release.overflow-checks=true --manifest-path prototypes/lp4-execution/Cargo.toml 2>&1 | tee work/lp4-controls/rust-tests.log
           work/lp4-venv/bin/python prototypes/lp4-execution/tests/system_boundary_oracle.py work/lp4-controls/system-boundary-repeat.json work/lp4-controls/issuance-diagnostic.json work/lp4-controls/issuance-independent.json
           cmp prototypes/lp4-execution/tests/data/system-boundary-independent.json work/lp4-controls/system-boundary-repeat.json
           work/lp4-venv/bin/python prototypes/lp4-execution/tests/system_oracle.py work/lp4-controls/system-vectors.json work/lp4-controls/system-independent.json
@@ -247,7 +252,8 @@ jobs:
           rustup toolchain install 1.99.1 --profile minimal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           New-Item -ItemType Directory -Force work/lp4-native-windows | Out-Null
-          cargo +1.99.1 test --locked --manifest-path prototypes/lp4-execution/Cargo.toml 2>&1 | Tee-Object work/lp4-native-windows/rust-tests.log
+          # The same optimized test run as the Linux job, with debug-assertions and overflow-checks on.
+          cargo +1.99.1 test --locked --release --config profile.release.debug-assertions=true --config profile.release.overflow-checks=true --manifest-path prototypes/lp4-execution/Cargo.toml 2>&1 | Tee-Object work/lp4-native-windows/rust-tests.log
           $lp4NativeExit = $LASTEXITCODE
           if ($lp4NativeExit -ne 0) { exit $lp4NativeExit }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
