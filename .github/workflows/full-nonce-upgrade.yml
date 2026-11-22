@@ -147,13 +147,19 @@ jobs:
             # After the identity switch the release carries the owner's manifest key (release/manifest-key.pub, W14,
             # committed 2026-11-18), so the packager packages it with the fixed extension id.
             npm run package
-            # The sites link this archive: step 7 packaged it from the switched tree and wrote its SHA-256 into
-            # the sites' SHA256SUMS.txt (the zip is reproducible, W14), so the zip CI makes must be that file.
+            # The zip is reproducible (W14): a second packaging of the same build gives the same bytes, so the file the
+            # owner signs is the file CI makes. The sites list no extension package before the signed release (owner
+            # policy, 2026-11-22; deploy/websites/tests/test_downloads.py); a line they list for the package must be
+            # this version's and this build's digest.
             version=$(node -p "require('./package.json').version")
             digest=$(cut -d' ' -f1 "releases/PoCol-Studio-IDE-Viewer-$version.zip.sha256")
+            python3 scripts/package-release.py "$RUNNER_TEMP/again.zip"
+            [ "$(sha256sum "$RUNNER_TEMP/again.zip" | cut -d' ' -f1)" = "$digest" ] || {
+              echo "a second packaging of PoCol-Studio-IDE-Viewer-$version.zip gave other bytes" >&2; exit 1; }
             for site in ide.pocol.net pocol.net; do
-              grep -qxF "$digest  downloads/PoCol-Studio-IDE-Viewer-$version.zip" "../../deploy/websites/$site/SHA256SUMS.txt" || {
-                echo "$site/SHA256SUMS.txt does not list this build's PoCol-Studio-IDE-Viewer-$version.zip ($digest)" >&2; exit 1; }
+              listed=$(grep -E '  downloads/PoCol-Studio-(IDE-Viewer-[0-9.]+|Chrome)\.zip$' "../../deploy/websites/$site/SHA256SUMS.txt" || true)
+              [ -z "$listed" ] || [ "$listed" = "$digest  downloads/PoCol-Studio-IDE-Viewer-$version.zip" ] || {
+                echo "$site/SHA256SUMS.txt lists an extension package that is not this build's PoCol-Studio-IDE-Viewer-$version.zip ($digest): $listed" >&2; exit 1; }
             done
             # The packaged zip is unsigned until the owner signs it (deploy/release): it must not verify.
             if python3 -B ../../deploy/release/verify_release.py releases > "$RUNNER_TEMP/verify.log"; then

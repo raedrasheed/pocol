@@ -10,6 +10,7 @@ copy of an identity value may sit outside the anchors.
         [--expect-sha256 HEX --expect-chain-id N --expect-genesis 0xHEX]   # required on a public network chain
     python3 deploy/websites/tools/site_identity.py --edits EDITS.json           # anchored bundle edits (W7, W14)
     python3 deploy/websites/tools/site_identity.py --download SITE/downloads/NAME=SHA256 ...   # kept-out archive lines
+    python3 deploy/websites/tools/site_identity.py --drop-download SITE/downloads/NAME ...     # withdraw a kept-out file
 
 DECLARED (deploy/websites/site-identity.json) names the identity the snapshots pin: chain ID, genesis hash and the
 GenesisSpec that proves both, the display name, the IDE's RPC URL, the explorer's seed list and the source links. --to
@@ -46,6 +47,10 @@ kept-out lines of another version of the same archive family (the name before `-
 `PoCol-Studio-IDE-Viewer` or `PoCol-Mainnet`) and any other kept-out line with the bytes of one of those (an unversioned
 copy such as `PoCol-Studio-Chrome.zip`). A file of the snapshot that it supersedes (a tracked `.sha256`) is refused
 until it is removed, and a PATH that is in the snapshot is refused (its line is its own digest).
+
+--drop-download PATH (repeatable) withdraws a kept-out file that the site no longer serves (2026-11-22: the unsigned
+0.5.0 extension package step 7 listed): its name leaves keptOut and its SHA256SUMS.txt line goes, so the file is one to
+delete from the host. A PATH that keptOut does not name, or that a --download of the same run gives, is refused.
 
 --check also refuses: any retired identity (deploy/mainnet/retired-networks.json) other than the declared one, so the
 check turns on by itself once the snapshots pin a network that is not retired (a retired identity on the declared chain
@@ -173,10 +178,12 @@ LABELS = [re.compile(prefix + _SEMVER) for prefix in (
 OR_LATER = re.compile(r'\s+(?:or later|or newer|أو أحدث|أو ما بعده)')
 # Native package names (assemble_release.py's, at package.py's version).
 NATIVE = re.compile(r'PoCol-Mainnet-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_-]+(?:\.[A-Za-z0-9]+)+')
-# The retired network's native packages that pocol.net still links (wallet-downloads.js, index.html, pocol-tools.html,
-# guide-content.js) until the signed release moves those links (W16, PR F). --check fails once none links one of them,
-# so the exemption leaves with the last link.
-LEGACY_NATIVE = frozenset({'PoCol-Mainnet-0.4.0-Windows.zip', 'PoCol-Mainnet-0.4.0-Linux.zip'})
+# The retired network's native package that pocol.net still links, labelled as the retired network's, beside "Coming
+# from the retired network?" (index.html, pocol-tools.html, guide-content.js) until the signed release moves those links
+# (W16, PR F). The Linux package and the unlabelled "MAINNET EDITION" and tools-page links were removed on 2026-11-22:
+# they offered the retired network's 0.4.0 packages as PoCol Mainnet applications. --check fails
+# once no page links a name listed here, so the exemption leaves with the last link.
+LEGACY_NATIVE = frozenset({'PoCol-Mainnet-0.4.0-Windows.zip'})
 VERSIONED = re.compile(r'(?<![0-9A-Za-z_.:/-])(/?[A-Za-z0-9_][A-Za-z0-9_./-]*)\?v=([0-9a-f]{12})(?![0-9A-Za-z])')
 # The explorer snapshot is static (Sites W8): its /api paths are the gateway's (deploy/rewards/explorer_api.py) and its
 # headers are the Caddy site's (deploy/explorer/explorer_site.py), so no server code or hidden file may be in it.
@@ -654,7 +661,7 @@ def parse_downloads(values):
 NO_EXPECT = argparse.Namespace(expect_sha256=None, expect_chain_id=None, expect_genesis=None)
 
 def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=False, gateway_host=None, downloads=None,
-         expect=NO_EXPECT):
+         drops=None, expect=NO_EXPECT):
     """(problems, {path: new bytes or None}, new declared doc) of a run. `expect` holds the published values a --to
     invitation must match (expect_sha256, expect_chain_id, expect_genesis), required on a public network chain."""
     tree = Tree(root)
@@ -694,6 +701,14 @@ def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=
     if gateway_host is not None:
         new['gatewayHost'] = check_host(gateway_host)
     new = validate(new)
+    for path in drops or []:
+        site = next((s for s, has_sums in SITES.items() if has_sums and path.startswith(s + '/')), None)
+        key, name = posixpath.basename(site or ''), path[len(site or '') + 1:]
+        if site is None or name not in new['keptOut'].get(key, []):
+            raise Refused(f'--drop-download {path}: not a kept-out file of a site ({DECLARED} keptOut)')
+        if path in (downloads or {}):
+            raise Refused(f'--drop-download {path}: also given with --download')
+        new['keptOut'] = dict(new['keptOut'], **{key: [n for n in new['keptOut'][key] if n != name]})
     if Path(root).resolve() == ROOT and not new['rpcUrl'].startswith('https://'):
         raise Refused(f'{DECLARED}: rpcUrl {new["rpcUrl"]!r}: the repository\'s snapshots name an https RPC endpoint; '
                       'a loopback URL is only for a test copy (--root)')
@@ -754,6 +769,8 @@ def main(argv=None):
     p.add_argument('--edits', type=Path, help='a JSON list of anchored edits [{"file", "old", "new", "count"}]')
     p.add_argument('--download', action='append', metavar='PATH=SHA256',
                    help=f'the {SUMS} line of a release file kept out of Git, PATH <site>/downloads/<name> (repeatable)')
+    p.add_argument('--drop-download', action='append', metavar='PATH', default=[],
+                   help=f'withdraw a kept-out file, PATH <site>/downloads/<name>: its keptOut name and {SUMS} line go (repeatable)')
     p.add_argument('--allow-revert', action='store_true', help=f'allow a --to identity listed in {RETIRED}')
     ni.add_expect_arguments(p)
     p.add_argument('--check', action='store_true', help='verify only; fails if the run would change any file')
@@ -773,7 +790,8 @@ def main(argv=None):
         downloads = parse_downloads(a.download)
         if a.to is None and (a.expect_sha256, a.expect_chain_id, a.expect_genesis) != (None, None, None):
             raise Refused('--expect-sha256, --expect-chain-id and --expect-genesis check a --to invitation')
-        problems, changed, new = plan(a.root, a.to, a.commit, a.rpc_url, edits, a.allow_revert, a.gateway_host, downloads, a)
+        problems, changed, new = plan(a.root, a.to, a.commit, a.rpc_url, edits, a.allow_revert, a.gateway_host, downloads,
+                                      a.drop_download, a)
     except Refused as e:
         print('FAIL', e, file=sys.stderr)
         return 2

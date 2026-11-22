@@ -76,6 +76,16 @@ COPIED_FILES = [si.RETIRED, si.EXTENSION_PACKAGE, si.NATIVE_PACKAGE, ni.NODE_SPE
 EXT_VERSION = json.loads((ROOT / si.EXTENSION_PACKAGE).read_text(encoding='utf-8'))['version']
 NATIVE_VERSION = si.release.native_version(ROOT)
 
+RELEASE_PENDING = 'deploy/websites/tools/release-pending-edits.json'
+
+def undo(text, edits_path, key):
+    """The text of BUNDLES key (or file) `key` before the anchored edits of edits_path, undone in reverse."""
+    for e in reversed(json.loads((ROOT / edits_path).read_text(encoding='utf-8'))):
+        if e['file'] == key:
+            assert text.count(e['new']) == e['count'], e['new'][:80]
+            text = text.replace(e['new'], e['old'])
+    return text
+
 def snapshot(root):
     out = {}
     for top in COPIED:
@@ -181,6 +191,24 @@ class SiteIdentity(unittest.TestCase):
             for name, tokens in kept_out_links(root, site).items():
                 if name in missing:
                     self.assertEqual(tokens, {kept_digest(root, site, name)[:12]}, (site, name))
+
+    def restore_extension_downloads(self, root):
+        """On a copy, the kept-out extension package lines as the snapshots had them before SITE-01 (2026-11-22): the
+        package and, on pocol.net, its unversioned copy PoCol-Studio-Chrome.zip, declared in keptOut, and the tracked
+        downloads/<package>.sha256 of both sites. The --download mechanics are exercised on them."""
+        name, digest = f'PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip', '8' * 64
+        doc = json.loads((root / si.DECLARED).read_text(encoding='utf-8'))
+        for site, copies in ((si.MAIN, ['downloads/PoCol-Studio-Chrome.zip']), (si.IDE, [])):
+            (root / site / 'downloads').mkdir(exist_ok=True)
+            (root / site / 'downloads' / (name + '.sha256')).write_text(f'{digest}  {name}\n', encoding='utf-8')
+            sums = root / site / si.SUMS
+            sums.write_text(sums.read_text(encoding='utf-8') + ''.join(f'{digest}  {n}\n' for n in [f'downloads/{name}', *copies]),
+                            encoding='utf-8')
+            key = Path(site).name
+            doc['keptOut'][key] = sorted(set(doc['keptOut'][key]) | {f'downloads/{name}', *copies})
+        (root / si.DECLARED).write_text(json.dumps(doc, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
 
     # ---------------- the tree ----------------
     def test_the_tree_carries_the_declared_identity(self):
@@ -569,10 +597,14 @@ class SiteIdentity(unittest.TestCase):
 
     # ---------------- Sites W14: version labels, native names, kept-out download lines ----------------
     def test_version_labels_name_the_package_and_capability_messages_are_exempt(self):
-        # The IDE's download button names the package it links (it said 0.4.0 next to the 0.4.1 href).
+        # The IDE's download button named the package it linked (W14: it said 0.4.0 next to the 0.4.1 href); since
+        # SITE-01 (tools/release-pending-edits.json) it links pocol.net's release verification and names no package.
         ide = self.bundle(ROOT, 'ide-bundle').read_text(encoding='utf-8')
+        before_pending = undo(ide, RELEASE_PENDING, 'ide-bundle')
         self.assertIn(f'href:`/downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip`,download:!0,children:[(0,D.jsx)(Wr,'
-                      f'{{name:`download`}}),`Download PoCol extension {EXT_VERSION}`]', ide)
+                      f'{{name:`download`}}),`Download PoCol extension {EXT_VERSION}`]', before_pending)
+        self.assertNotIn('PoCol-Studio-IDE-Viewer-', ide)
+        self.assertIn('href:`https://pocol.net/chrome-extension.html#install`', ide)
         # Its capability messages name the oldest version with contract signing: matched by the label patterns, and
         # exempt only because they say "or later".
         for message in ('Update the PoCol extension to version 0.4.0 or later', 'Update your PoCol extension to 0.4.0 or later',
@@ -637,6 +669,7 @@ class SiteIdentity(unittest.TestCase):
 
     def test_download_writes_the_kept_out_lines_and_drops_the_superseded_ones(self):
         root = self.copy()
+        self.restore_extension_downloads(root)
         sums = root / si.MAIN / si.SUMS
         lines = lambda: dict(reversed(line.split('  ', 1)) for line in sums.read_text(encoding='utf-8').splitlines())
         declared_path = root / si.DECLARED
@@ -731,6 +764,7 @@ class SiteIdentity(unittest.TestCase):
         # by the bytes on disk and stays declared: once it is gone again (a clean checkout), its line is still carried,
         # so --check passes and a run does not drop the release checksum.
         root = self.copy()
+        self.restore_extension_downloads(root)
         name = f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip'
         declared = lambda: json.loads((root / si.DECLARED).read_text(encoding='utf-8'))['keptOut']['pocol.net']
         self.assertIn(name, declared())
@@ -756,6 +790,7 @@ class SiteIdentity(unittest.TestCase):
         for site in (si.MAIN, si.IDE):
             with self.subTest(site=site):
                 root = self.copy()
+                self.restore_extension_downloads(root)
                 (root / site / name).unlink()
                 self.assertEqual(self.run_tool(root, '--check'), 2, 'a deleted tracked file fails the check')
                 self.assertIn(f'{site}/{si.SUMS}: does not carry', self.last_errors)
@@ -764,10 +799,21 @@ class SiteIdentity(unittest.TestCase):
                 self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
                 self.assert_consistent(root)
 
+    def undo_file(self, root, edits_path):
+        """An --edits file (written in the copy's root) that undoes edits_path: its edits inverted, in reverse order."""
+        edits = json.loads((ROOT / edits_path).read_text(encoding='utf-8'))
+        out = root / ('undo-' + Path(edits_path).name)
+        out.write_text(json.dumps([{'file': e['file'], 'old': e['new'], 'new': e['old'], 'count': e['count']}
+                                   for e in reversed(edits)], ensure_ascii=False), encoding='utf-8')
+        return out
+
     def test_the_w14_edits_reproduce_the_served_files(self):
         # Sites W14's site texts are anchored edits (tools/w14-text-edits.json): undone in reverse on a copy, the tool's
         # own --edits run gives back every served file byte for byte, with the IDE bundle's name and the derived files.
+        # The SITE-01 edits (tools/release-pending-edits.json) came after W14, so they are undone first and redone last.
         root = self.copy()
+        self.assertEqual(self.run_tool(root, '--edits', str(self.undo_file(root, RELEASE_PENDING))), 0, self.last_errors)
+        after_w14 = snapshot(root)
         edits = json.loads((ROOT / 'deploy/websites/tools/w14-text-edits.json').read_text(encoding='utf-8'))
         # Step 7 moved the IDE bundle's extension link and label from 0.4.1 to 0.5.0 with the identity switch
         # (tools/step7-release-edits.json, anchored edits on top of W14's), so both lists are undone, and redone in order.
@@ -776,8 +822,8 @@ class SiteIdentity(unittest.TestCase):
         both.write_text(json.dumps(edits), encoding='utf-8')
         texts = {}
         for e in reversed(edits):
-            rel = si.anchor_file(si.Tree(ROOT), e['file'])
-            texts.setdefault(rel, (ROOT / rel).read_text(encoding='utf-8'))
+            rel = si.anchor_file(si.Tree(root), e['file'])
+            texts.setdefault(rel, (root / rel).read_text(encoding='utf-8'))
             self.assertEqual(texts[rel].count(e['new']), e['count'], e['new'][:80])
             texts[rel] = texts[rel].replace(e['new'], e['old'])
         for rel, text in texts.items():
@@ -789,7 +835,62 @@ class SiteIdentity(unittest.TestCase):
         self.assertIn("DEPLOY-README-AR.txt: labels the extension 'إضافة PoCol للإصدار 0.4.0'", self.last_errors)
         self.assertEqual(self.run_tool(root, '--edits', str(both)), 0, self.last_errors)
         both.unlink()
+        self.assertEqual(snapshot(root), after_w14)
+        self.assertEqual(self.run_tool(root, '--edits', str(ROOT / RELEASE_PENDING)), 0, self.last_errors)
         self.assertEqual(snapshot(root), snapshot(ROOT))
+
+    def test_the_release_pending_edits_reproduce_the_served_ide_bundle(self):
+        # SITE-01: the IDE bundle's download button linked the retired network's 0.4.1 extension package. The anchored
+        # edit (tools/release-pending-edits.json) replaces it with a link to pocol.net's release verification and a note
+        # that no package is offered before the signed release; undone, then redone, it gives back the served files.
+        edits = json.loads((ROOT / RELEASE_PENDING).read_text(encoding='utf-8'))
+        self.assertEqual({e['file'] for e in edits}, {'ide-bundle'})
+        for e in edits:
+            self.assertIn('PoCol-Studio-IDE-Viewer-', e['old'])
+            self.assertNotIn('PoCol-Studio-IDE-Viewer-', e['new'])
+            self.assertIn('published with the signed release', e['new'])
+        root = self.copy()
+        self.assertEqual(self.run_tool(root, '--edits', str(self.undo_file(root, RELEASE_PENDING))), 0, self.last_errors)
+        self.assertIn('/downloads/PoCol-Studio-IDE-Viewer-', self.bundle(root, 'ide-bundle').read_text(encoding='utf-8'))
+        self.assertNotEqual(snapshot(root), snapshot(ROOT))
+        self.assertEqual(self.run_tool(root, '--edits', str(ROOT / RELEASE_PENDING)), 0, self.last_errors)
+        self.assertEqual(snapshot(root), snapshot(ROOT))
+        self.assert_consistent(root)
+
+    def test_drop_download_withdraws_a_kept_out_file(self):
+        # SITE-01: --drop-download removes a kept-out file's keptOut name and its SHA256SUMS.txt line, so the file is no
+        # longer one the site serves (the host copy is then deleted, deploy/websites/README.md).
+        root = self.copy()
+        self.restore_extension_downloads(root)
+        name = f'PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip'
+        for site in (si.MAIN, si.IDE):
+            (root / site / 'downloads' / (name + '.sha256')).unlink()
+        args = ['--drop-download', f'{si.MAIN}/downloads/{name}', '--drop-download', f'{si.MAIN}/downloads/PoCol-Studio-Chrome.zip',
+                '--drop-download', f'{si.IDE}/downloads/{name}']
+        before = snapshot(root)
+        self.assertEqual(self.run_tool(root, *args, '--check'), 2, 'check: the run would change the checksums')
+        self.assertEqual(snapshot(root), before)
+        self.assertEqual(self.run_tool(root, *args), 0, self.last_errors)
+        kept = json.loads((root / si.DECLARED).read_text(encoding='utf-8'))['keptOut']
+        self.assertEqual(kept, {'explorer.pocol.net': [], 'ide.pocol.net': [], 'pocol.net': []})
+        for site in (si.MAIN, si.IDE):
+            self.assertNotIn('PoCol-Studio-', (root / site / si.SUMS).read_text(encoding='utf-8'))
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        self.assert_consistent(root)
+        # Refused, and nothing written: a name keptOut does not hold (now), a site without SHA256SUMS.txt, and a path
+        # given with --download in the same run.
+        before = snapshot(root)
+        for value in (f'{si.MAIN}/downloads/{name}', f'{si.STUDIO}/downloads/{name}', f'{si.MAIN}/index.html'):
+            with self.subTest(value=value):
+                self.assertEqual(self.run_tool(root, '--drop-download', value), 2)
+                self.assertIn('not a kept-out file of a site', self.last_errors)
+                self.assertEqual(snapshot(root), before)
+        win = f'{si.MAIN}/downloads/PoCol-Mainnet-{NATIVE_VERSION}-windows-x86_64.zip'
+        self.assertEqual(self.run_tool(root, '--download', f'{win}={"1" * 64}'), 0, self.last_errors)
+        before = snapshot(root)
+        self.assertEqual(self.run_tool(root, '--download', f'{win}={"1" * 64}', '--drop-download', win), 2)
+        self.assertIn('also given with --download', self.last_errors)
+        self.assertEqual(snapshot(root), before)
 
     def test_a_retired_identity_left_after_a_switch_fails(self):
         root = self.copy()
@@ -892,12 +993,18 @@ class SiteIdentity(unittest.TestCase):
     def test_a_kept_out_download_link_carries_the_content_version_of_its_listed_digest(self):
         # The 0.5.0 links kept the 0.4.1 archive's ?v= (85e6ebb6a0e3): a kept-out archive is not in the snapshot, so its
         # content version is taken from the digest its SHA256SUMS.txt line lists (a --download digest, else that line).
+        # Since SITE-01 the served pages link no extension package before the signed release, so the copy gets the
+        # kept-out package lines (restore_extension_downloads) and one home-page link to it, as the release will have.
         name = f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip'
-        links = kept_out_links(ROOT, si.MAIN)
-        self.assertIn(name, links, 'pocol.net links the kept-out extension package')
-        self.assertEqual(links[name], {kept_digest(ROOT, si.MAIN, name)[:12]})
         root = self.copy()
+        self.restore_extension_downloads(root)
         page = root / si.MAIN / 'index.html'
+        page.write_text(page.read_text(encoding='utf-8').replace('</body>', f'<a href="{name}?v=000000000000">x</a></body>', 1),
+                        encoding='utf-8')
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        links = kept_out_links(root, si.MAIN)
+        self.assertIn(name, links, 'the copy links the kept-out extension package')
+        self.assertEqual(links[name], {kept_digest(root, si.MAIN, name)[:12]})
         good = page.read_text(encoding='utf-8')
         token = kept_digest(root, si.MAIN, name)[:12]
         page.write_text(good.replace(f'{name}?v={token}', f'{name}?v=85e6ebb6a0e3'), encoding='utf-8')

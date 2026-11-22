@@ -74,6 +74,7 @@ python3 -B deploy/websites/tools/site_identity.py --check            # what CI r
 python3 -B deploy/websites/tools/site_identity.py --to NEW.json --gateway-host HOST --commit SHA   # the switch (W15, W16)
 python3 -B deploy/websites/tools/site_identity.py --edits EDITS.json  # anchored bundle edits (W7, W14)
 python3 -B deploy/websites/tools/site_identity.py --download deploy/websites/pocol.net/downloads/NAME=SHA256   # a kept-out line
+python3 -B deploy/websites/tools/site_identity.py --drop-download deploy/websites/pocol.net/downloads/NAME     # withdraw one
 ```
 
 Sites W7 (the explorer's v3 membership, light refresh and Registry decoding) is `tools/explorer-w7-edits.json`, applied
@@ -92,12 +93,15 @@ the extension ID with pocol.net, import the wallet), DEPLOY-README-AR.txt sectio
 network, and the IDE's download button names the package it links (0.4.1, it said 0.4.0). Step 7 of the mainnet runbook moved that button and its link to 0.5.0 with the identity switch, recorded as the anchored edits `tools/step7-release-edits.json` on top of W14's (the W14 test undoes and redoes both). `--check` also refuses an
 extension version label that is not package.json's (a capability message "X or later" is exempt) and a native package
 name that is not `deploy/release/assemble_release.py`'s at `deploy/standalone/package.py`'s version; the retired
-`PoCol-Mainnet-0.4.0-Windows.zip` and `-Linux.zip` that the pages link until the signed release (W16) are exempt while a
-page still names them. `--download PATH=SHA256` (repeatable) writes the `SHA256SUMS.txt` line of a release file kept
+`PoCol-Mainnet-0.4.0-Windows.zip` that the pages link, labelled as the retired network's, until the signed release (W16)
+is exempt while a page still names it (`LEGACY_NATIVE`; the retired `-Linux.zip` left it with its last link on
+2026-11-22). `--download PATH=SHA256` (repeatable) writes the `SHA256SUMS.txt` line of a release file kept
 out of Git (an archive, its `.sig` or `.sha256`), adds its name to the site's `keptOut` list in `site-identity.json`
 and drops the kept-out lines (and names) of other versions of the same archive family and their unversioned copies; a
 tracked file it supersedes must be removed first. Only the lines `keptOut` names are carried for files that are not in
 the snapshot, so a tracked file that is deleted (a `.sha256`) loses its line and `--check` fails until a run drops it.
+`--drop-download PATH` (repeatable) withdraws a kept-out file: its `keptOut` name and its `SHA256SUMS.txt` line go, and
+the copy on the host is then deleted.
 
 Site truth (owner decision 4, 2026-11-18: no text states anything untrue or presents the public launch as prevented or
 conditional). The explorer bundle's installer step names `deploy/explorer/install_explorer_gateway.py --site DIR` and
@@ -119,6 +123,23 @@ pocol.net publishes the extension ID and the release key fingerprint users compa
 `PublishedReleaseIds`). Until then the links beside "Coming from the retired network?" (home page and
 tools page) are labelled as the retired network's 0.4.0 Windows package; W16 replaces or removes them.
 `tests/test_launch_decisions.py` (`LaunchTexts`) refuses the removed texts.
+
+Withdrawn downloads (2026-11-22, owner policy kept on the integration branch: no extension package link or listed
+digest before the signed release, whose official channel will be the Chrome Web Store). Step 7 had listed an unsigned
+0.5.0 extension zip in both sites' `SHA256SUMS.txt` and `.sha256` files and linked it from the home page, the
+extension guide, Studio's install dialog, the IDE and `DEPLOY-README-AR.txt`: the digest of an unsigned build, which
+goes stale with any change to the extension and is not a signed release. Those lines and files were withdrawn
+(`--drop-download`, `keptOut` is empty), and the links now open the extension guide's install section
+(`chrome-extension.html#install`, which publishes the extension ID and the release key fingerprint); the IDE's button
+is the anchored edit `tools/release-pending-edits.json`, applied after step 7's. The home page's "MAINNET EDITION"
+buttons (`wallet-downloads.js`) show "No release available", and the tools page and the guide no longer offer the
+retired network's 0.4.0 Windows and Linux packages as PoCol Mainnet applications, the retired network's invitation
+(`downloads/network.pocol.json`, removed 2026-11-13) or `downloads/PoCol-Apps-README.txt` (never in the snapshot).
+`tests/test_downloads.py` checks that no site file names the content version of a retired network's invitation, that
+every `downloads/` link is a file of the snapshot, a `keptOut` file or a `LEGACY_NATIVE` package labelled as the
+retired network's, and that no site names, links or lists an extension package. CI (`full-nonce-upgrade.yml`) packages
+the extension twice, requires the same bytes, and refuses any listed extension package line that is not this build's.
+`tests/test_guide_pages.py` checks that the static guide pages are the English render of `guide-content.js`.
 
 A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` and `index.html` follows, as does the
 explorer bundle's line in `tools/explorer-s1-include.txt` (a list that names any other explorer bundle fails
