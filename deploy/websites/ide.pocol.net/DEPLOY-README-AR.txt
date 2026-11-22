@@ -14,7 +14,7 @@ PoCol IDE — دليل النشر على ide.pocol.net
 - assets/ بالكامل، بما فيه ملفات JavaScript وCSS وعمال المتصفح والصور.
 - compiler/worker.js
 - compiler/soljson.js
-- downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip
+- downloads/PoCol-Studio-IDE-Viewer-0.5.0.zip
 - licenses/ وTHIRD-PARTY-NOTICES.txt
 - أي ملفات إعداد للاستضافة مرفقة بالنسخة، بما فيها الملفات المخفية إن وجدت.
 
@@ -43,8 +43,8 @@ https://ide.pocol.net/compiler/soljson.js
 
 4. الاتصال بمحفظة PoCol والنشر على الشبكة
 
-المسار الأساسي هو إضافة PoCol المرفقة مع هذه النسخة. اسم الحزمة PoCol-Studio-IDE-Viewer-0.4.1.zip، ورابطها بعد نشر الموقع:
-https://ide.pocol.net/downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip
+المسار الأساسي هو إضافة PoCol المرفقة مع هذه النسخة. اسم الحزمة PoCol-Studio-IDE-Viewer-0.5.0.zip، ورابطها بعد نشر الموقع:
+https://ide.pocol.net/downloads/PoCol-Studio-IDE-Viewer-0.5.0.zip
 
 يمكن استخدام محفظة خارجية متوافقة مع EIP-1193 اختيارياً.
 
@@ -69,12 +69,12 @@ https://ide.pocol.net
 اختر PoCol Mainnet وتحقق من الشبكة، ثم ترجم آخر نسخة من العقد. أدخل معاملات المنشئ وراجع قيمة التحويل والحد الأقصى للرسوم، ثم وافق من الإضافة. رمز العملة PCOL، بينما اسم الشبكة والمنتج PoCol.
 
 إعدادات الشبكة:
-Chain ID: 1599846715
-Chain ID (hex): 0x5f5bb93b
+Chain ID: 2656089850
+Chain ID (hex): 0x9e50b6fa
 RPC: https://explorer.pocol.net/studio/rpc
 Explorer: https://explorer.pocol.net
 Currency: PCOL — 18 decimals
-Genesis: 0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca
+Genesis: 0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e
 
 القيم أعلاه هي هوية الشبكة التي تثبّتها هذه النسخة؛ تحقّق منها مقابل البوابة الحية من المتصفح بعد نشر الموقع. لم يُتحقق حتى الآن من مسار العقود على PoCol Mainnet نفسها، لأنها تبدأ من genesis جديدة عند الإطلاق، لكنه يُختبر آلياً في CI على شبكة تطوير v3: الترجمة في IDE، ثم التوقيع في الإضافة، ثم النشر، ثم القراءة في IDE. بعد نشر الموقع، انشر عقداً صغيراً على PoCol Mainnet من محفظة ممولة، وتحقّق من ظهور إيصاله في المستكشف. الاتصال الحالي يعتمد على عقدة RPC بعيدة موثوقة.
 

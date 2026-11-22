@@ -50,7 +50,7 @@ sudo bash ~/Install-PoCol-Studio-Gateway.sh
 
 curl --fail --max-time 20 https://explorer.pocol.net/studio/health
 
-يجب أن تعرض الاستجابة ready:true و chainId:1599846715.
+يجب أن تعرض الاستجابة ready:true و chainId:2656089850.
 أعد الاختبار من جهاز Windows أو cPanel أيضًا لإثبات الوصول الخارجي.
 
 البرنامج يضيف خدمة pocol-studio-gateway.service على 127.0.0.1:8089

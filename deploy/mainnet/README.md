@@ -122,7 +122,8 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
 
 ## Tools
 
-- `set_network_identity.py --from OLD.json --to NEW.json [--check]`: switches every client's pinned chain ID,
+- `set_network_identity.py --from OLD.json --to NEW.json [--expect-sha256 HEX --expect-chain-id N --expect-genesis 0xHEX] [--check]`:
+  switches every client's pinned chain ID,
   genesis hash and GenesisSpec (`FILES` lists them) from one network's invitation to another's, with the
   derived content versions and the Studio gateway installer. It names no network itself: both identities come
   from the invitations, proven by their GenesisSpec. The invitation of the identity the tree pins today, which
@@ -130,13 +131,18 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
 
   ```sh
   git show <commit>:deploy/mainnet/h15000/network.pocol.json > /tmp/OLD.json
-  python3 deploy/mainnet/set_network_identity.py --from /tmp/OLD.json --to NEW_DIR/network.pocol.json
-  python3 deploy/mainnet/set_network_identity.py --from /tmp/OLD.json --to NEW_DIR/network.pocol.json --check
+  python3 deploy/mainnet/set_network_identity.py --from /tmp/OLD.json --to NEW_DIR/network.pocol.json --expect-...
+  python3 deploy/mainnet/set_network_identity.py --from /tmp/OLD.json --to NEW_DIR/network.pocol.json --expect-... --check
   ```
 
   `<commit>` is any commit before that file was deleted (`git log --diff-filter=D -- deploy/mainnet/h15000`
   names the deleting commit; use its parent). The tool prints the identity it switches from and to before it
-  writes anything. It also writes the release's pinned launch network, `NETWORK_PROFILES` in
+  writes anything. On a public network chain (`PUBLIC_NETWORK_CHAINS`, the chain of `v3-profile.json`,
+  2656089850) `--to` needs the three published values, `--expect-sha256` (the invitation file's announced
+  SHA-256), `--expect-chain-id` and `--expect-genesis`, and refuses, writing nothing, a file that does not match
+  all three (a value given on another chain must match too); `--check` needs them as well, and
+  `deploy/websites/tools/site_identity.py --to` takes the same three. A spec-2 genesis must have CP nonceMode 1,
+  which the release node and the extension require. It also writes the release's pinned launch network, `NETWORK_PROFILES` in
   `prototypes/pocold/src/readiness.rs` (V3-28 H2): the `--to` entry replaces the `--from` one, unless `--to` is a
   retired network or the rehearsal network (the chain ID of `v3-rehearsal-profile.json`), which get no entry, and
   `--check` refuses a missing or extra entry, or an entry of the other chain's form. Each entry is written on the
@@ -153,9 +159,11 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
   network reports `publicLaunchApproved` true only when its booted admission matches the pin exactly (otherwise
   `admission-mismatch`, naming the fields that differ), and its `technicalReadiness` still lists `admission-scope`,
   each `admission-condition-*` and `admission-waiver-*`, and every open gate. The launcher boots nothing: it reports
-  the pin's approval reference and keeps `admission-not-booted`. The tree pins a retired network today, so the list is
-  empty and every network reports `network-not-release-pinned` and `launch-not-approved` (and, in the launcher,
-  `admission-not-booted`). The report is node-local: it never stops a node from running, mining or serving sites.
+  the pin's approval reference and keeps `admission-not-booted`. Since step 7 the tree pins PoCol Mainnet (chain
+  2656089850; its genesis hash is in `prototypes/pocold/src/network_display.rs`, which `set_network_identity.py` lists),
+  so the list holds its one public-network entry; every other network reports `network-not-release-pinned` and `launch-not-approved` (and, in
+  the launcher, `admission-not-booted`). Live nodes report the pin only once they run a release built from the switched
+  tree. The report is node-local: it never stops a node from running, mining or serving sites.
 - `v3-profile.json`, `v3-rehearsal-profile.json`: the fresh network's mainnet profile and the rehearsal profile,
   which is kept only as a test and devnet profile (FN-4; OWNER-DECISIONS-2026-11-20). They differ only in the chain ID
   and the launch second. `test_v3_profiles.py` checks them; `pocold`'s
@@ -163,8 +171,8 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
 - `retired-networks.json`: the identities the clients were switched away from, append-only. Every switch adds
   its `--from` network, and the tool refuses a listed network as `--to` (swapped `--from`/`--to` included):
   a rollback is a `git revert` of the switch commit, not a reversed run. `--allow-revert` switches back to a
-  retired network on purpose. Its first entry is the network retired on 2026-11-13, which the clients still pin
-  until the new genesis exists.
+  retired network on purpose (step 7 never uses it). Its first entry is the network retired on 2026-11-13, which the
+  clients pinned until step 7 switched them to PoCol Mainnet.
 
 The tests (`test_set_network_identity.py`) also guard the tree: every tracked file that pins the current
 identity is in `FILES` or kept on purpose; once the tree pins a network that is not retired, no tracked file
@@ -172,7 +180,13 @@ outside `development/` and `deploy/websites/` may hold a retired identity (`FILE
 release texts that are true only on the retired network (`STEP3`: the 0.4.x versions and "chain ID and genesis
 unchanged" notes) must be gone by then. The native 0.5.0 bump (owner decision 2026-11-16) landed before the switch;
 what `STEP3` still lists (the extension and Studio versions and the 0.4.x extension download names) moves with the
-signed 0.5.0 extension release and its download links. `deploy/release/assemble_release.py` refuses a release whose
+signed 0.5.0 extension release and its download links. Files outside `FILES` that name the public network's chain ID
+on purpose (its profile code, the ceremony, the faucet, the release build check, their tests and this runbook) are
+listed in `MAINNET_NAMED` of the test with a reason and the number of times each names the chain ID; a test requires
+exactly those files and counts, so a new mention, in a new file or in a listed one, is reviewed there. Once the tree
+pins that chain their mentions are not taken for unlisted client pins, except in `readiness.rs` outside its
+`#[cfg(test)]` module, where the chain ID alone is still a pin; a retired identity, and a copy of the current genesis
+hash, in them are still refused. `deploy/release/assemble_release.py` refuses a release whose
 extension `package.json` version is not the native version, so no release is assembled before the switch sets it to
 0.5.0: the ceremony runs on unsigned CI artifacts (step 1), and the first signed release follows the switch (step 7).
 
@@ -189,14 +203,18 @@ integers, widths and bounds of every field of the final CP schema v2 of 59 field
 M_0List order and reserved ids) accepts it and its `sysCodeHash` names the v3 program
 set. A refused `--to` writes nothing. Spec-1 switches are unchanged.
 
-## The extension's built-in profile placeholder (decision D1)
+## The extension's built-in profile placeholder (decision D1, history)
 
-Until the new genesis exists, the extension's built-in profile (`prototypes/pocol-extension/src/lib/studio-network.js`)
-pins no retired network: it holds a placeholder, the spec-2 (v3) devnet GenesisSpec of the decoder corpus
-(`tests/data/decoder-corpus-v3.json`, item `v3/base`) under a chain ID of no network, whose invitation is
-`placeholder-network.pocol.json`. The file carries the `NETWORK_PLACEHOLDER` mark, its `FILES` counts are then counts
-of the placeholder, and `prototypes/pocol-extension/scripts/package-release.py` refuses a build that carries the mark,
-so no release ships it (CI checks the refusal instead of packaging).
+Before step 7, while the new genesis did not exist, the extension's built-in profile
+(`prototypes/pocol-extension/src/lib/studio-network.js`) pinned no retired network: it held a placeholder, the spec-2
+(v3) devnet GenesisSpec of the decoder corpus (`tests/data/decoder-corpus-v3.json`, item `v3/base`) under a chain ID
+of no network, whose invitation is `placeholder-network.pocol.json`. The file carried the `NETWORK_PLACEHOLDER` mark,
+its `FILES` counts were counts of the placeholder, and `prototypes/pocol-extension/scripts/package-release.py` refused
+a build that carried the mark, so no release could ship it (CI checked the refusal instead of packaging).
+
+Step 7 replaced the placeholder with PoCol Mainnet and removed the mark: the built-in profile now pins PoCol Mainnet with its
+GenesisSpec, CI packages the extension, and the extension READMEs name PoCol Mainnet. The
+placeholder mechanism stays as tooling, and its tests keep exercising it on test copies:
 
 ```sh
 python3 deploy/mainnet/set_network_identity.py --placeholder deploy/mainnet/placeholder-network.pocol.json [--check]
@@ -204,8 +222,8 @@ python3 deploy/mainnet/set_network_identity.py --placeholder deploy/mainnet/plac
 
 `--placeholder` writes a spec-2 placeholder (never a retired network or the tree's own) into `PLACEHOLDER_FILES` only.
 The identity switch (`--from`/`--to`) replaces the placeholder there with the `--to` identity and removes the mark, so
-the switch stays one run. The extension pages (`publisher.html`, `contract.html`) and READMEs keep the tree's identity
-until that switch.
+the switch stays one run. The extension pages (`publisher.html`, `contract.html`) name no network: their chain ID chip
+is filled from the built-in profile at run time.
 
 ## Local checks
 

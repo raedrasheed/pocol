@@ -20,7 +20,7 @@ The build vendors the pinned Noble and ethers dependencies; it downloads no exec
 
 ## Network
 
-The built-in `pocol-public` profile pins chain ID `1599846715`, genesis hash `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`, and the complete GenesisSpec preimage. It connects only to `https://explorer.pocol.net/studio/rpc` using RN trust: trust the remote node for execution, independently verify site content hashes and the network identity. The relay must be deployed before live publishing/viewing through that profile works. Existing loopback profiles and the original local verification modes remain available.
+The built-in `pocol-public` profile pins chain ID `2656089850`, genesis hash `0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e`, and the complete GenesisSpec preimage. It connects only to `https://explorer.pocol.net/studio/rpc` using RN trust: trust the remote node for execution, independently verify site content hashes and the network identity. The relay must be deployed before live publishing/viewing through that profile works. Existing loopback profiles and the original local verification modes remain available.
 
 ## The Viewer wallet address
 

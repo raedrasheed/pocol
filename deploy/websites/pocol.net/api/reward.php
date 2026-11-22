@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 // Fixed read-only gateway operation; requests cannot supply RPC input or an upstream.
 const POCOL_REWARD_SCHEMA = 'pocol-block-reward-v1';
-const POCOL_REWARD_GENESIS = '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca';
+const POCOL_REWARD_GENESIS = '0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e';
 const POCOL_REWARD_UPSTREAM = 'https://explorer.pocol.net/rpc';
 const POCOL_REWARD_MAX_REPLY = 262144;
 const POCOL_REWARD_UINT256_MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
@@ -43,7 +43,7 @@ function pocol_reward_address($v): bool {
 function pocol_reward_validate($v, ?int $now = null): array {
     $now ??= time();
     if (!is_object($v) || ($v->schema ?? null) !== POCOL_REWARD_SCHEMA
-        || ($v->chainId ?? null) !== 1599846715 || ($v->genesisHash ?? null) !== POCOL_REWARD_GENESIS
+        || ($v->chainId ?? null) !== 2656089850 || ($v->genesisHash ?? null) !== POCOL_REWARD_GENESIS
         || ($v->source ?? null) !== 'https://explorer.pocol.net' || ($v->status ?? null) !== 'pending'
         || !pocol_reward_integer($v->blockHeight ?? null) || $v->blockHeight < 1
         || !is_string($v->blockHash ?? null) || preg_match('/^0x[0-9a-f]{64}$/D', $v->blockHash) !== 1

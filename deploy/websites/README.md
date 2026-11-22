@@ -102,7 +102,7 @@ Sites W14 (site texts) is `tools/w14-text-edits.json`, applied once with `--edit
 no activation setting", every in-place extension update (replace the files in the same folder, Reload) by README-IDE.md's
 order without version numbers (export the wallet, Remove the old version, verify the signature, Load unpacked, compare
 the extension ID with pocol.net, import the wallet), DEPLOY-README-AR.txt sections 2 and 4 are rewritten for a fresh
-network, and the IDE's download button names the package it links (0.4.1, it said 0.4.0). `--check` also refuses an
+network, and the IDE's download button names the package it links (0.4.1, it said 0.4.0). Step 7 of the mainnet runbook moved that button and its link to 0.5.0 with the identity switch, recorded as the anchored edits `tools/step7-release-edits.json` on top of W14's (the W14 test undoes and redoes both). `--check` also refuses an
 extension version label that is not package.json's (a capability message "X or later" is exempt) and a native package
 name that is not `deploy/release/assemble_release.py`'s at `deploy/standalone/package.py`'s version; the retired
 `PoCol-Mainnet-0.4.0-Windows.zip` and `-Linux.zip` that the pages link until the signed release (W16) are exempt while a
@@ -126,8 +126,10 @@ served files and in the clients' user interface sources. The Studio note and the
 PoCol Mainnet the public network. The retired
 network's upgrade, migration and Android-update texts are replaced: nothing carries over to the new network. The
 static source lists are the guide's, and the README, V3 program and CP links pin main at `4db2652`. The 0.5.0
-download links and names, the published extension ID and key fingerprint, and the IDE's "0.4.0 or later" messages
-change with the signed release (W16). Until then the links beside "Coming from the retired network?" (home page and
+download links and names and the IDE's "0.4.0 or later" messages change with the signed release (W16). Since step 7
+pocol.net publishes the extension ID and the release key fingerprint users compare (the extension guide,
+`chrome-extension.html` and the home page's IDE help, in English and Arabic; `tests/test_w14_texts.py`,
+`PublishedReleaseIds`). Until W16 the links beside "Coming from the retired network?" (home page and
 tools page) are labelled as the retired network's 0.4.0 Windows package; W16 replaces or removes them. No other page
 offers a native package before W16 (2026-11-22): the home page's "MAINNET EDITION" buttons
 (`wallet-downloads.js`) show "No release available", and the tools page and the guide no longer offer the 0.4.0

@@ -174,8 +174,10 @@ uploaded files are the ones compared. The
 agreed package is uploaded as `PoCol-Mainnet-V-Linux-reproducible-COMMIT` only when the `native` jobs passed too.
 
 Evidence so far: local double builds (2026-11-19, `--worktree`, both legs on one machine over a shared cargo
-registry, the last one with the recipe as committed here) produced identical binaries and an identical package. The CI jobs are new and have not yet run; in CI leg
-b fetches the registry again under another cargo home, which the local run did not exercise.
+registry, the last one with the recipe as committed here) produced identical binaries and an identical package. The CI
+jobs, in which leg b fetches the registry again under another cargo home, ran and passed on main on 2026-11-19,
+compare job included: five-device-build runs 298 (741d5d9) and 300 (216ce2a)
+([FINDINGS.md](../../development/public-network/FINDINGS.md) F-51).
 
 Scope: the Linux x86_64 binaries and package only. The Windows package (and its WPF wallet) and the APK are not
 covered by this check. Two builds on the same runner image agreeing is not an independent rebuild: gate I1 still

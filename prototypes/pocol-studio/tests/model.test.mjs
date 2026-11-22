@@ -54,10 +54,11 @@ test('the app runs the pre-check before opening the publisher and has every caps
 });
 test('the network check compares the gateway identity canonically and the network is named the main network in both languages',async()=>{
   const{readFile}=await import('node:fs/promises');const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
-  // checkNetwork: the chain ID as a number and the genesis hash in lower case (a gateway may spell either differently).
-  assert.match(app,/if\(Number\(cid\)!==\d+\|\|String\(v\.genesisHash\?\?v\.network\?\.genesisHash\?\?''\)\.toLowerCase\(\)!=='0x[0-9a-f]{64}'\)/);
+  // checkNetwork: networkIdentity compares the chain ID as a number and the genesis hash in lower case (a gateway may
+  // spell either differently); the test of model.js networkIdentity checks it on values.
+  assert.match(app,/const id=networkIdentity\(NETWORK,v\);if\(!id\.ok\)/);
   assert.ok(!app.includes('شبكة اختبارية'),'no Arabic test-network label');
-  assert.match(app,/networkDetails:'الشبكة الرئيسية · Chain ID \d+'/);assert.match(app,/networkDetails:'Mainnet · Chain ID \d+'/);
+  assert.match(app,/networkDetails:`الشبكة الرئيسية · Chain ID \$\{NETWORK\.chainId\}`/);assert.match(app,/networkDetails:`Mainnet · Chain ID \$\{NETWORK\.chainId\}`/);
 });
 // Sites W14: the install dialog's upgrade step is README-IDE.md's order in both languages (export the wallet, Remove the
 // old version, verify the signature, Load unpacked, compare the extension ID with pocol.net, import the wallet), with no
@@ -175,4 +176,26 @@ test('Sites W2b: a `/` after an if/while/for/with head is a regular expression; 
   assert.deepEqual(checkIncomingFiles([mf('/index.html',''),mf('/a.js',"if (window.x) /import('.\\/gone.js')/.test('');")],'/index.html'),[]);
   assert.throws(()=>checkIncomingFiles([mf('/index.html',''),mf('/a.js',"f(1) / 2; import('./gone.js'); y / 3;")],'/index.html'),e=>e.code==='MODULE_GRAPH'&&/\/gone\.js, which is not in the site/.test(e.message));
   const big=1<<20;for(const src of[')/['.repeat(big/3),'if()/['.repeat(big/6),'for(;;)/[a'.repeat(big/10)]){const stats={regexSteps:0};msTokenize(src,stats);assert.ok(stats.regexSteps<=src.length,`${stats.regexSteps} steps for ${src.length} characters`);}
+});
+import{networkIdentity,networkMismatchText}from'../dist/model.js';
+import{readFileSync as readAppSource}from'node:fs';
+test('the gateway identity check compares chain ID and genesis hash, and a mismatch shows the expected and the reported values',()=>{
+  const expected={chainId:4242,genesisHash:'0x'+'AB'.repeat(32)},genesis='0x'+'ab'.repeat(32),other='0x'+'cd'.repeat(32);
+  for(const health of[{chainId:4242,genesisHash:genesis},{chainId:'4242',genesisHash:genesis.toUpperCase().replace('0X','0x')},{network:{chainId:4242,genesisHash:genesis}}])
+    assert.equal(networkIdentity(expected,health).ok,true,JSON.stringify(health));
+  for(const health of[{chainId:4243,genesisHash:genesis},{chainId:4242,genesisHash:other},{chainId:4242},{},null,{chainId:'',genesisHash:genesis},{chainId:4242.5,genesisHash:genesis},{chainId:4242,genesisHash:genesis+'00'}])
+    assert.equal(networkIdentity(expected,health).ok,false,JSON.stringify(health));
+  const words={mismatch:'Network identity mismatch.',expected:'Expected',actual:'The gateway reports',none:'none'};
+  assert.equal(networkMismatchText(networkIdentity(expected,{chainId:777,genesisHash:other}),words),
+    `Network identity mismatch. Expected: chain ID 4242, genesis ${genesis}. The gateway reports: chain ID 777, genesis ${other}.`);
+  // A value that is not a chain ID or a genesis hash is never shown raw.
+  assert.equal(networkMismatchText(networkIdentity(expected,{chainId:'<img src=x>',genesisHash:'<b>x</b>'}),words),
+    `Network identity mismatch. Expected: chain ID 4242, genesis ${genesis}. The gateway reports: chain ID none, genesis none.`);
+  // app.js pins the identity once (NETWORK) and checks the gateway with these helpers, so the identity tool switches one copy.
+  const app=readAppSource(new URL('../dist/app.js',import.meta.url),'utf8');
+  const pin=app.match(/const NETWORK=Object\.freeze\(\{chainId:([0-9]+),genesisHash:'(0x[0-9a-f]{64})'\}\);/);
+  assert.ok(pin,'app.js pins NETWORK');
+  assert.equal(app.split(pin[1]).length-1,1,'the chain ID appears once');assert.equal(app.split(pin[2]).length-1,1,'the genesis hash appears once');
+  assert.match(app,/const id=networkIdentity\(NETWORK,v\);if\(!id\.ok\)\{\$\('#network-state'\)\.textContent=networkMismatchText\(id,/);
+  assert.match(app,/networkDetails:`Mainnet · Chain ID \$\{NETWORK\.chainId\}`/);
 });

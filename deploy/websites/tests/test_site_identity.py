@@ -70,7 +70,9 @@ def invitation(spec, seeds):
 # Every tree the tool reads (the document roots, the PHP test, the declared identity, the retired list, the extension
 # version and the native release version).
 COPIED = ['deploy/websites', si.STUDIO]
-COPIED_FILES = [si.RETIRED, si.EXTENSION_PACKAGE, si.NATIVE_PACKAGE]
+# The node's SPEC_VERSION and the profile code's PUBLIC_NETWORK_CHAINS are read from the --root tree, as
+# set_network_identity.py reads them.
+COPIED_FILES = [si.RETIRED, si.EXTENSION_PACKAGE, si.NATIVE_PACKAGE, ni.NODE_SPEC, ni.PUBLIC_CHAINS]
 EXT_VERSION = json.loads((ROOT / si.EXTENSION_PACKAGE).read_text(encoding='utf-8'))['version']
 NATIVE_VERSION = si.release.native_version(ROOT)
 
@@ -81,6 +83,29 @@ def snapshot(root):
             if path.is_file() and '__pycache__' not in path.parts:
                 out[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     return out
+
+def kept_digest(root, site, name):
+    """The SHA-256 a site's SHA256SUMS.txt lists for `name`, read independently of the tool."""
+    for line in (root / site / si.SUMS).read_text(encoding='utf-8').splitlines():
+        digest, listed = line.split('  ', 1)
+        if listed == name:
+            return digest
+    raise AssertionError(f'{site}/{si.SUMS}: no line for {name}')
+
+def kept_out_links(root, site):
+    """{downloads/<name>: {?v= tokens}} of the links in a site's text files to download files that are not on disk."""
+    found = {}
+    for path in (root / site).rglob('*'):
+        if not path.is_file() or path.name == si.SUMS or path.suffix.lower() in si.BINARY:
+            continue
+        try:
+            text = path.read_text(encoding='utf-8')
+        except UnicodeDecodeError:
+            continue
+        for name, token in re.findall(r'(downloads/[A-Za-z0-9_.-]+)\?v=([0-9a-f]{12})', text):
+            if not (root / site / name).exists():
+                found.setdefault(name, set()).add(token)
+    return found
 
 class SiteIdentity(unittest.TestCase):
     def copy(self):
@@ -100,6 +125,23 @@ class SiteIdentity(unittest.TestCase):
             rc = si.main([*args, '--root', str(root)])
         self.last_errors = ''.join(str(c.args[0]) for c in err.write.call_args_list if c.args)
         return rc
+
+    def published(self, path):
+        """The --expect-* arguments a --to switch to `path` needs when its chain is a public network chain (the declared
+        network once the snapshots pin PoCol Mainnet), else none: computed here, so a test that switches to such a
+        network for another purpose is refused only for the reason it tests."""
+        chain, genesis, _, _ = ni.invitation_identity(path)
+        if chain not in ni.public_chains(ROOT):
+            return []
+        return ['--expect-sha256', hashlib.sha256(Path(path).read_bytes()).hexdigest(), '--expect-chain-id', str(chain),
+                '--expect-genesis', '0x' + genesis]
+
+    def retire_declared(self, root):
+        """Lists the declared network in the copy's retired list, as set_network_identity.py does at a switch away from it
+        (site_identity.py alone never writes that list); returns the list's bytes before."""
+        before = (root / si.RETIRED).read_bytes()
+        (root / si.RETIRED).write_bytes(ni.with_retired(before, DECLARED['chainId'], DECLARED['genesisHash'][2:]))
+        return before
 
     def bundle(self, root, key):
         site, prefix = si.BUNDLES[key]
@@ -134,6 +176,11 @@ class SiteIdentity(unittest.TestCase):
             listed = {line.split('  ', 1)[1] for line in (root / site / si.SUMS).read_text(encoding='utf-8').splitlines()}
             present = {p.relative_to(root / site).as_posix() for p in (root / site).rglob('*') if p.is_file()} - {si.SUMS}
             self.assertEqual(present - listed, set(), site)
+            # A link to a kept-out download (listed, not on disk) carries the content version of the digest its line
+            # lists; a link to a download no line lists (a retired package's page link) is not versioned by the tool.
+            for name, tokens in kept_out_links(root, site).items():
+                if name in missing:
+                    self.assertEqual(tokens, {kept_digest(root, site, name)[:12]}, (site, name))
 
     # ---------------- the tree ----------------
     def test_the_tree_carries_the_declared_identity(self):
@@ -217,11 +264,15 @@ class SiteIdentity(unittest.TestCase):
             except UnicodeDecodeError:
                 continue
             self.assertIsNone(old.search(text), rel)
-        # Back to the old (retired) identity: refused unless on purpose, then byte-identical to the start.
-        self.assertEqual(self.run_tool(root, '--to', str(root / 'old.json')), 2)
+        # Back to the old (retired) identity: refused unless on purpose, then byte-identical to the start. The switch away
+        # from it retired it (set_network_identity.py's part of the switch, done here on the copy).
+        retired = self.retire_declared(root)
+        published = self.published(root / 'old.json')
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'old.json'), *published), 2)
         self.assertIn('retired network', self.last_errors)
-        self.assertEqual(self.run_tool(root, '--to', str(root / 'old.json'), '--allow-revert', '--rpc-url', DECLARED['rpcUrl'],
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'old.json'), *published, '--allow-revert', '--rpc-url', DECLARED['rpcUrl'],
                                        '--gateway-host', DECLARED['gatewayHost']), 0, self.last_errors)
+        (root / si.RETIRED).write_bytes(retired)
         self.assertEqual(snapshot(root), before)
         self.assertEqual(list(root.rglob('*.site-identity.tmp')), [])
 
@@ -588,12 +639,19 @@ class SiteIdentity(unittest.TestCase):
         root = self.copy()
         sums = root / si.MAIN / si.SUMS
         lines = lambda: dict(reversed(line.split('  ', 1)) for line in sums.read_text(encoding='utf-8').splitlines())
-        old_native, chrome, ext = 'a' * 64, lines()['downloads/PoCol-Studio-Chrome.zip'], lines()[f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip']
         declared_path = root / si.DECLARED
         def declare(*names):
             doc = json.loads(declared_path.read_text(encoding='utf-8'))
             doc['keptOut']['pocol.net'] = sorted(set(doc['keptOut']['pocol.net']) | set(names))
             declared_path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+        ext = lines()[f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip']
+        if 'downloads/PoCol-Studio-Chrome.zip' not in lines():
+            # The step-7 release superseded the old unversioned copy; the copy of the current extension package is
+            # declared here, so its behaviour (a copy stays with its package) is tested whatever the tree serves.
+            sums.write_text(sums.read_text(encoding='utf-8') + f'{ext}  downloads/PoCol-Studio-Chrome.zip\n', encoding='utf-8')
+            declare('downloads/PoCol-Studio-Chrome.zip')
+            self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        old_native, chrome = 'a' * 64, lines()['downloads/PoCol-Studio-Chrome.zip']
         # A kept-out line of the retired native package (it was listed before the 2026-11-13 clean-up): a run keeps it
         # while keptOut names it, and drops it when it does not.
         sums.write_text(sums.read_text(encoding='utf-8') + f'{old_native}  downloads/PoCol-Mainnet-0.4.0-Windows.zip\n',
@@ -711,6 +769,11 @@ class SiteIdentity(unittest.TestCase):
         # own --edits run gives back every served file byte for byte, with the IDE bundle's name and the derived files.
         root = self.copy()
         edits = json.loads((ROOT / 'deploy/websites/tools/w14-text-edits.json').read_text(encoding='utf-8'))
+        # Step 7 moved the IDE bundle's extension link and label from 0.4.1 to 0.5.0 with the identity switch
+        # (tools/step7-release-edits.json, anchored edits on top of W14's), so both lists are undone, and redone in order.
+        edits += json.loads((ROOT / 'deploy/websites/tools/step7-release-edits.json').read_text(encoding='utf-8'))
+        both = root / 'w14-and-step7-edits.json'
+        both.write_text(json.dumps(edits), encoding='utf-8')
         texts = {}
         for e in reversed(edits):
             rel = si.anchor_file(si.Tree(ROOT), e['file'])
@@ -724,14 +787,17 @@ class SiteIdentity(unittest.TestCase):
         self.assertEqual(self.run_tool(root, '--check'), 2)
         self.assertIn("labels the extension 'PoCol extension 0.4.0'", self.last_errors)
         self.assertIn("DEPLOY-README-AR.txt: labels the extension 'إضافة PoCol للإصدار 0.4.0'", self.last_errors)
-        self.assertEqual(self.run_tool(root, '--edits', str(ROOT / 'deploy/websites/tools/w14-text-edits.json')), 0, self.last_errors)
+        self.assertEqual(self.run_tool(root, '--edits', str(both)), 0, self.last_errors)
+        both.unlink()
         self.assertEqual(snapshot(root), snapshot(ROOT))
 
     def test_a_retired_identity_left_after_a_switch_fails(self):
         root = self.copy()
         self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), '--gateway-host', '192.0.2.10'), 0, self.last_errors)
         self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
-        # The old network is retired (deploy/mainnet/retired-networks.json): any copy of it now fails.
+        # The old network is retired (deploy/mainnet/retired-networks.json, which set_network_identity.py writes at the
+        # switch): any copy of it now fails.
+        self.retire_declared(root)
         self.assertIn((DECLARED['chainId'], DECLARED['genesisHash'][2:]),
                       ni.read_retired((root / si.RETIRED).read_bytes()))
         for leftover in (DECLARED['genesisHash'], str(DECLARED['chainId']), hex(DECLARED['chainId']).upper().replace('X', 'x')):
@@ -757,7 +823,8 @@ class SiteIdentity(unittest.TestCase):
         (root / 'redo.json').write_text(invitation(spec, DECLARED['seeds']), encoding='utf-8')
         # The explorer's gateway host (explorer.pocol.net, owner decision 9) is not a seed, so the switch names it, as the
         # launch command does (Initialize-PoColNetwork.ps1).
-        self.assertEqual(self.run_tool(root, '--to', str(root / 'redo.json'), '--gateway-host', DECLARED['gatewayHost']), 0,
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'redo.json'), *self.published(root / 'redo.json'),
+                                       '--gateway-host', DECLARED['gatewayHost']), 0,
                          self.last_errors)
         self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
         self.assert_consistent(root)
@@ -788,6 +855,130 @@ class SiteIdentity(unittest.TestCase):
         # The detector still finds the chain ID of a retired identity on another chain.
         self.assertIsNotNone(si.identity_regex(chain, old_genesis, keep_chain=TEST_CHAIN).search(f'id {chain};'))
         self.assertIsNone(si.identity_regex(chain, old_genesis, keep_chain=chain).search(f'id {chain};'))
+
+    def test_a_switch_to_the_public_network_is_checked_against_the_published_values(self):
+        # ID-03: --to on a public network chain (PUBLIC_NETWORK_CHAINS: the mainnet profile's chain) needs the published
+        # file SHA-256, chain ID and genesis hash, and refuses a file that does not match them; nothing is written.
+        root = self.copy()
+        chain = json.loads((ROOT / ni.MAINNET_PROFILE).read_text(encoding='utf-8'))['chainId']
+        self.assertIn(chain, ni.public_chains(ROOT))
+        spec = with_chain(_V3_BASE, chain)
+        (root / 'public.json').write_text(invitation(spec, TEST_SEEDS), encoding='utf-8')
+        (root / 'reformatted.json').write_text(json.dumps(json.loads((root / 'public.json').read_text(encoding='utf-8')), indent=1), encoding='utf-8')
+        good = ['--expect-sha256', hashlib.sha256((root / 'public.json').read_bytes()).hexdigest(), '--expect-chain-id', str(chain),
+                '--expect-genesis', '0x' + ni.keccak256(spec).hex()]
+        base = ['--gateway-host', '192.0.2.10', '--rpc-url', TEST_RPC]
+        before = snapshot(root)
+        for target, args in (('public.json', []), ('public.json', good[:4]), ('public.json', good[2:]),
+                             ('public.json', good[:2] + good[4:]), ('public.json', good[:5] + ['0x' + 'ab' * 32]),
+                             ('public.json', good[:3] + [str(chain + 1)] + good[4:]), ('public.json', ['--expect-sha256', '00' * 32] + good[2:]),
+                             ('reformatted.json', good)):
+            for extra in ((), ('--check',)):
+                with self.subTest(target=target, args=args, extra=extra):
+                    self.assertEqual(self.run_tool(root, '--to', str(root / target), *base, *args, *extra), 2)
+                    if args:
+                        self.assertRegex(self.last_errors, 'not the expected|needs the published values')
+        self.assertEqual(before, snapshot(root), 'a refused switch writes nothing')
+        # Expectations check a --to invitation only.
+        self.assertEqual(self.run_tool(root, '--check', *good), 2)
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'public.json'), *base, *good), 0, self.last_errors)
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'public.json'), *base, *good, '--check'), 0, self.last_errors)
+        self.assertEqual(json.loads((root / si.DECLARED).read_text(encoding='utf-8'))['chainId'], chain)
+        # Off a public chain the values are optional, but checked when given.
+        root = self.copy()
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base, '--expect-chain-id', str(TEST_CHAIN + 1)), 2)
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base, '--expect-chain-id', str(TEST_CHAIN)), 0, self.last_errors)
+
+    def test_a_kept_out_download_link_carries_the_content_version_of_its_listed_digest(self):
+        # The 0.5.0 links kept the 0.4.1 archive's ?v= (85e6ebb6a0e3): a kept-out archive is not in the snapshot, so its
+        # content version is taken from the digest its SHA256SUMS.txt line lists (a --download digest, else that line).
+        name = f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip'
+        links = kept_out_links(ROOT, si.MAIN)
+        self.assertIn(name, links, 'pocol.net links the kept-out extension package')
+        self.assertEqual(links[name], {kept_digest(ROOT, si.MAIN, name)[:12]})
+        root = self.copy()
+        page = root / si.MAIN / 'index.html'
+        good = page.read_text(encoding='utf-8')
+        token = kept_digest(root, si.MAIN, name)[:12]
+        page.write_text(good.replace(f'{name}?v={token}', f'{name}?v=85e6ebb6a0e3'), encoding='utf-8')
+        self.assertNotEqual(page.read_text(encoding='utf-8'), good)
+        self.assertEqual(self.run_tool(root, '--check'), 2, 'a stale content version on a kept-out download')
+        self.assertIn(f'{si.MAIN}/index.html: does not carry', self.last_errors)
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        self.assertEqual(page.read_text(encoding='utf-8'), good, 'a run restores the listed content version')
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        # A --download digest moves every link to it, on every site that lists the file.
+        new = '7' * 64
+        args = [a for site in (si.MAIN, si.IDE) for a in ('--download', f'{site}/{name}={new}')]
+        self.assertEqual(self.run_tool(root, *args), 0, self.last_errors)
+        self.assertEqual(kept_out_links(root, si.MAIN)[name], {new[:12]})
+        self.assertEqual(kept_digest(root, si.MAIN, name), new)
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        self.assert_consistent(root)
+        # A link to a download file that no line lists keeps its token (nothing is known about it).
+        stray = 'downloads/PoCol-Unlisted-1.0.0.zip?v=0123456789ab'
+        page.write_text(page.read_text(encoding='utf-8').replace('</body>', f'<a href="{stray}">x</a></body>', 1), encoding='utf-8')
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        self.assertIn(stray, page.read_text(encoding='utf-8'))
+
+    def test_the_public_network_chains_are_read_from_the_root_tree(self):
+        # ID-03 checks a --to invitation against the published values on a public network chain; which chains are
+        # public is the --root tree's PUBLIC_NETWORK_CHAINS, as set_network_identity.py reads it.
+        base = ['--gateway-host', '192.0.2.10', '--rpc-url', TEST_RPC]
+        root = self.copy()
+        self.assertNotIn(TEST_CHAIN, ni.public_chains(ROOT))
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base, '--check'), 2, 'the copy is not switched yet')
+        profile = root / ni.PUBLIC_CHAINS
+        text = profile.read_text(encoding='utf-8')
+        decl = re.search(re.escape(ni.PUBLIC_CHAINS_DECL) + r'([0-9, ]*)\];', text)
+        profile.write_text(text.replace(decl.group(0), f'{ni.PUBLIC_CHAINS_DECL}{decl.group(1)}, {TEST_CHAIN}];'), encoding='utf-8')
+        self.assertIn(TEST_CHAIN, ni.public_chains(root))
+        before = snapshot(root)
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base), 2)
+        self.assertIn('needs the published values', self.last_errors)
+        self.assertEqual(snapshot(root), before)
+        good = ['--expect-sha256', hashlib.sha256((root / 'test.json').read_bytes()).hexdigest(),
+                '--expect-chain-id', str(TEST_CHAIN), '--expect-genesis', TEST_GENESIS]
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base, *good), 0, self.last_errors)
+        # A --root tree without the profile code is refused: the check never falls back to another tree's list.
+        root = self.copy()
+        (root / ni.PUBLIC_CHAINS).unlink()
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base), 2)
+        self.assertIn(ni.PUBLIC_CHAINS, self.last_errors)
+
+    # The extension package the sites offer is built from prototypes/pocol-extension (its tests excepted): the zip is
+    # reproducible (W14), so its source is that directory's tree.
+    EXTENSION_SOURCE = ['prototypes/pocol-extension', ':(exclude)prototypes/pocol-extension/tests']
+
+    def test_the_source_links_name_a_commit_that_builds_the_served_extension_package(self):
+        # The links once named b3594eb5, whose extension package.json was still 0.4.1: its source built the 0.4.1 zip,
+        # not the 0.5.0 one the same pages offer. The linked commit's extension source must be the tree's, which
+        # builds the zip whose digest the sites list (CI's extension job checks that digest against this tree).
+        commits = {re.search(r'/(?:tree|blob)/([0-9a-f]{40})(?:/|$)', url).group(1) for url in DECLARED['links'].values()}
+        self.assertEqual(len(commits), 1, f'every source link names one commit: {sorted(commits)}')
+        commit = commits.pop()
+        git = lambda *args: subprocess.run(['git', '-C', str(ROOT), *args], capture_output=True)
+        try:
+            inside = git('rev-parse', '--is-inside-work-tree')
+        except OSError:
+            self.skipTest('git is not available')
+        if inside.returncode != 0:
+            self.skipTest('not a git checkout')
+        self.assertEqual(git('cat-file', '-e', f'{commit}^{{commit}}').returncode, 0,
+                         f'the source links name {commit}, which this checkout does not have (CI fetches the whole history)')
+        shown = git('show', f'{commit}:{si.EXTENSION_PACKAGE}')
+        self.assertEqual(shown.returncode, 0, shown.stderr)
+        self.assertEqual(json.loads(shown.stdout)['version'], EXT_VERSION,
+                         f'{commit} builds another extension version than the {EXT_VERSION} package the sites link')
+        diff = git('diff', '--stat', commit, '--', *self.EXTENSION_SOURCE)
+        self.assertEqual((diff.returncode, diff.stdout.decode('utf-8', 'replace')), (0, ''),
+                         f'the extension source differs from the linked commit {commit}: rebuild the package, then run '
+                         'site_identity.py --download ... --commit <a commit with this source>')
+        # The detector works: the commit the links named before builds 0.4.1.
+        old = git('show', f'b3594eb5fa10cf97d629c2f9e5031cbf5595469e:{si.EXTENSION_PACKAGE}')
+        if old.returncode == 0:
+            self.assertNotEqual(json.loads(old.stdout)['version'], EXT_VERSION)
+            self.assertNotEqual(git('diff', '--stat', 'b3594eb5fa10cf97d629c2f9e5031cbf5595469e', '--', *self.EXTENSION_SOURCE).stdout, b'')
 
 if __name__ == '__main__':
     unittest.main()

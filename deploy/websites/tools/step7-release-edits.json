@@ -1,0 +1,14 @@
+[
+ {
+  "file": "ide-bundle",
+  "old": "href:`/downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip`",
+  "new": "href:`/downloads/PoCol-Studio-IDE-Viewer-0.5.0.zip`",
+  "count": 1
+ },
+ {
+  "file": "ide-bundle",
+  "old": "`Download PoCol extension 0.4.1`",
+  "new": "`Download PoCol extension 0.5.0`",
+  "count": 1
+ }
+]

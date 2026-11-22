@@ -7,6 +7,7 @@ copy of an identity value may sit outside the anchors.
     python3 deploy/websites/tools/site_identity.py --check                     # CI: the tree matches DECLARED
     python3 deploy/websites/tools/site_identity.py                             # finish the derived files only
     python3 deploy/websites/tools/site_identity.py --to NEW.json [--gateway-host HOST] [--commit SHA] [--rpc-url URL]
+        [--expect-sha256 HEX --expect-chain-id N --expect-genesis 0xHEX]   # required on a public network chain
     python3 deploy/websites/tools/site_identity.py --edits EDITS.json           # anchored bundle edits (W7, W14)
     python3 deploy/websites/tools/site_identity.py --download SITE/downloads/NAME=SHA256 ...   # kept-out archive lines
 
@@ -15,8 +16,13 @@ GenesisSpec that proves both, the display name, the IDE's RPC URL, the explorer'
 takes a network invitation (network.pocol.json, as `pocol network` writes it), proven by its GenesisSpec through
 deploy/mainnet/set_network_identity.py's decoder; its `seeds` become the explorer's seed list. The explorer also names
 its gateway host (gatewayHost): --gateway-host sets it, and a --to run without it is refused unless the current host is
-one of the new seeds, so a switch never leaves an old server named. --commit points every source link at that commit;
---rpc-url changes the IDE's RPC endpoint (default: unchanged), so a test can point a copy at a local gateway. The
+one of the new seeds, so a switch never leaves an old server named. On a public network chain (PUBLIC_NETWORK_CHAINS of
+the --root tree's profile code, as set_network_identity.py reads it: PoCol Mainnet's) --to also needs the published
+values: --expect-sha256 (the invitation file's announced SHA-256), --expect-chain-id and --expect-genesis, and refuses
+a file that does not match all three (one given on another chain must match too), so a wrong or tampered invitation
+never re-pins the websites. --commit points every
+source link at that commit; --rpc-url changes the IDE's RPC endpoint (default: unchanged), so a test can point a copy at
+a local gateway. The
 repository's own snapshots (--root is the repository) always name an https RPC endpoint; a loopback one is refused
 there, --check included, and is only for a test copy. The display name is not switched (owner question Q6 keeps
 "PoCol Mainnet").
@@ -24,7 +30,10 @@ there, --check included, and is only for a test copy. The display name is not sw
 Derived files move with their sources:
 - a hashed bundle (BUNDLES) is named `<prefix>-<first 12 hex of its SHA-256>.js`; a changed bundle is renamed and the
   site's index.html reference and its line in an include list (INCLUDE_LISTS: the explorer's S1 file list) follow;
-- a `<path>?v=<12 hex>` reference to a file of the same site that is not a page gets that file's content version;
+- a `<path>?v=<12 hex>` reference to a file of the same site that is not a page gets that file's content version; one
+  to a kept-out download (not in the snapshot) gets the first 12 hex digits of the SHA-256 its SHA256SUMS.txt line
+  gives (its --download digest, else its declared line), so a link to a new release archive never keeps the version of
+  the archive it replaces;
 - each site's SHA256SUMS.txt lists every file of the site, and keeps the lines of the download files that DECLARED's
   keptOut names as kept out of Git. Only those lines are carried: the line of any other file that is not in the
   snapshot (a deleted tracked .sha256) is dropped, so --check fails until a run removes it. A declared file that is
@@ -408,6 +417,23 @@ def archive_version(name):
     m = ARCHIVE_VERSION.fullmatch(name)
     return (m.group(1), m.group(2)) if m else None
 
+def kept_out_digests(tree, downloads=None, kept_out=None):
+    """{site path: SHA-256 hex} of the kept-out download files that are not in the snapshot: the --download digests,
+    else the declared keptOut lines of each site's SHA256SUMS.txt."""
+    out = {}
+    for site, has_sums in SITES.items():
+        if not has_sums:
+            continue
+        present = set(tree.files(site))
+        declared = set((kept_out or {}).get(posixpath.basename(site), []))
+        for line in (tree.text(f'{site}/{SUMS}') or '').splitlines():
+            digest, _, name = line.partition('  ')
+            if name in declared and f'{site}/{name}' not in present and re.fullmatch(r'[0-9a-f]{64}', digest):
+                out[f'{site}/{name}'] = digest
+    for path, digest in (downloads or {}).items():
+        out[path] = digest
+    return out
+
 def finish(tree, problems, downloads=None, kept_out=None):
     """The derived files (into tree.out): bundle names, content versions and SHA256SUMS.txt, and the new keptOut
     (returned). kept_out (DECLARED's keptOut) names the kept-out lines that are carried; downloads ({site path: digest},
@@ -441,6 +467,10 @@ def finish(tree, problems, downloads=None, kept_out=None):
                 continue
             lines[lines.index(old_line)] = new_line
             tree.out[listed] = '\n'.join(lines).encode('utf-8')
+    # A kept-out download is not in the snapshot: its content version is the one of the digest its SHA256SUMS.txt line
+    # gives (a --download digest, else the declared line), so a link to a new release archive never keeps the old
+    # archive's version.
+    kept_digests = kept_out_digests(tree, downloads, kept_out)
     # Content versions of the files that are not pages, to a fixed point (a script may version a stylesheet).
     for _ in range(8):
         moved = False
@@ -455,6 +485,8 @@ def finish(tree, problems, downloads=None, kept_out=None):
                     continue
                 def version(m, rel=rel, site=site):
                     target = resolve(site, rel, m.group(1))
+                    if target not in present and target in kept_digests:
+                        return f'{m.group(1)}?v={kept_digests[target][:12]}'
                     if target not in present or target == rel or target.endswith(('.html', '.htm')) or is_config_php(target):
                         return m.group(0)
                     return f'{m.group(1)}?v={sha12(tree.read(target))}'
@@ -621,8 +653,12 @@ def parse_downloads(values):
         out[path] = digest
     return out
 
-def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=False, gateway_host=None, downloads=None):
-    """(problems, {path: new bytes or None}, new declared doc) of a run."""
+NO_EXPECT = argparse.Namespace(expect_sha256=None, expect_chain_id=None, expect_genesis=None)
+
+def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=False, gateway_host=None, downloads=None,
+         expect=NO_EXPECT):
+    """(problems, {path: new bytes or None}, new declared doc) of a run. `expect` holds the published values a --to
+    invitation must match (expect_sha256, expect_chain_id, expect_genesis), required on a public network chain."""
     tree = Tree(root)
     try:
         cur = validate(json.loads((root / DECLARED).read_text(encoding='utf-8')))
@@ -631,7 +667,7 @@ def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=
     retired = load_retired(root)
     new = dict(cur, links=dict(cur['links']), seeds=list(cur['seeds']))
     if target is not None:
-        release = ni.node_spec_version(ROOT)
+        release = ni.node_spec_version(root)
         try:
             chain, genesis, spec, _ = ni.invitation_identity(target, tuple(v for v in ni.CP_ITEMS if v <= release))
             seeds = json.loads(Path(target).read_text(encoding='utf-8')).get('seeds')
@@ -639,6 +675,14 @@ def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=
             raise Refused(f'--to: {e}') from None
         if chain in (0, 777001) or not 0 < chain < 2**53:
             raise Refused(f'--to: chain ID {chain} is reserved or outside the JavaScript safe-integer range')
+        # ID-03: on a public network chain the invitation must be the published one (file SHA-256, chain ID, genesis).
+        try:
+            public = ni.public_chains(root)
+        except SystemExit as e:
+            raise Refused(str(e)) from None
+        expected = ni.expectation_problems(target, chain, genesis, expect, public)
+        if expected:
+            raise Refused('--to: ' + '; '.join(expected))
         if (chain, genesis) in retired and (chain, genesis) != (cur['chainId'], cur['genesisHash'][2:]) and not allow_revert:
             raise Refused(f'--to: chain {chain} genesis 0x{genesis} is a retired network ({RETIRED}); pass --allow-revert '
                           'only to switch back to it on purpose')
@@ -713,6 +757,7 @@ def main(argv=None):
     p.add_argument('--download', action='append', metavar='PATH=SHA256',
                    help=f'the {SUMS} line of a release file kept out of Git, PATH <site>/downloads/<name> (repeatable)')
     p.add_argument('--allow-revert', action='store_true', help=f'allow a --to identity listed in {RETIRED}')
+    ni.add_expect_arguments(p)
     p.add_argument('--check', action='store_true', help='verify only; fails if the run would change any file')
     p.add_argument('--root', type=Path, default=ROOT)
     a = p.parse_args(argv)
@@ -728,7 +773,9 @@ def main(argv=None):
             if not isinstance(edits, list) or not edits:
                 raise Refused('--edits: a non-empty JSON list')
         downloads = parse_downloads(a.download)
-        problems, changed, new = plan(a.root, a.to, a.commit, a.rpc_url, edits, a.allow_revert, a.gateway_host, downloads)
+        if a.to is None and (a.expect_sha256, a.expect_chain_id, a.expect_genesis) != (None, None, None):
+            raise Refused('--expect-sha256, --expect-chain-id and --expect-genesis check a --to invitation')
+        problems, changed, new = plan(a.root, a.to, a.commit, a.rpc_url, edits, a.allow_revert, a.gateway_host, downloads, a)
     except Refused as e:
         print('FAIL', e, file=sys.stderr)
         return 2

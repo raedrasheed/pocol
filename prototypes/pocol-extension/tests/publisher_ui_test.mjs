@@ -9,7 +9,7 @@ const R = await import('../dist/lib/retry.js'), P = await import('../dist/lib/pu
 const SOURCE = readFileSync(new URL('../src/publisher-ui.js', import.meta.url), 'utf8').replace(/^import [^;]*;\n/gm, '');
 const HTML = readFileSync(new URL('../src/publisher.html', import.meta.url), 'utf8');
 const JOB_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', KEY = 'studio:job:' + JOB_ID, ADDRESS = '0x1111111111111111111111111111111111111111';
-const NETWORK = {chainId: 1599846715, genesisHash: '0x' + 'ab'.repeat(32), endpoint: 'https://explorer.pocol.net/studio/rpc', name: 'pocol-public'};
+const NETWORK = {chainId: 2656089850, genesisHash: '0x' + 'ab'.repeat(32), endpoint: 'https://explorer.pocol.net/studio/rpc', name: 'pocol-public'};
 const FLOOR = '10000000', TIP = '1000000000';
 const settle = async () => { for (let i = 0; i < 40; i++) await new Promise((r) => setImmediate(r)); };
 function makeElement(id) { return {id, textContent: '', hidden: false, disabled: false, checked: false, value: '', files: [], children: [], replaceChildren(...items) { this.children = items; }, after() {}, append() {}, remove() {}}; }
@@ -47,6 +47,12 @@ async function fixture({job = {}, publish, base = FLOOR, now = 1000} = {}) {
   const consent = () => { elements.get('consent').checked = true; elements.get('consent').onchange(); };
   return {elements, storage, state, context, click, unlock, consent, setNow: (v) => { clock = v; }};
 }
+test('the chain ID chip shows the built-in profile\'s chain ID; the page names no network of its own', async () => {
+  const f = await fixture();
+  assert.equal(f.elements.get('networkChain').textContent, String(NETWORK.chainId));
+  assert.match(HTML, /<span class="chip" id="networkChain" title="Chain ID"><\/span>/);
+  assert.doesNotMatch(HTML, /(?<![0-9A-Za-z])[0-9]{7,}(?![0-9A-Za-z])/, 'no chain ID in the page');
+});
 test('W4 page: the files move once to their own key, and the fees are quoted from the node, not fixed caps', async () => {
   const f = await fixture();
   assert.equal(f.elements.get('fatal').textContent, '', 'the page opened without a fatal error');
