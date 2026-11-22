@@ -1,0 +1,12 @@
+{
+  "version": "0.4.1",
+  "name": "PoCol Studio, IDE & Viewer",
+  "placeholderBuild": true,
+  "studioNetworkSha256": "9b2ec859c6f0ef23356741e88f07c4dfdd6a510c812c5dc446353d41b05bb378",
+  "screenshots": [
+    "01-settings.png",
+    "02-studio-publisher.png",
+    "03-studio-wallet.png",
+    "04-ide-contract.png"
+  ]
+}
