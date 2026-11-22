@@ -82,7 +82,8 @@ pocol.net's extension page should give these steps with the store link (W16, wit
    blocks every other request, so it contacts no PoCol or other server.
 5. Publish `https://pocol.net/privacy.html` (`deploy/websites/pocol.net/privacy.html`) before submitting: the listing
    links it.
-6. Fill the dashboard from `listing.md`; confirm the remote-code answer and the data-usage answers; add the support
+6. Fill the dashboard from `listing.md`; choose the remote-code answer (`listing.md`, "Remote code": an owner decision
+   against the current policy text) and confirm the data-usage answers; add the support
    contact e-mail the dashboard asks for (not in this repository).
 7. Upload, check the item id, submit for review. Then publish the store link, the extension id and the release key
    fingerprint on pocol.net (W16).

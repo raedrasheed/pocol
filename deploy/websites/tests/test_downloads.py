@@ -15,7 +15,9 @@ MAIN = ROOT / 'deploy' / 'websites' / 'pocol.net'
 sys.path.insert(0, str(ROOT / 'deploy' / 'websites' / 'tools'))
 import site_identity as si  # noqa: E402
 
-LINK = re.compile(r'(?:https://pocol\.net/|(?<![A-Za-z0-9_./:-]))downloads/([A-Za-z0-9][A-Za-z0-9._-]*)')
+# An absolute https://pocol.net/ link, a root- or dot-relative one right after a quote, '=' or '(' ("/downloads/…",
+# "./downloads/…"), or a bare relative "downloads/…".
+LINK = re.compile(r'(?:https://pocol\.net/|(?<=["\'=(])\.?/|(?<![A-Za-z0-9_./:-]))downloads/([A-Za-z0-9][A-Za-z0-9._-]*)')
 RETIRED_LABEL = ('Retired network', 'للشبكة السابقة')
 
 def served_text():
@@ -35,6 +37,12 @@ def anchors(text):
             yield html.unescape(href.group(1)), html.unescape(re.sub(r'<[^>]+>', '', m.group(2)))
 
 class DownloadLinks(unittest.TestCase):
+    def test_the_link_pattern_sees_every_link_form(self):
+        sample = ('<a href="https://pocol.net/downloads/a.zip?v=1">x</a> <a href="downloads/b.zip">x</a> '
+                  '<a href="/downloads/c.zip">x</a> <a href=\'./downloads/d.zip\'>x</a> url(/downloads/e.png) '
+                  'https://example.org/downloads/f.zip other/downloads/g.zip')
+        self.assertEqual(LINK.findall(sample), ['a.zip', 'b.zip', 'c.zip', 'd.zip', 'e.png'])
+
     def test_every_download_link_is_served_kept_out_or_an_exempt_retired_package(self):
         declared = json.loads((ROOT / si.DECLARED).read_text(encoding='utf-8'))
         kept_out = {name.split('/', 1)[1] for name in declared['keptOut']['pocol.net']}

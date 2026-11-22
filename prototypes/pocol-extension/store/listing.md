@@ -41,8 +41,9 @@ Deploy a contract from PoCol IDE
 Your keys stay with you
 - The wallet is created in your browser and stored encrypted with your password (PBKDF2-SHA256, 600,000 iterations,
   AES-256-GCM). When you create it, the extension saves an encrypted backup file to your computer.
-- The wallet locks after 15 minutes. Web pages never receive your key; they can only ask the extension to open a
-  confirmation window.
+- The wallet locks 15 minutes after you unlock it. While a publication or contract job you approved is running, it
+  stays unlocked until that job's deadline, shown in the approval (2 hours by default, at most 6 hours); Lock ends it
+  at once. Web pages never receive your key; they can only ask the extension to open a confirmation window.
 
 View PoCol websites safely
 - Websites published on PoCol open in a sandboxed viewer that checks every file against the hashes recorded on the
@@ -93,11 +94,26 @@ not read page content.
 
 ### Remote code
 
-**No, I am not using remote code.** All of the extension's JavaScript is in the package (vendored libraries included);
-there is no `eval`, `new Function` or remotely loaded script in extension pages, whose CSP is `script-src 'self'`.
-Websites published on PoCol that the user opens in the viewer run only inside the manifest's sandboxed page
-(`sandbox.html`, CSP `connect-src 'none'`), which has no extension API access; the Chrome Web Store's Manifest V3
-requirements exempt code in sandboxed pages. The owner confirms this answer when submitting (store/README.md).
+**OWNER DECISION, not settled by this repository.** The facts the answer rests on:
+
+- All of the extension's own JavaScript is in the package (vendored libraries included, byte-identical to their npm
+  releases); extension pages have no `eval`, `new Function` or remotely loaded script, and their CSP is
+  `script-src 'self'`.
+- The viewer DOES run JavaScript that is not in the package: the code of a website published on PoCol, which the user
+  opens. It runs only inside the manifest's sandboxed page (`sandbox.html`, CSP `connect-src 'none'`, script only from
+  the loader's hash and `blob:` URLs of files verified against their on-chain hashes), which has no extension API
+  access; per-tab declarativeNetRequest rules block its network access.
+
+Before submitting, the owner reads the current Chrome Web Store Manifest V3 requirements on remote code (the section
+on code in sandboxed pages) and chooses one of:
+
+- **Yes, I am using remote code**, with the justification: "Websites that the user publishes on or opens from the
+  PoCol network run only in the manifest's sandboxed page, with no extension API, `connect-src 'none'` and network
+  blocked; the extension's own code is entirely in the package."; or
+- **No, I am not using remote code**, only if that policy text, as read on the day of submission, exempts code in
+  sandboxed pages; the owner then records the policy section and date in store/README.md.
+
+This repository does not decide which answer the store accepts (store/README.md).
 
 ### Data usage
 
