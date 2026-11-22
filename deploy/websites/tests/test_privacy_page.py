@@ -63,7 +63,9 @@ class PrivacyPage(unittest.TestCase):
         self.assertIn(MAIN / 'privacy.html', pages)
         for page in pages:
             footer = re.search(r'<footer.*?</footer>', page.read_text(encoding='utf-8'), re.S).group(0)
-            self.assertRegex(footer, r'<a href="privacy\.html\?v=[0-9a-f]{12}" data-i18n="privacyLink">Privacy policy</a>', page.name)
+            # 404.html is served for any missing path, so its links are root-absolute (/privacy.html).
+            prefix = '/' if page.name == '404.html' else ''
+            self.assertRegex(footer, rf'<a href="{prefix}privacy\.html\?v=[0-9a-f]{{12}}" data-i18n="privacyLink">Privacy policy</a>', page.name)
         text = (MAIN / 'locales.js').read_text(encoding='utf-8')
         locales = json.loads(text[len('window.POCOL_LOCALES = '):].rstrip().rstrip(';'))
         self.assertEqual(locales['en']['privacyLink'], 'Privacy policy')
@@ -139,7 +141,7 @@ class PolicyMatchesTheCode(unittest.TestCase):
         # Chrome Web Store User Data Policy, Limited Use: an affirmative statement on the extension's website.
         en, ar = translations()['en'], translations()['ar']
         section = next(s for s in en['sections'] if s['heading'] == 'Chrome Web Store User Data Policy')
-        self.assertIn('complies with the Chrome Web Store User Data Policy, including the Limited Use requirements', section['items'][0])
+        self.assertIn('adheres to the Chrome Web Store User Data Policy, including the Limited Use requirements', section['items'][0])
         self.assertIn('Limited Use', ' '.join(i for s in ar['sections'] for i in s['items']))
 
     def test_the_servers_write_no_request_log_and_the_faucet_keeps_no_ip_on_disk(self):
@@ -176,6 +178,44 @@ class PolicyMatchesTheCode(unittest.TestCase):
         css = ''.join(p.read_text(encoding='utf-8') for p in (ROOT / 'deploy/websites/explorer.pocol.net/assets').glob('*.css'))
         self.assertIn('fonts.googleapis.com', css)
         self.assertIn('fonts.googleapis.com', json.dumps(translations()['en']))
+
+    def test_the_limited_use_statement_is_published(self):
+        # Chrome Web Store User Data Policy, Limited Use: "An affirmative statement that your use of the data complies
+        # with the Limited Use restrictions must be disclosed on a website belonging to your extension" (CWS memo, 4).
+        t = translations()
+        en = [i for s in t['en']['sections'] for i in s['items'] if 'Limited Use' in i]
+        ar = [i for s in t['ar']['sections'] for i in s['items'] if 'Limited Use' in i]
+        self.assertEqual((len(en), len(ar)), (1, 1))
+        self.assertIn('adheres to the Chrome Web Store User Data Policy, including the Limited Use requirements', en[0])
+        self.assertIn('Chrome Web Store User Data Policy', ar[0])
+        self.assertIn('never uses or transfers it for advertising, for creditworthiness or lending', en[0])
+
+    def test_the_policy_says_that_a_connected_site_receives_the_wallet_address(self):
+        # The viewer's wallet provider (sw.js wallet()): eth_requestAccounts asks for the confirmAccounts approval and
+        # then gives the site the address; eth_accounts gives it again to an approved site; a transaction's result goes
+        # back to the site. Studio and the IDE receive the status and result of their jobs (studio-content.js and
+        # ide-content.js post the extension's answers to the page). The policy, and its Limited Use statement, must say
+        # so instead of "only to the PoCol gateway or your own node" (2026-11-22 review).
+        sw = (EXT / 'src' / 'sw.js').read_text(encoding='utf-8')
+        self.assertIn("approval(sess, ask, { type: 'confirmAccounts', site: sess.site, address, network: sess.profile.name })", sw)
+        self.assertIn("return { result: [address] };", sw)
+        self.assertIn("if (m.method === 'eth_accounts') return { result: sess.approved === address", sw)
+        for script in ('studio-content.js', 'ide-content.js'):
+            self.assertIn('window.postMessage({', (EXT / 'src' / script).read_text(encoding='utf-8'), script)
+        t = translations()
+        for lang, address, sites in (('en', 'shares your wallet address', 'returns to studio.pocol.net or ide.pocol.net'),
+                                     ('ar', 'تشارك عنوان محفظتك', 'وتعيد إلى studio.pocol.net أو ide.pocol.net')):
+            items = [i for s in t[lang]['sections'] for i in s['items']]
+            limited = next(i for i in items if 'Limited Use' in i)
+            self.assertIn(address, limited, lang)
+            self.assertIn(sites, limited, lang)
+        en = [i for s in t['en']['sections'] for i in s['items']]
+        viewer = next(i for i in en if i.startswith('On-chain websites that you open'))
+        self.assertIn('only after you approve the connection does the extension give that site your wallet address', viewer)
+        policy = json.dumps(t, ensure_ascii=False)
+        for claim in ('sends it only to the PoCol gateway or your own node as those features need, and never',
+                      'does not sell or share your information', 'ولا تبيع معلوماتك ولا تشاركها.'):
+            self.assertNotIn(claim, policy)
 
     def test_no_pocol_site_sets_a_cookie(self):
         for base in ('deploy/websites', 'prototypes/pocol-studio/dist', 'prototypes/pocol-extension/src'):

@@ -2,10 +2,13 @@
 declare(strict_types=1);
 
 // Fixed read-only gateway operation; requests cannot supply RPC input or an upstream.
-const POCOL_REWARD_SCHEMA = 'pocol-block-reward-v1';
+// F-74 (2026-11-22): the gateway's pocol_getBlockReward answers the v3 projection (deploy/rewards/pocol_rewards.py
+// snapshot_v3, schema pocol-block-reward-v3); this proxy validates it and passes on only the summary the page shows.
+const POCOL_REWARD_SCHEMA = 'pocol-block-reward-v3';
 const POCOL_REWARD_GENESIS = '0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e';
 const POCOL_REWARD_UPSTREAM = 'https://explorer.pocol.net/rpc';
-const POCOL_REWARD_MAX_REPLY = 262144;
+// A v3 answer carries the block's own flows and, for a final block, every pot it settles: the gateway's reply cap.
+const POCOL_REWARD_MAX_REPLY = 4194304;
 const POCOL_REWARD_UINT256_MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
 
 function pocol_reward_fail(): never {
@@ -40,39 +43,73 @@ function pocol_reward_address($v): bool {
         && $v !== '0x0000000000000000000000000000000000000000';
 }
 
+function pocol_reward_sum(array $values): string {
+    $sum = '0';
+    foreach ($values as $value) $sum = pocol_reward_add($sum, $value);
+    return $sum;
+}
+
+/** The v3 summary the page shows: identity, the captured block, pot h and its projected split, and the projected
+ * beneficiaries. Every amount is a canonical uint256 decimal and every identity the gateway's: the pot is issuance plus
+ * tips less the proposer's tip share plus the carry in, and splits exactly into paid (including bond fills), burned and
+ * carried. A final block opens no pot and projects nothing. Anything else is refused (fail closed). */
 function pocol_reward_validate($v, ?int $now = null): array {
     $now ??= time();
     if (!is_object($v) || ($v->schema ?? null) !== POCOL_REWARD_SCHEMA
         || ($v->chainId ?? null) !== 2656089850 || ($v->genesisHash ?? null) !== POCOL_REWARD_GENESIS
-        || ($v->source ?? null) !== 'https://explorer.pocol.net' || ($v->status ?? null) !== 'pending'
+        || ($v->specVersion ?? null) !== 2
+        || (property_exists($v, 'source') && $v->source !== 'https://explorer.pocol.net') || ($v->status ?? null) !== 'pending'
         || !pocol_reward_integer($v->blockHeight ?? null) || $v->blockHeight < 1
         || !is_string($v->blockHash ?? null) || preg_match('/^0x[0-9a-f]{64}$/D', $v->blockHash) !== 1
-        || !pocol_reward_integer($v->settlementHeight ?? null) || $v->settlementHeight <= $v->blockHeight
+        || !is_bool($v->final ?? null) || !is_bool($v->winnerAccruing ?? null)
+        || ($v->final ? !property_exists($v, 'settlementHeight') || $v->settlementHeight !== null
+            : !pocol_reward_integer($v->settlementHeight ?? null) || $v->settlementHeight <= $v->blockHeight)
         || !pocol_reward_integer($v->shareCount ?? null) || $v->shareCount > 256
         || !pocol_reward_integer($v->beneficiaryCount ?? null) || $v->beneficiaryCount > 258
         || !is_array($v->beneficiaries ?? null) || !array_is_list($v->beneficiaries)
-        || count($v->beneficiaries) !== $v->beneficiaryCount || !is_string($v->fetchedAt ?? null)) pocol_reward_fail();
+        || count($v->beneficiaries) !== $v->beneficiaryCount || !is_string($v->fetchedAt ?? null)
+        || !property_exists($v, 'closing')) pocol_reward_fail();
     $stamp = strtotime($v->fetchedAt);
     if ($stamp === false || $stamp > $now + 10 || $now - $stamp > 60) pocol_reward_fail();
-    foreach (['subsidyWei','grossRewardWei','projectedPaidWei','projectedBurnedWei'] as $key) {
-        if (!pocol_reward_amount($v->$key ?? null)) pocol_reward_fail();
+    $keys = ['issuedWei','tipsWei','tipShareWei','carryInWei','grossRewardWei','projectedPaidWei','projectedBurnedWei',
+        'projectedBondWei','projectedCarryWei'];
+    foreach ($keys as $key) if (!pocol_reward_amount($v->$key ?? null)) pocol_reward_fail();
+    if (pocol_reward_compare($v->tipShareWei, $v->tipsWei) > 0
+        || pocol_reward_sum([$v->projectedPaidWei, $v->projectedBurnedWei, $v->projectedCarryWei]) !== $v->grossRewardWei
+        || pocol_reward_compare($v->projectedBondWei, $v->projectedPaidWei) > 0) pocol_reward_fail();
+    // The final block opens no pot and takes no tip share: its tips and carries burn in finalize (block flows).
+    if ($v->final ? $v->grossRewardWei !== '0' || $v->issuedWei !== '0' || $v->tipShareWei !== '0' || $v->beneficiaryCount !== 0
+        : pocol_reward_add($v->grossRewardWei, $v->tipShareWei) !== pocol_reward_sum([$v->issuedWei, $v->tipsWei, $v->carryInWei])) pocol_reward_fail();
+    $closing = null;
+    if ($v->closing !== null) {
+        $c = $v->closing;
+        if (!is_object($c) || !pocol_reward_integer($c->closeHeight ?? null) || !is_bool($c->cursorDone ?? null)) pocol_reward_fail();
+        $closing = ['closeHeight'=>$c->closeHeight, 'cursorDone'=>$c->cursorDone];
+        if (property_exists($c, 'earliestFinalHeight') || property_exists($c, 'settlementMayBeFinal')) {
+            if (!pocol_reward_integer($c->earliestFinalHeight ?? null) || !is_bool($c->settlementMayBeFinal ?? null)) pocol_reward_fail();
+            $closing += ['earliestFinalHeight'=>$c->earliestFinalHeight, 'settlementMayBeFinal'=>$c->settlementMayBeFinal];
+        }
     }
-    if (pocol_reward_compare($v->subsidyWei, $v->grossRewardWei) > 0
-        || pocol_reward_add($v->projectedPaidWei, $v->projectedBurnedWei) !== $v->grossRewardWei) pocol_reward_fail();
-    $sum = '0'; $ids = []; $beneficiaries = [];
+    $paid = '0'; $bond = '0'; $ids = []; $beneficiaries = [];
     foreach ($v->beneficiaries as $b) {
         if (!is_object($b) || !pocol_reward_address($b->minerId ?? null)
-            || !pocol_reward_address($b->rewardAddress ?? null) || !pocol_reward_amount($b->amountWei ?? null)
-            || $b->amountWei === '0' || isset($ids[$b->minerId])) pocol_reward_fail();
-        $ids[$b->minerId] = true; $sum = pocol_reward_add($sum, $b->amountWei);
-        $beneficiaries[] = ['minerId'=>$b->minerId, 'rewardAddress'=>$b->rewardAddress, 'amountWei'=>$b->amountWei];
+            || !pocol_reward_address($b->rewardAddress ?? null) || !pocol_reward_amount($b->amountWei ?? null)) pocol_reward_fail();
+        $filled = property_exists($b, 'bondAccruedWei') ? $b->bondAccruedWei : '0';
+        $pair = $b->minerId . $b->rewardAddress;
+        if (!pocol_reward_amount($filled) || (property_exists($b, 'bondAccruedWei') && $filled === '0')
+            || ($b->amountWei === '0' && $filled === '0') || isset($ids[$pair])) pocol_reward_fail();
+        $ids[$pair] = true; $paid = pocol_reward_sum([$paid, $b->amountWei, $filled]); $bond = pocol_reward_add($bond, $filled);
+        $beneficiaries[] = ['minerId'=>$b->minerId, 'rewardAddress'=>$b->rewardAddress, 'amountWei'=>$b->amountWei]
+            + ($filled === '0' ? [] : ['bondAccruedWei'=>$filled]);
     }
-    if ($sum !== $v->projectedPaidWei) pocol_reward_fail();
+    if ($paid !== $v->projectedPaidWei || $bond !== $v->projectedBondWei) pocol_reward_fail();
     $result = [];
-    foreach (['schema','chainId','genesisHash','source','fetchedAt','blockHeight','blockHash','settlementHeight',
-        'subsidyWei','grossRewardWei','projectedPaidWei','projectedBurnedWei','beneficiaryCount','status','shareCount'] as $key) {
+    foreach (['schema','chainId','genesisHash','specVersion','fetchedAt','blockHeight','blockHash','final','settlementHeight',
+        ...$keys, 'winnerAccruing','beneficiaryCount','status','shareCount'] as $key) {
         $result[$key] = $v->$key;
     }
+    if (property_exists($v, 'source')) $result['source'] = $v->source;
+    $result['closing'] = $closing;
     $result['beneficiaries'] = $beneficiaries;
     return $result;
 }

@@ -50,8 +50,8 @@ files that remain. Until the rebuild, pages that link the removed invitation or 
   `locales.js` (the card keys), `SHA256SUMS.txt` (the three page files) and the privacy policy (`privacy.html`,
   `privacy.js`, which name no faucet URL), and that the only faucet URLs are those two
   routes (the IDE's third-party bundle is checked for faucet links only); `tests/browser_security.mjs` runs the page against stubbed answers.
-  If the pocol.net host sends a Content-Security-Policy (none is in this repository), its `connect-src` must allow
-  `https://explorer.pocol.net`, or every claim fails as unreachable.
+  pocol.net's Content-Security-Policy (`pocol.net/.htaccess`, 2026-11-22) has `connect-src 'self'
+  https://explorer.pocol.net`; without that host every claim fails as unreachable.
 
 - **Privacy policy (2026-11-22).** `pocol.net/privacy.html` (English static text, Arabic through `privacy.js`, like the
   faucet page; `privacy.css`) is the privacy policy of the Chrome extension and the four sites; the Chrome Web Store
@@ -126,7 +126,9 @@ served files and in the clients' user interface sources. The Studio note and the
 PoCol Mainnet the public network. The retired
 network's upgrade, migration and Android-update texts are replaced: nothing carries over to the new network. The
 static source lists are the guide's, and the README, V3 program and CP links pin main at `4db2652`. The 0.5.0
-download links and names and the IDE's "0.4.0 or later" messages change with the signed release (W16). Since step 7
+download links and names and the IDE's "0.4.0 or later" messages change with the signed release (W16); the extension
+ID and the release key fingerprint are in the snapshot (2026-11-22, below); they are public once the owner approves
+their early publication and uploads it. Since step 7
 pocol.net publishes the extension ID and the release key fingerprint users compare (the extension guide,
 `chrome-extension.html` and the home page's IDE help, in English and Arabic; `tests/test_w14_texts.py`,
 `PublishedReleaseIds`). Until W16 the links beside "Coming from the retired network?" (home page and
@@ -139,6 +141,54 @@ every `downloads/` link is a file of the snapshot, a `keptOut` file or a `LEGACY
 retired network's. `api/network.php` counts a HELD (1) or ACCRUING (4) active record as an eligible miner, as the node
 does.
 `tests/test_launch_decisions.py` (`LaunchTexts`) refuses the removed texts.
+
+## Production readiness, sites track (2026-11-22)
+
+- **No retired extension package (SITE-01).** No page of pocol.net, the guide, Studio's install dialog or the IDE
+  links an extension package before the signed release: they link `pocol.net/chrome-extension.html#verify-release`
+  and say that the PoCol Mainnet extension is published with the signed release. The IDE's button is the anchored edit
+  `tools/release-pending-edits.json` (after W14). The retired network's 0.4.1 package, its unversioned copy
+  `PoCol-Studio-Chrome.zip` and the two tracked `.sha256` files left `SHA256SUMS.txt` and `keptOut` through
+  `site_identity.py --drop-download`, so they are files to delete from the hosts. `tests/test_downloads.py` refuses any
+  extension package name other than the signed release's (`assemble_release.py`, none before the switch) recorded as a
+  kept-out download.
+- **Extension ID and release key (SITE-03).** The extension page (section `verify-release`) and the guide's
+  extension topic carry, in English and Arabic, the extension ID `gggcoflmedlhlkcdhebmoepmggdnafmp` and the release
+  key fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` with `deploy/release/README.md`'s user
+  procedure; the home page's "Verify a download" carries the fingerprint only and links that section.
+  `tests/test_downloads.py` derives both from `manifest-key.pub` and `allowed_signers`. The page says that no signed
+  release is offered yet. This is the repository snapshot: nothing is public until the owner approves the early
+  publication and uploads it (pending on 2026-11-22).
+- **Download structure.** `wallet-downloads.js` has a `release` record. `tools/release_page.py RELEASE_DIR` fills the
+  buttons (URL, size, SHA-256, `.sig`) and the record (version, signed `SHA256SUMS` and `.sig`) only from a directory
+  that `deploy/release/verify_release.py` verifies with the committed `allowed_signers`, and records every release
+  file, its `.sig` and `SHA256SUMS(.sig)` as kept-out lines (`--download` accepts `SHA256SUMS` and
+  `network.pocol.json` with their `.sig`).
+- **Reward page (F-74).** `api/reward.php` and `reward.js` read `pocol-block-reward-v3` (`deploy/rewards/README.md`) and
+  show its summary with neutral labels. The headline wording ("Collaboration. Rewarded." and its subtitle) and the
+  new labels await the owner's S1 wording decision (`development/STATUS-EN.md`).
+- **Network summary (SITE-05, 2026-11-22 review).** `api/network.php` takes the eligible-miner count from the
+  gateway's `pocol_getMemberCounts` (the ActList's counts at one block, at most 10,000 members) instead of the unpaged
+  `pocol_getMiners`. Paging `pocol_getMembers` instead would cost 5 of the gateway's shared request tokens a page
+  (80, refilled at 20 a second, shared with every explorer visitor): 222 tokens a refresh at 10,000 members, refused
+  part-way from about 4,000. A refresh is now two requests, 42 tokens, at any size, and all its requests together keep
+  to 15 s. `tests/network_budget.py` replays them through the real `Gateway.charge`. The gateway that serves
+  `pocol_getMemberCounts` must be installed before this snapshot is uploaded; with an older gateway the summary
+  answers "temporarily unavailable".
+- **Headers, 404, robots (SITE-06, SITE-07).** `pocol.net/.htaccess` sets nosniff, the referrer and permissions
+  policies, `X-Frame-Options DENY` and a `'self'` CSP (`connect-src` adds `https://explorer.pocol.net`; style
+  attributes are allowed for the guide's illustration), refuses directory listings and `config.php`, and serves the
+  bilingual `404.html`; `robots.txt` and `sitemap.xml` are new. The host must honour `.htaccess` with `mod_headers`
+  (owner check); HSTS is the owner's decision.
+- **Uploads (SITE-02).** An overwrite upload leaves stale files served. After each upload the owner lists the document
+  root on the host and runs `tools/host_files.py --site SITE --listing FILE` (pocol.net, ide.pocol.net,
+  studio.pocol.net): it names each file to delete, each that differs and each that is missing, and keeps host
+  configuration (`api/config.php`, cPanel's `.user.ini` and `php.ini`, `error_log`, `.well-known/`, `cgi-bin/`) and
+  the `LEGACY_NATIVE` package while a page links it. A host `.htaccess` that differs is `MERGE`, never replaced: cPanel
+  writes its MultiPHP handler block and redirects there, so the owner keeps those and adds the snapshot's `.htaccess`
+  unchanged, and `--host-copy .htaccess=COPY` (a downloaded copy of the listed file) confirms that the snapshot's
+  directives are in it as one block (2026-11-22 review). Where a snapshot has no `.htaccess` the host's is kept.
+  `pocol.net/README-AR.txt`, the IDE's `DEPLOY-README-AR.txt` and the Studio README give the step.
 
 A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` and `index.html` follows, as does the
 explorer bundle's line in `tools/explorer-s1-include.txt` (a list that names any other explorer bundle fails

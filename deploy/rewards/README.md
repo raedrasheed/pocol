@@ -106,6 +106,13 @@ The gateway also serves the explorer's membership reads, each at one head block 
   height (`lengths`, whose heldTotal bounds every bond, and `activeSlice` pages, cached per head) and at most 32 other
   records; past that bound `proposerEligible` is `null`, never guessed. It also answers for records outside the
   active list, such as `registerReplacing` victims (status 2).
+- `pocol_getMemberCounts` (no parameters, token cost 20; 2026-11-22): the ActList's counts at one head block, from
+  the same `lengths` and `activeSlice` scan that `proposerEligible` uses (cached per head, at most 40 pages):
+  `active`, `live` (not tomb), `eligible` (live and HELD or ACCRUING, the rule pocol.net's summary shows), `tomb` and
+  `bondStates` (the members in each labelled bond state), with `height` and `blockHash`. pocol.net's
+  `api/network.php` reads it once a refresh instead of paging `pocol_getMembers` through the shared budget (40 pages,
+  200 tokens, at 10,000 members). A pocol.net snapshot that reads it needs a gateway that serves it: install the
+  gateway first.
 - `pocol_getRemovable` (cost 10) and `pocol_finality` (cost 1) are forwarded to the node. `pocol_getMiners` stays for
   compatibility; the explorer bundle no longer calls it (Sites W7: it reads `pocol_getMembers` pages).
 
@@ -256,7 +263,10 @@ configured chain ID and genesis hash.
 **Operator step at deployment.** The explorer service unit is written by `deploy/explorer/install_explorer_gateway.py`
 (with `--v3-network`, and `--fork-schedule` when `forks.json` exists); the network file must exist before it runs. A
 hand-made unit with only the old arguments fails at startup. The pocol.net reward page
-(`deploy/websites/pocol.net/api/reward.php`, `reward.js`) still validates the retired `pocol-block-reward-v1` answer and is switched to `pocol-block-reward-v3` separately.
+(`deploy/websites/pocol.net/api/reward.php`, `reward.js`) validates this `pocol-block-reward-v3` answer (F-74, 2026-11-22)
+and shows its summary: pot h, its projected split (paid with bond fills, burned, carried), the projected beneficiaries,
+the closing note and the final block; `deploy/websites/tests/api_security.php` checks it on the recorded
+`testdata/v3-devnet-tape.json` snapshots.
 
 The explorer's `pocol_getParams` sanitizer retains the public fields `forkSchedule`, `capRaise`,
 `effectiveNonceMode`, `nextBlockNonceMode` and `consensusCompatibilitySha256`. The public RPC method allowlist is

@@ -38,7 +38,7 @@ SITE_ORIGIN = 'https://explorer.pocol.net'
 # lib.php pocol_valid_call: the reads the explorer and pocol.net's summary may make, nothing else. Narrower than the
 # gateway's /rpc (pocol_getBlockReward, pocol_getNetworkGeography and pocol_getTransactions are refused here).
 NO_PARAMS = frozenset({'pocol_status', 'pocol_getParams', 'pocol_getMiners', 'eth_blockNumber', 'net_peerCount',
-                       'eth_gasPrice', 'pocol_getRemovable', 'pocol_finality'})
+                       'eth_gasPrice', 'pocol_getRemovable', 'pocol_finality', 'pocol_getMemberCounts'})
 HASH_METHODS = frozenset({'eth_getTransactionByHash', 'eth_getTransactionReceipt'})
 ACCOUNT_METHODS = frozenset({'eth_getBalance', 'eth_getTransactionCount', 'eth_getCode'})
 METHODS = NO_PARAMS | HASH_METHODS | ACCOUNT_METHODS | {'pocol_getMembers', 'pocol_getMember', 'eth_getBlockByNumber',

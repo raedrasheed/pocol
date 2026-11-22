@@ -41,13 +41,16 @@ from urllib.parse import urlsplit
 MAX_REQUEST = 16384
 MAX_RESPONSE = 4 * 1024 * 1024
 NO_PARAMS = {'pocol_status', 'pocol_getParams', 'pocol_getMiners', 'eth_blockNumber', 'net_peerCount', 'eth_gasPrice', 'pocol_getNetworkGeography', 'pocol_getBlockReward',
-             'pocol_getRemovable', 'pocol_finality'}
+             'pocol_getRemovable', 'pocol_finality', 'pocol_getMemberCounts'}
 # Sites W6: v3 membership read through MinerRegistry views (PoColSystemV3.sol): pages of the active list with each
 # member's record word w0 (activeSlice), and one record's four words, its clocks and the removal verdict
 # (recordWords + recordClocks + removalStatus) at one block. recordWords returns w1 as the reward address alone (V3-09),
 # so lastReactHeight and lastMaintHeight mod 2^32 come only from recordClocks. w1-w3 of every member would exceed the v3 read budget at M_max 10,000, so a page carries
 # w0 fields only; bond and reward address come from pocol_getMember.
-MEMBERS = {'pocol_getMembers', 'pocol_getMember'}
+# pocol_getMemberCounts: the ActList's counts at one block (live, eligible, tombs, each bond state), from the same
+# per-head ActList scan as proposerEligible, so pocol.net's summary (api/network.php) need not page the whole list
+# through the shared request budget (2026-11-22 review: 40 pages of pocol_getMembers cost 200 tokens at 10,000).
+MEMBERS = {'pocol_getMembers', 'pocol_getMember', 'pocol_getMemberCounts'}
 MEMBER_PAGE_MAX = 256
 MEMBER_READS_MAX = 8
 MEMBER_CACHE_MAX = 64
@@ -61,9 +64,10 @@ DRAW_PAGES_MAX = -(-MAX_MEMBERS_V3 // ACTIVE_PAGE)
 DRAW_RECORDS_MAX = 32
 DRAW_READS_MAX = 3 + DRAW_PAGES_MAX + DRAW_RECORDS_MAX
 DRAW_CACHE_MAX = 2
-# Token cost per method (others cost 1): a reward snapshot, one member record (four calls and a fresh-block check), a
-# transaction history page.
-COSTS = {'pocol_getBlockReward': 20, 'pocol_getMember': 20, 'pocol_getMembers': 5, 'pocol_getRemovable': 10,
+# Token cost per method (others cost 1): a reward snapshot, one member record (four calls and a fresh-block check), the
+# active list's counts at one block, a transaction history page.
+COSTS = {'pocol_getBlockReward': 20, 'pocol_getMember': 20, 'pocol_getMemberCounts': 20, 'pocol_getMembers': 5,
+         'pocol_getRemovable': 10,
          # A transaction history page: a count and an indexed read over the index file, no node read. Measured at
          # 500,000 rows: under 0.15 s in every order at any depth, about 0.9 s for a one-digit search prefix (the
          # slowest); pocol_transactions.PAGE_SECONDS interrupts a page at 2 s. Pages run behind TX_SLOTS.
@@ -209,6 +213,22 @@ def member_w0(w0):
             'bondState': bond_state, 'bondStateLabel': label(BOND_STATE_LABELS, bond_state, 'bond state'),
             'lastShare': (w0 >> 88) & U64, 'registeredAt': (w0 >> 152) & U64}
 
+def member_counts(words):
+    """The counts of ActList record words w0 (every one ACTIVE, as the scan checks): `active` every member, `live` the
+    non-tomb ones, `eligible` the live HELD (1) or ACCRUING (4) ones (the rule pocol.net's summary has counted since
+    v3, as pocold's wallet status does), `tomb`, and `bondStates` the members in each labelled bond state."""
+    counts = {'active': 0, 'live': 0, 'eligible': 0, 'tomb': 0, 'bondStates': {name: 0 for name in BOND_STATE_LABELS.values()}}
+    for w0 in words:
+        record = member_w0(w0)
+        counts['active'] += 1
+        counts['bondStates'][record['bondStateLabel']] += 1
+        if record['tomb']:
+            counts['tomb'] += 1
+        else:
+            counts['live'] += 1
+            counts['eligible'] += record['bondState'] in (1, 4)
+    return counts
+
 class DrawUndecided(Exception):
     """The candidate rule needs more member records than DRAW_RECORDS_MAX."""
 
@@ -324,7 +344,8 @@ class Gateway:
         """pocol_getMembers / pocol_getMember at the head block, every read at that one height, cached per head (block
         hash) and refused with ChainMoved when the block at that height changed while it was read. Every read keeps
         to `deadline` (Gateway.query)."""
-        remaining = MEMBER_READS_MAX + (DRAW_READS_MAX if method == 'pocol_getMember' else 0)
+        scans = method in ('pocol_getMember', 'pocol_getMemberCounts')
+        remaining = MEMBER_READS_MAX + (DRAW_READS_MAX if scans else 0)
         def read(read_method, read_params):
             nonlocal remaining
             if remaining <= 0: raise RuntimeError('Membership read budget exceeded')
@@ -359,6 +380,10 @@ class Gateway:
                     if not 0 < ident <= U160 or record['status'] != 1: raise RuntimeError('Invalid active record')
                     members.append({'id': '0x' + ident.to_bytes(20, 'big').hex(), **record})
             result = {'height': height, 'blockHash': head, 'active': active, 'start': start, 'count': len(members), 'members': members}
+        elif method == 'pocol_getMemberCounts':
+            draw = self.draw_state(head, height, call)
+            members, _ = draw['scan']()
+            result = {'height': height, 'blockHash': head, **member_counts(w0 for _, w0 in members)}
         else:
             member = params[0].lower()
             words = call(REGISTRY, _word_args('recordWords(address)', int(member, 16)), CALL_GAS, 4)
@@ -372,7 +397,7 @@ class Gateway:
             except DrawUndecided:
                 result['proposerEligible'] = None
         if block(hex(height))[1] != head: raise ChainMoved('Chain changed while membership was read')
-        if method == 'pocol_getMember':
+        if scans:
             with self.lock:
                 self.draw_cache[head] = draw['cached']
                 while len(self.draw_cache) > DRAW_CACHE_MAX: self.draw_cache.popitem(last=False)
