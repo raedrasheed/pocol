@@ -209,7 +209,11 @@ class TransactionIndex:
         self.stop_event = threading.Event()
         self.thread = None
         self.writer = self._open()
-        self._check_identity_meta()
+        try:
+            self._check_identity_meta()
+        except BaseException:
+            self.writer.close()  # a refused file is not left open (Windows cannot move or delete an open file)
+            raise
 
     # ---------------- storage ----------------
     def _open(self):

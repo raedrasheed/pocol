@@ -150,12 +150,27 @@ def bundle_valid(data):
 
 class Base(unittest.TestCase):
     def setUp(self):
+        # Cleanups run last-in first-out, so the directory is removed after everything the test opened is closed
+        # (its own addCleanup(conn.close) calls included): Windows cannot delete an open SQLite file (WinError 32),
+        # so a test that leaves one open fails there.
         self.dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.dir.cleanup)
         self.path = os.path.join(self.dir.name, 'tx.sqlite3')
         self.now = [TIME0]
-
-    def tearDown(self):
-        self.dir.cleanup()
+        opened = []
+        real_open = T.TransactionIndex._open
+        def recording_open(index):
+            conn = real_open(index)
+            opened.append((index, conn))
+            return conn
+        def close_opened():
+            for index, conn in opened:
+                index.stop()
+                conn.close()
+        self.addCleanup(close_opened)
+        patcher = unittest.mock.patch.object(T.TransactionIndex, '_open', recording_open)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def index(self, chain, **kw):
         kw.setdefault('pace', 0)
@@ -432,8 +447,12 @@ class RestartAndBoundTests(Base):
     def test_the_file_of_another_network_is_refused(self):
         self.index(FakeChain(1)).writer.close()
         other = validated_network({**F.NET, 'genesisHash': '0x' + '5b' * 32})
-        with self.assertRaisesRegex(RuntimeError, 'another network'):
-            T.TransactionIndex(self.path, FakeChain(1).query, other)
+        real_open, refused = T.TransactionIndex._open, []
+        with unittest.mock.patch.object(T.TransactionIndex, '_open', lambda index: refused.append(real_open(index)) or refused[-1]):
+            with self.assertRaisesRegex(RuntimeError, 'another network'):
+                T.TransactionIndex(self.path, FakeChain(1).query, other)
+        with self.assertRaises(sqlite3.ProgrammingError, msg='the refused file is closed, not left open'):
+            refused[0].execute('SELECT 1')
         with self.assertRaises(ValueError):
             T.TransactionIndex(self.path, FakeChain(1).query)
 
