@@ -160,8 +160,8 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
   `admission-mismatch`, naming the fields that differ), and its `technicalReadiness` still lists `admission-scope`,
   each `admission-condition-*` and `admission-waiver-*`, and every open gate. The launcher boots nothing: it reports
   the pin's approval reference and keeps `admission-not-booted`. Since step 7 the tree pins PoCol Mainnet (chain
-  2656089850, genesis `0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e`), so the list holds its one
-  public-network entry; every other network reports `network-not-release-pinned` and `launch-not-approved` (and, in
+  2656089850; its genesis hash is in `prototypes/pocold/src/network_display.rs`, which `set_network_identity.py` lists),
+  so the list holds its one public-network entry; every other network reports `network-not-release-pinned` and `launch-not-approved` (and, in
   the launcher, `admission-not-booted`). Live nodes report the pin only once they run a release built from the switched
   tree. The report is node-local: it never stops a node from running, mining or serving sites.
 - `v3-profile.json`, `v3-rehearsal-profile.json`: the fresh network's mainnet profile and the rehearsal profile,
