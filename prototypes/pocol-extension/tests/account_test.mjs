@@ -5,6 +5,8 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { Transaction, Wallet, HDNodeWallet } from 'ethers';
 import { build } from '../build.mjs';
 import { installChromeMock, installFetchMock, loadWorker } from './chrome_mock.mjs';
@@ -12,6 +14,12 @@ import { siteFixture } from './site_fixture.mjs';
 import { devnetSpecV3Hex } from './rp_fixture.mjs';
 
 const dist = build().dist;
+// A copy of the build that carries the D1 placeholder mark whatever the tree carries (before or after the identity
+// switch), so the placeholder refusal is tested in both states of the tree.
+const phRoot = mkdtempSync(join(tmpdir(), 'pocol-account-ph-'));
+const distPh = build({ out: join(phRoot, 'dist') }).dist;
+{ const f = join(distPh, 'lib', 'studio-network.js'), s = readFileSync(f, 'utf8'); if (!s.includes('export const NETWORK_PLACEHOLDER = true;')) writeFileSync(f, s + '\nexport const NETWORK_PLACEHOLDER = true;\n'); }
+after(() => rmSync(phRoot, { recursive: true, force: true }));
 const L = (m) => import(pathToFileURL(join(dist, 'lib', m)).href);
 const A = await L('account.js'), K = await L('studio-keyfile.js'), H = await L('hex.js'), C = await L('crypto.js'), RP = await L('rp.js'), N = await L('studio-network.js');
 // RecordStore schedules a late sweep at worker boot; release long timers when the suite ends.
@@ -32,7 +40,7 @@ const profile = (name = 'devnet', endpoint = 'http://127.0.0.1:8599') => ({ name
 
 let n = 0;
 /** A fresh worker with the devnet profile, an RPC endpoint mock and helpers. `env` is the node's state. */
-async function world({ disclosure = true, extra = {} } = {}) {
+async function world({ disclosure = true, extra = {}, from = dist } = {}) {
   const mock = installChromeMock(); const fx = await siteFixture(dist);
   const env = { chainId: spec.chainId, genesis: spec.hash, balance: 10n ** 21n, nonce: 0n, latestNonce: 0n, base: 10000000n, receipts: new Map(), sendError: null, height: 42, ts: Math.floor(Date.now() / 1000) - 5, down: false };
   const hex = (v) => '0x' + BigInt(v).toString(16);
@@ -45,7 +53,7 @@ async function world({ disclosure = true, extra = {} } = {}) {
     eth_sendRawTransaction: ([raw]) => { if (env.sendError) return { __error: env.sendError }; env.sent = raw; return H.toHex(C.keccak(H.fromHex(raw))); },
     eth_getTransactionReceipt: ([h]) => env.receipts.get(h) || null,
     pocol_getLogs: () => [], ...extra });
-  await loadWorker(dist, 'acct' + ++n);
+  await loadWorker(from, 'acct' + ++n);
   const r = await mock.send({ type: 'profiles.add', profile: profile() }); assert.equal(r.ok, true, JSON.stringify(r));
   const page = (p, tab = 7) => (msg) => mock.send(msg, tab, p);
   const options = page('options.html'), popup = page('popup.html', null), send = page('send.html', 21);
@@ -151,8 +159,9 @@ test('a vault written by a Studio or IDE page for another address locks the unlo
 });
 
 test('the placeholder build makes no network request for the built-in profile and refuses to send', async () => {
-  const w = await world();
-  assert.equal(N.NETWORK_PLACEHOLDER, true, 'this tree pins the D1 placeholder');
+  const w = await world({ from: distPh });
+  assert.equal((await import(pathToFileURL(join(distPh, 'lib', 'studio-network.js')).href)).NETWORK_PLACEHOLDER, true, 'this build pins the D1 placeholder');
+  assert.equal((await w.popup({ type: 'account.status' })).placeholderBuild, true);
   await w.options({ type: 'account.import', kind: 'privateKey', privateKey: KEY2, password: PW });
   const st = await w.popup({ type: 'net.status' }); assert.equal(st.ok, true); assert.equal(st.placeholder, true); assert.equal(st.reachable, null); assert.equal(st.name, N.NETWORK.name);
   const bal = await w.popup({ type: 'account.balance' }); assert.equal(bal.placeholder, true); assert.equal(bal.address, ADDRESS2);
@@ -249,4 +258,41 @@ test('EXT-03: a site\'s account grant is listed and revocable in Settings; after
   req(2, 'eth_accounts'); assert.deepEqual((await port.next((m) => m.seq === 2)).reply.result, []);
   assert.equal((await w.options({ type: 'connections.list' })).connections.length, 0);
   port.close();
+});
+
+test('lib/identity.js: the refusal of another network names both values that differ', async () => {
+  const I = await L('identity.js'), want = { chainId: 777, genesisHash: '0x' + 'ab'.repeat(32) };
+  assert.equal(I.identityDifference(want, '0x309', '0x' + 'AB'.repeat(32)), null, 'same chain ID (hex answer) and genesis (any case)');
+  assert.deepEqual(I.identityDifference(want, '0x30a', want.genesisHash), [{ field: 'chainId', expected: '777', got: '778' }]);
+  assert.deepEqual(I.identityDifference(want, '0x309', '0x' + 'cd'.repeat(32)), [{ field: 'genesisHash', expected: want.genesisHash, got: '0x' + 'cd'.repeat(32) }]);
+  assert.deepEqual(I.identityDifference(want, 'nonsense', undefined).map((d) => d.got), [null, null], 'a malformed answer never matches');
+  assert.equal(I.describeDifference(I.identityDifference(want, '0x1', want.genesisHash)), 'chain ID: expected 777, the endpoint answered 1');
+  assert.throws(() => I.assertIdentity(want, '0x1', '0x' + 'cd'.repeat(32), 'Blocked'), (e) => e.code === 4901 && /^Blocked \(chain ID: expected 777, the endpoint answered 1; genesis hash: expected 0xabab.*, the endpoint answered 0xcdcd/.test(e.message));
+});
+
+test('the wallet shows the difference when the endpoint is another network, and refuses to prepare a transfer', async () => {
+  const w = await world();
+  await w.options({ type: 'account.import', kind: 'privateKey', privateKey: KEY2, password: PW });
+  w.env.chainId = spec.chainId + 5;
+  const st = await w.popup({ type: 'net.status', name: 'devnet' });
+  assert.equal(st.chainOk, false); assert.match(st.difference, new RegExp(`chain ID: expected ${spec.chainId}, the endpoint answered ${spec.chainId + 5}`));
+  const p = await w.send({ type: 'send.prepare', name: 'devnet', to: TO, amount: '1' });
+  assert.equal(p.ok, false); assert.equal(p.error.code, 4901); assert.match(p.error.message, new RegExp(`expected ${spec.chainId}, the endpoint answered ${spec.chainId + 5}`));
+  w.env.chainId = spec.chainId; w.env.genesis = '0x' + '99'.repeat(32);
+  const g = await w.send({ type: 'send.prepare', name: 'devnet', to: TO, amount: '1' });
+  assert.equal(g.error.code, 4901); assert.match(g.error.message, new RegExp(`genesis hash: expected ${spec.hash}, the endpoint answered 0x${'99'.repeat(32)}`));
+  assert.equal((await w.popup({ type: 'net.status', name: 'devnet' })).endpointGenesisHash, '0x' + '99'.repeat(32));
+  assert.equal(w.count('eth_sendRawTransaction'), 0);
+});
+
+test('EXT-08: a Studio page\'s openSite opens the viewer on a confirmation, never on the site directly', async () => {
+  const w = await world();
+  const listener = w.mock.listeners.message.at(-1);
+  const r = await new Promise((resolve) => listener({ type: 'studio.openSite', payload: { site: '0x' + 'ab'.repeat(20) } }, { id: chrome.runtime.id, url: 'https://studio.pocol.net/editor', tab: { id: 3 }, frameId: 0 }, resolve));
+  assert.equal(r.ok, true, JSON.stringify(r));
+  const url = w.mock.tabsCreated.at(-1).url;
+  assert.equal(url, chrome.runtime.getURL('viewer.html') + '?confirm=studio#' + N.NETWORK.name + '/0x' + 'ab'.repeat(20) + '/');
+  // The viewer waits for the user's own click before it fetches the site (src/viewer.js gate()).
+  const viewer = readFileSync(join(dist, 'viewer.js'), 'utf8');
+  assert.match(viewer, /get\('confirm'\) !== 'studio'/); assert.match(viewer, /if \(!e\.isTrusted\) return;/); assert.match(viewer, /gate\(\)\.then\(start\)/);
 });

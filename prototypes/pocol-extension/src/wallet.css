@@ -1,0 +1,37 @@
+/* The PoCol wallet pages (popup.html, send.html). Colours follow viewer.css. */
+:root { --bg: #f6f7f9; --fg: #1b1f24; --muted: #5b6470; --line: #d9dde3; --panel: #ffffff; --ok: #067647; --warn: #b54708; --bad: #b42318; --accent: #175cd3; }
+@media (prefers-color-scheme: dark) { :root { --bg: #111418; --fg: #e6e9ee; --muted: #9aa4b2; --line: #2a3038; --panel: #1a1f26; --ok: #32d583; --warn: #fdb022; --bad: #f97066; --accent: #84adff; } }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, sans-serif; }
+body.popup { width: 380px; }
+main { padding: 12px 14px 16px; max-width: 720px; margin: 0 auto; }
+header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+header h1 { font-size: 17px; margin: 0; flex: 1; }
+h2 { font-size: 14px; margin: 0 0 6px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.mono { font-family: ui-monospace, monospace; overflow-wrap: anywhere; font-size: 12.5px; }
+.muted, .hint { color: var(--muted); }
+.hint { font-size: 12.5px; margin: 6px 0 0; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+input, select { width: 100%; font: 13px ui-monospace, monospace; padding: 7px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+label { display: block; margin: 8px 0 4px; font-size: 12.5px; color: var(--muted); }
+button { padding: 7px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; font: inherit; }
+button.primary { background: var(--accent); color: #fff; border-color: transparent; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); margin-inline-end: 6px; vertical-align: middle; }
+.dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+.balance { font-size: 20px; font-weight: 600; margin: 4px 0; overflow-wrap: anywhere; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; border: 1px solid var(--line); color: var(--muted); }
+.badge.unlocked { color: var(--ok); border-color: var(--ok); }
+.notice { border-color: var(--warn); }
+.error { color: var(--bad); white-space: pre-wrap; overflow-wrap: anywhere; }
+ul.txs { list-style: none; padding: 0; margin: 0; }
+ul.txs li { padding: 6px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; font-size: 12.5px; }
+ul.txs li:first-child { border-top: 0; }
+dl.review { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; margin: 0; }
+dl.review dt { color: var(--muted); }
+dl.review dd { margin: 0; overflow-wrap: anywhere; }
+dl.review .total { font-weight: 700; }
+.consent { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0; color: var(--fg); font-size: 13px; }
+.consent input { width: auto; margin-top: 3px; }
+@media (max-width: 480px) { dl.review { grid-template-columns: 1fr; } dl.review dd { margin-bottom: 4px; } }

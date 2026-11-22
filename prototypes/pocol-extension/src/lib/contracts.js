@@ -1,6 +1,7 @@
 // Public contract intents; signing stays in a trusted extension confirmation page.
 import { Interface, Fragment, Transaction, getAddress, getCreateAddress, keccak256, toUtf8Bytes } from '../vendor/ethers.js';
 import { NETWORK } from './studio-network.js';
+import { identityDifference, describeDifference } from './identity.js';
 export const IDE_JOB_PREFIX = 'ide:job:';
 export const IDE_ORIGINS = Object.freeze(['https://ide.pocol.net']);
 export const IDE_REQUEST_MAX = 262144;
@@ -90,7 +91,8 @@ export function publicContractJob(job) {
 }
 async function network(rpc) {
   const chain=qty(await rpc('eth_chainId',[]));const status=await rpc('pocol_status',[]);
-  assert(chain===BigInt(NETWORK.chainId) && status?.chainId===NETWORK.chainId && typeof status.genesisHash==='string' && status.genesisHash.toLowerCase()===NETWORK.genesisHash,'Unexpected PoCol network identity. Signing is blocked.','WRONG_NETWORK');
+  const diff=identityDifference(NETWORK,chain,status?.genesisHash)||(status?.chainId===NETWORK.chainId?null:[{field:'chainId',expected:String(NETWORK.chainId),got:Number.isSafeInteger(status?.chainId)?String(status.chainId):null}]);
+  assert(!diff,`Unexpected PoCol network identity (${describeDifference(diff)}). Signing is blocked.`,'WRONG_NETWORK');
 }
 export async function prepareContractReview({request:input,rpc,address,now=Date.now}) {
   const request=validateContractRequest(input),from=addressOf(address);await network(rpc);

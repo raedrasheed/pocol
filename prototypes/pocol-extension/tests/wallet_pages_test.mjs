@@ -1,0 +1,62 @@
+// The wallet pages in the build (2026-11-22, EXT-02/06): the toolbar popup is the manifest's action popup, the popup,
+// Send and Settings pages load only packaged scripts, never touch the vault or the network themselves (only the worker
+// does), and the extension-page CSP forbids workers (worker-src 'none'), the same string the release packager requires.
+// The real-browser evidence for these pages is tests/wallet_ui_browser.mjs.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { build, EXTENSION_PAGES_CSP } from '../build.mjs';
+
+const HERE = dirname(fileURLToPath(import.meta.url)), EXT = dirname(HERE);
+const out = mkdtempSync(join(tmpdir(), 'pocol-wallet-pages-'));
+test.after(() => rmSync(out, { recursive: true, force: true }));
+const { dist, manifest } = build({ out: join(out, 'dist') });
+const read = (f) => readFileSync(join(dist, f), 'utf8');
+
+test('the toolbar button opens the wallet popup, and every wallet page is in the package', () => {
+  assert.equal(manifest.action.default_popup, 'popup.html');
+  for (const f of ['popup.html', 'popup.js', 'send.html', 'send.js', 'wallet.css', 'options.html', 'options.js', 'lib/account.js', 'lib/identity.js']) assert.ok(existsSync(join(dist, f)), f);
+  // No permission was added for the wallet (store/listing.md justifies exactly these).
+  assert.deepEqual(manifest.permissions, ['storage', 'unlimitedStorage', 'declarativeNetRequest']);
+  assert.deepEqual(manifest.host_permissions, ['http://127.0.0.1/*', 'https://explorer.pocol.net/*']);
+  assert.equal(manifest.optional_permissions, undefined); assert.equal(manifest.web_accessible_resources, undefined); assert.equal(manifest.externally_connectable, undefined);
+});
+
+test('EXT-06: the extension pages forbid workers; the packager requires the same CSP', () => {
+  assert.equal(manifest.content_security_policy.extension_pages, "script-src 'self'; object-src 'self'; worker-src 'none'");
+  assert.equal(EXTENSION_PAGES_CSP, manifest.content_security_policy.extension_pages);
+  const py = spawnSync('python3', ['-B', '-c', `import importlib.util,sys;s=importlib.util.spec_from_file_location('p',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print(m.EXTENSION_PAGES_CSP,end='')`, join(EXT, 'scripts', 'package-release.py')], { encoding: 'utf8' });
+  assert.equal(py.status, 0, py.stderr); assert.equal(py.stdout, EXTENSION_PAGES_CSP);
+  // No extension page or library starts a worker (the CSP would refuse it; tests/wallet_ui_browser.mjs shows it does).
+  for (const f of ['popup.js', 'send.js', 'options.js', 'viewer.js', 'publisher-ui.js', 'contract-ui.js', 'sw.js']) assert.doesNotMatch(read(f), /new (Shared)?Worker\(/, f);
+});
+
+test('the popup, Send and Settings pages load only their own packaged module, and hold no key, vault or network access', () => {
+  for (const [page, script] of [['popup.html', 'popup.js'], ['send.html', 'send.js'], ['options.html', 'options.js']]) {
+    const html = read(page);
+    const scripts = [...html.matchAll(/<script\b([^>]*)>([^]*?)<\/script>/g)];
+    assert.equal(scripts.length, 1, page); assert.equal(scripts[0][2].trim(), '', `${page} has no inline script`);
+    assert.match(scripts[0][1], new RegExp(`type="module" src="${script}"`));
+    assert.doesNotMatch(html, /https?:\/\/(?!(studio|ide|explorer)\.pocol\.net)[a-z]/i, `${page} links no other host`);
+  }
+  for (const f of ['popup.js', 'send.js']) {
+    const js = read(f);
+    assert.doesNotMatch(js, /\bfetch\(|XMLHttpRequest|WebSocket|chrome\.storage|studio:wallet|importKeyfile|signTx|^\s*import\b|\bimport\(/m, `${f} talks to the worker only`);
+  }
+  // The Settings page reads job records from storage (as before) but never the vault; its wallet actions are messages.
+  const options = read('options.js');
+  assert.doesNotMatch(options, /\bfetch\(|studio:wallet|importKeyfile|exportKeyfile/);
+  for (const type of ['account.create', 'account.import', 'account.export', 'connections.list', 'connections.revoke']) assert.ok(options.includes(`'${type}'`), type);
+});
+
+test('the Send page signs only after its consent box and the user\'s own click, and shows every field of the review', () => {
+  const html = read('send.html'), js = read('send.js');
+  for (const id of ['rNetwork', 'rChain', 'rGenesis', 'rEndpoint', 'rFrom', 'rTo', 'rAmount', 'rFee', 'rTotal', 'rNonce', 'rHash', 'consent']) assert.match(html, new RegExp(`id="${id}"`), id);
+  assert.match(html, /<button id="confirm" type="button" class="primary" disabled>/);
+  assert.match(js, /if \(!e\.isTrusted \|\| !review \|\| !\$\('consent'\)\.checked\) return;/);
+  assert.ok(js.indexOf("type: 'send.confirm'") > js.indexOf('e.isTrusted'), 'send.confirm only after the trusted-click check');
+});

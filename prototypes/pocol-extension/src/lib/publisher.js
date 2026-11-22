@@ -10,6 +10,7 @@ import { validPath, chunkAddress, chunkPayload, decodeManifest, decodeCurrent, f
 import { WEBSITE_INITCODE, WEBSITE_RUNTIME } from './website-bytecode.js';
 import { feeSchedule, capFor, nextBaseFee, chunkGasUsed, ABSOLUTE_CEILING, TIP_CAP, BASE_FEE_FLOOR, MARGIN_PER_MILLE } from './fees.js';
 import { denyReason, DENY_REASONS } from './publish-input.js';
+import { assertIdentity } from './identity.js';
 export { readNetworkFees } from './fees.js';
 
 export const FACTORY = '0x0000000000000000000000000000000000c0c005';
@@ -335,7 +336,7 @@ export async function publishSite(options) {
     const network = async () => {
       checkAbort();
       const cid = await rpc('eth_chainId', []), status = await rpc('pocol_status', []);
-      assert(uint(cid) === chain && typeof status?.genesisHash === 'string' && status.genesisHash.toLowerCase() === genesis, 'RPC network identity does not match PoCol profile');
+      assertIdentity({chainId:chain, genesisHash:genesis}, cid, status?.genesisHash, 'RPC network identity does not match PoCol profile; signing is blocked');
     };
     const call = (to, data) => rpc('eth_call',[{to,data},'latest']);
     const authorize = async (site) => {

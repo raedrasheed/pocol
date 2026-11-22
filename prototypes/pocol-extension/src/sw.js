@@ -17,6 +17,7 @@ import { NETWORK, isStudioOrigin, validateEndpoint, trustMessage } from './lib/s
 import * as studioNetwork from './lib/studio-network.js';
 import { importKeyfile, exportKeyfile } from './lib/studio-keyfile.js';
 import * as acct from './lib/account.js';
+import { identityDifference, describeDifference } from './lib/identity.js';
 import { readNetworkFees, ABSOLUTE_CEILING } from './lib/fees.js';
 import { JOB_PREFIX, JOB_TTL_MS, validatePublishRequest, validateSiteTarget, publicJob } from './lib/studio-bridge.js';
 import { IDE_JOB_PREFIX, isIdeOrigin, validateContractRequest, publicContractJob } from './lib/contracts.js';
@@ -118,11 +119,14 @@ function rpcFor(profile, pool, session = null, shared = http.inflight, retry = t
 // The verified site fetch retries its own reads (fetchSite, with the chunk-level pool), so it gets them unwrapped.
 const contentRpc = (profile) => { const c = rpcFor(profile, pools.content, null, http.inflight, false), s = rpcFor(profile, pools.site, null, http.inflight, false); return (m, p, ...r) => (m === 'eth_getCode' ? c(m, p, ...r) : s(m, p, ...r)); };
 /** netKey check against the endpoint: chainId and genesisHash must equal the profile. */
+// The refusal names the difference (lib/identity.js): what the profile pins and what the endpoint answered.
 async function checkNetwork(profile, rpc) {
-  const cid = BigInt(await rpc('eth_chainId', []));
-  if (cid !== BigInt(profile.chainId)) throw Object.assign(new Error('endpoint chainId differs from profile'), { code: 4901 });
+  const cid = await rpc('eth_chainId', []);
+  let diff = identityDifference(profile, cid, profile.genesisHash);
+  if (diff) throw Object.assign(new Error(`endpoint chainId differs from profile (${describeDifference(diff)})`), { code: 4901, difference: diff });
   const st = await rpc('pocol_status', []);
-  if (st.genesisHash.toLowerCase() !== profile.genesisHash.toLowerCase()) throw Object.assign(new Error('endpoint genesis differs from profile'), { code: 4901 });
+  diff = identityDifference(profile, cid, st?.genesisHash);
+  if (diff) throw Object.assign(new Error(`endpoint genesis differs from profile (${describeDifference(diff)})`), { code: 4901, difference: diff });
 }
 
 // ---------------- signing eligibility (browser.md "Signing eligibility", A06) ----------------
@@ -505,7 +509,9 @@ async function studioRequest(msg, sender) {
   times.push(Date.now()); studioLimits.set(sender.tab.id, times);
   if (msg.type === 'studio.openSite') {
     const target = validateSiteTarget(payload);
-    await chrome.tabs.create({ url: chrome.runtime.getURL('viewer.html') + '#' + NETWORK.name + '/' + target.site + target.path });
+    // EXT-08: the tab opens on a confirmation (viewer.html?confirm=studio): the site is fetched and its code runs only
+    // after the user's own click there, so a Studio page cannot start on-chain site code without the user.
+    await chrome.tabs.create({ url: chrome.runtime.getURL('viewer.html') + '?confirm=studio#' + NETWORK.name + '/' + target.site + target.path });
     return { opened: true };
   }
   return studioLocked(async () => {
@@ -658,14 +664,16 @@ async function netStatus(name) {
   await requireDisclosure();
   const rpc = rpcFor(p, pools.trust, null, http.inflight, { attempts: 2, deadlineMs: 15000 });
   try {
-    const cid = quantity(await rpc('eth_chainId', []), 'chain ID'), st = await rpc('pocol_status', []);
+    const cidHex = await rpc('eth_chainId', []), cid = quantity(cidHex, 'chain ID'), st = await rpc('pocol_status', []);
     const chainOk = cid === BigInt(p.chainId), genesisOk = typeof st?.genesisHash === 'string' && st.genesisHash.toLowerCase() === p.genesisHash;
+    const diff = identityDifference(p, cidHex, st?.genesisHash);
     let head = null;
     if (chainOk && genesisOk) {
       const b = await rpc('eth_getBlockByNumber', ['latest', false]); const ts = Number(quantity(b?.timestamp, 'block time'));
       head = { height: Number(quantity(b?.number, 'block number')), timestamp: ts, ageSec: Math.max(0, Math.round(Date.now() / 1000 - ts)) };
     }
-    return { ...info, reachable: true, chainOk, genesisOk, endpointChainId: cid.toString(), head };
+    return { ...info, reachable: true, chainOk, genesisOk, endpointChainId: cid.toString(), endpointGenesisHash: typeof st?.genesisHash === 'string' ? st.genesisHash.toLowerCase().slice(0, 66) : null,
+      difference: diff ? describeDifference(diff) : null, head };
   } catch (e) { return { ...info, reachable: false, error: String(e?.rpc?.message || e?.message || e).slice(0, 200) }; }
 }
 async function accountBalance(name) {
@@ -913,7 +921,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   return true;
 });
 
-chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
+// The toolbar button opens popup.html (manifest action.default_popup), so it has no click handler here.
 
 // omnibox: 'pocol <profile>/<0xaddr>[/path]'
 chrome.omnibox.onInputEntered.addListener((text) => {

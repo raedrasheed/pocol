@@ -7,6 +7,7 @@ import { KeyLease, JOB_DEADLINE_DEFAULT_MS, JOB_DEADLINE_MAX_MS } from './lib/le
 import { isForeignJob, blocksAccount, archiveJob, networkOf, filesKey, rawKey, removeSideKeys } from './lib/jobs.js';
 import { request, Pool, TRUST_POOL, RESERVE_WAIT_MS } from './lib/transport.js';
 import { withRetry } from './lib/retry.js';
+import { assertIdentity } from './lib/identity.js';
 
 const $ = (id) => document.getElementById(id);
 const vaultKey = 'studio:wallet';
@@ -96,7 +97,7 @@ async function refreshQuote(note = '') {
   quote = null; $('consent').checked = false; renderWallet(); $('fee').textContent = 'Reading network fees…';
   try {
     const cid = await rpc('eth_chainId', []), status = await rpc('pocol_status', []);
-    if (BigInt(cid) !== BigInt(NETWORK.chainId) || status?.genesisHash?.toLowerCase() !== NETWORK.genesisHash.toLowerCase()) throw new Error('Network identity mismatch');
+    assertIdentity(NETWORK, cid, status?.genesisHash, 'Network identity mismatch: the endpoint is not the network this page signs for, so nothing is signed');
     const fees = await readNetworkFees(rpc), tipGwei = $('tip').value.trim();
     const tip = tipGwei ? BigInt(Math.round(Number(tipGwei) * 1e9)).toString() : fees.tip;
     if (tipGwei && !(Number(tipGwei) >= 0 && Number(tipGwei) <= 2)) throw new Error('The tip must be between 0 and 2 gwei');
@@ -125,7 +126,7 @@ $('cancel').onclick = async () => {
     const records=Object.values(job.checkpoint?.transactions || {});
     if(records.length){
       const cid=await rpc('eth_chainId',[]),identity=await rpc('pocol_status',[]);
-      if(BigInt(cid)!==BigInt(NETWORK.chainId)||identity.genesisHash?.toLowerCase()!==NETWORK.genesisHash)throw new Error('Network identity mismatch');
+      assertIdentity(NETWORK,cid,identity?.genesisHash,'Network identity mismatch: the endpoint is not the network of this publication');
       for(const record of records){
         const receipt=await rpc('eth_getTransactionReceipt',[record.hash]);
         if(!receipt || receipt.transactionHash?.toLowerCase()!==record.hash || !['0x0','0x1'].includes(receipt.status))throw new Error('Unresolved transactions remain. Keep this job and resume it.');

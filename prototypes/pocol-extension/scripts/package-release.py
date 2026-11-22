@@ -55,7 +55,7 @@ CONTENT_SCRIPTS = [
     {'matches': ['https://studio.pocol.net/*'], 'js': ['studio-content.js'], 'run_at': 'document_start', 'all_frames': False},
     {'matches': ['https://ide.pocol.net/*'], 'js': ['ide-content.js'], 'run_at': 'document_start', 'all_frames': False},
 ]
-EXTENSION_PAGES_CSP = "script-src 'self'; object-src 'self'"
+EXTENSION_PAGES_CSP = "script-src 'self'; object-src 'self'; worker-src 'none'"  # build.mjs EXTENSION_PAGES_CSP (EXT-06)
 RELEASE_ENDPOINT = 'https://explorer.pocol.net/studio/rpc'
 SANDBOX_PREFIX = '<!doctype html>\n<html><head><meta charset="utf-8"><script>'
 SANDBOX_SUFFIX = '</script></head><body></body></html>\n'

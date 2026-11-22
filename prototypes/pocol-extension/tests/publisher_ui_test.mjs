@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 
-const R = await import('../dist/lib/retry.js'), P = await import('../dist/lib/publisher.js'), L = await import('../dist/lib/lease.js'), J = await import('../dist/lib/jobs.js'), B = await import('../dist/lib/studio-bridge.js');
+const I = await import('../dist/lib/identity.js'), R = await import('../dist/lib/retry.js'), P = await import('../dist/lib/publisher.js'), L = await import('../dist/lib/lease.js'), J = await import('../dist/lib/jobs.js'), B = await import('../dist/lib/studio-bridge.js');
 const SOURCE = readFileSync(new URL('../src/publisher-ui.js', import.meta.url), 'utf8').replace(/^import [^;]*;\n/gm, '');
 const HTML = readFileSync(new URL('../src/publisher.html', import.meta.url), 'utf8');
 const JOB_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', KEY = 'studio:job:' + JOB_ID, ADDRESS = '0x1111111111111111111111111111111111111111';
@@ -13,7 +13,7 @@ const NETWORK = {chainId: 1599846715, genesisHash: '0x' + 'ab'.repeat(32), endpo
 const FLOOR = '10000000', TIP = '1000000000';
 const settle = async () => { for (let i = 0; i < 40; i++) await new Promise((r) => setImmediate(r)); };
 function makeElement(id) { return {id, textContent: '', hidden: false, disabled: false, checked: false, value: '', files: [], children: [], replaceChildren(...items) { this.children = items; }, after() {}, append() {}, remove() {}}; }
-async function fixture({job = {}, publish, base = FLOOR, now = 1000} = {}) {
+async function fixture({job = {}, publish, base = FLOOR, now = 1000, rpc: editAnswers} = {}) {
   let clock = now;
   class Clock extends Date { static now() { return clock; } }
   const elements = new Map([...HTML.matchAll(/id="([^"]+)"/g)].map((m) => [m[1], makeElement(m[1])]));
@@ -22,11 +22,12 @@ async function fixture({job = {}, publish, base = FLOOR, now = 1000} = {}) {
   const state = {calls: [], publishes: [], signed: 0};
   const rpcAnswers = {eth_chainId: '0x' + NETWORK.chainId.toString(16), pocol_status: {genesisHash: NETWORK.genesisHash}, eth_maxPriorityFeePerGas: '0x' + BigInt(TIP).toString(16),
     eth_gasPrice: () => '0x' + (BigInt(state.base ?? base) + BigInt(TIP)).toString(16), eth_feeHistory: () => ({baseFeePerGas: ['0x' + BigInt(state.base ?? base).toString(16)]}), eth_getBlockByNumber: () => ({baseFeePerGas: '0x' + BigInt(state.base ?? base).toString(16), gasUsed: '0x0', gasLimit: '0x7a1200'})};
+  if (editAnswers) editAnswers(rpcAnswers);
   const globals = {
     Date: Clock, Uint8Array, TextEncoder, structuredClone, AbortController, BigInt, Number, Math, JSON, Object, Array, Error, Promise, Map, Set, console, btoa, atob,
     location: {hash: '#' + JOB_ID}, document: {documentElement: {}, getElementById: (id) => { if (id === 'resumeEarlier') return null; assert.ok(elements.has(id), id); return elements.get(id); }, createElement: (t) => makeElement(t)},
     window: {addEventListener() {}}, setInterval: (fn) => { state.tick = fn; }, setTimeout, confirm: () => true, crypto: globalThis.crypto, Blob, URL,
-    NETWORK, JOB_PREFIX: B.JOB_PREFIX, base64Bytes: B.base64Bytes, LOCK_MS: 900000,
+    NETWORK, assertIdentity: I.assertIdentity, JOB_PREFIX: B.JOB_PREFIX, base64Bytes: B.base64Bytes, LOCK_MS: 900000,
     importKeyfile: async () => new Uint8Array(32).fill(7), exportKeyfile: async () => ({}), validSecret() {}, addressOf: () => ADDRESS,
     signTx: () => { state.signed++; return {raw: '0x02', hash: '0x' + 'ee'.repeat(32)}; },
     prepareSite: P.prepareSite, quotePublish: P.quotePublish, readNetworkFees: P.readNetworkFees, remainingTransactions: P.remainingTransactions,
@@ -105,4 +106,20 @@ test('W2 page: a read answered 429 by the gateway is retried, eth_sendRawTransac
   assert.equal(f.state.calls.filter((m) => m === 'eth_gasPrice').length, 3, 'two 429 answers, then the read'); assert.match(f.elements.get('fee').textContent, /PCOL/);
   const rpc = vm.runInContext('rpc', f.context); f.state.busy = {eth_sendRawTransaction: 1}; f.state.calls.length = 0;
   await assert.rejects(rpc('eth_sendRawTransaction', ['0x02']), /rate/); assert.equal(f.state.calls.filter((m) => m === 'eth_sendRawTransaction').length, 1);
+});
+
+// 2026-11-22: an endpoint of another network is refused before any fee quote or signature, and the page shows the
+// difference (lib/identity.js): the chain ID or genesis hash this page signs for and the one the endpoint answered.
+test('identity page: another chain ID or genesis is refused and the difference is shown; nothing can be published', async () => {
+  const f = await fixture();
+  assert.equal(f.state.signed, 0);
+  const genesis = NETWORK.genesisHash, otherGenesis = '0x' + 'cd'.repeat(32);
+  for (const [field, set, expected] of [['chain', (a) => { a.eth_chainId = '0x1'; }, new RegExp(`chain ID: expected ${NETWORK.chainId}, the endpoint answered 1`)],
+    ['genesis', (a) => { a.pocol_status = {genesisHash: otherGenesis}; }, new RegExp(`genesis hash: expected ${genesis}, the endpoint answered ${otherGenesis}`)]]) {
+    const g = await fixture({rpc: set});
+    assert.match(g.elements.get('feeDetails').textContent, /Network identity mismatch/, field);
+    assert.match(g.elements.get('feeDetails').textContent, expected, field);
+    await g.unlock(); g.consent(); assert.equal(g.elements.get('publish').disabled, true, field + ': no quote, so nothing can be approved');
+    assert.equal(g.state.signed, 0); assert.equal(g.state.publishes.length, 0);
+  }
 });

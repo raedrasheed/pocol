@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PoCol wallet</title>
+<link rel="stylesheet" href="wallet.css">
+</head>
+<body class="popup">
+<main>
+  <header><img src="icons/pocol-48.png" width="28" height="28" alt=""><h1>PoCol wallet</h1><span id="lockState" class="badge">Locked</span></header>
+  <section id="disclosure" class="notice" hidden>
+    <h2>Before the wallet connects</h2>
+    <p class="hint">To show your balance and send what you approve, the extension sends to the network profile's endpoint (for PoCol Mainnet, the gateway at explorer.pocol.net): your wallet address, the transactions you approve and the files you choose to publish. The endpoint sees your IP address. Everything sent to the blockchain is public and permanent. Your password and private key never leave the extension.</p>
+    <div class="row"><button id="accept" type="button" class="primary">I understand and agree</button></div>
+  </section>
+  <section id="networkBox">
+    <label for="network">Network</label>
+    <select id="network" dir="ltr"></select>
+    <p id="netStatus"><span id="netDot" class="dot"></span><span id="netText">Checking…</span></p>
+    <p id="netDetail" class="mono muted"></p>
+  </section>
+  <section id="accountBox">
+    <div id="noWallet" hidden><p>No PoCol wallet in this browser yet.</p><button id="setup" type="button" class="primary">Create or import a wallet</button></div>
+    <div id="haveWallet" hidden>
+      <p class="muted">Address</p>
+      <p id="address" class="mono"></p>
+      <p id="balance" class="balance">—</p>
+      <div id="unlockBox"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password"><div class="row"><button id="unlock" type="button" class="primary">Unlock</button></div></div>
+      <div class="row" style="margin-top:8px"><button id="send" type="button" class="primary">Send PCOL</button><button id="lock" type="button">Lock</button><button id="refresh" type="button">Refresh</button></div>
+      <p id="note" class="error" role="status"></p>
+    </div>
+  </section>
+  <section id="activityBox">
+    <h2>Sent from this extension</h2>
+    <ul id="txs" class="txs"></ul>
+    <p class="hint">Only transfers sent from this browser's PoCol extension are listed, not the address's full history. <a id="explorer" href="#" target="_blank" rel="noopener noreferrer" hidden>Look up this address on explorer.pocol.net</a><span id="explorerNote" hidden> (balance and recent blocks only)</span></p>
+  </section>
+  <div class="row"><button id="settings" type="button">Settings, backup and import</button></div>
+</main>
+<script type="module" src="popup.js"></script>
+</body>
+</html>

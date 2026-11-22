@@ -143,4 +143,15 @@ async function start() {
   port.onDisconnect.addListener(workerLost);
   await mount(r.path, { storage: r.storage, notFound: r.notFound, requested: r.notFound ? path : undefined });
 }
-start().catch((e) => fail(String(e && e.message ? e.message : e)));
+// EXT-08: a tab that PoCol Studio asked for (viewer.html?confirm=studio) fetches nothing and runs no site code until the
+// user clicks Open here (a trusted click on this extension page); the omnibox and Settings open the viewer directly.
+function gate() {
+  const t = TARGET.exec(decodeURI(location.hash.slice(1)));
+  if (new URLSearchParams(location.search).get('confirm') !== 'studio' || !t) return Promise.resolve();
+  $('where').textContent = `${t[1]}/${t[2]}`; status('Waiting for your confirmation');
+  const p = Object.assign(document.createElement('p'), { id: 'gate', textContent: `PoCol Studio asked to open the website ${t[2]} on ${t[1]}. Its files are checked against the chain, and its code runs isolated in this tab. Open it?` });
+  const b = Object.assign(document.createElement('button'), { type: 'button', id: 'gateOpen', textContent: 'Open website' });
+  p.append(' ', b); $('stage').replaceChildren(p);
+  return new Promise((resolve) => { b.onclick = (e) => { if (!e.isTrusted) return; history.replaceState(null, '', location.pathname + location.hash); $('stage').replaceChildren(); resolve(); }; });
+}
+gate().then(start).catch((e) => fail(String(e && e.message ? e.message : e)));
