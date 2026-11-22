@@ -253,6 +253,7 @@ class FollowTests(Base):
         self.assertEqual(index.page(options(q='0xfff'))['total'], 0)
         # Pages of 25 over 60 transactions.
         chain2 = FakeChain(30, {n: [transfer(n), transfer(n + 1)] for n in range(1, 31)})
+        index.writer.close()  # Windows cannot remove an open file
         os.remove(self.path)
         index = self.index(chain2)
         index.step()
