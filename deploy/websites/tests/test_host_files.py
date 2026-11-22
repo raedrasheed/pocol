@@ -48,6 +48,11 @@ class HostFiles(unittest.TestCase):
             self.assertIn(f'DELETE   {path}  (not in the snapshot)', out)
         self.assertIn('KEEP     api/config.php', out)
         self.assertIn('KEEP     .well-known/acme-challenge/x', out)
+        # The retired Windows package the pages still link, labelled as the retired network's, is kept while exempt.
+        _, legacy, _ = self.run_main('pocol.net', text({**listing, 'downloads/PoCol-Mainnet-0.4.0-Windows.zip': '6' * 64,
+                                                       'downloads/PoCol-Mainnet-0.4.0-Linux.zip': '7' * 64}))
+        self.assertIn('KEEP     downloads/PoCol-Mainnet-0.4.0-Windows.zip', legacy)
+        self.assertIn('DELETE   downloads/PoCol-Mainnet-0.4.0-Linux.zip', legacy)
         self.assertIn('delete 4, differs 0, missing 0, keep 2', out)
         rc, out, _ = self.run_main('pocol.net', text({**listing, 'notes.txt': '4' * 64}), '--keep', 'notes.txt')
         self.assertEqual(rc, 0, out)

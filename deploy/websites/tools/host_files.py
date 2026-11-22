@@ -9,7 +9,8 @@ files. This tool reads a listing of the host's files with their SHA-256 and says
     DIFFERS  a file whose bytes are not the snapshot's (upload it again)
     MISSING  a file of the snapshot that the host does not have (upload it; a kept-out release file is uploaded from the
              signed release)
-    KEEP     host configuration that is never in a snapshot (api/config.php, .well-known/, cgi-bin/, --keep PATH)
+    KEEP     host configuration that is never in a snapshot (api/config.php, .well-known/, cgi-bin/, --keep PATH), and on
+             pocol.net the retired packages that site_identity.py's LEGACY_NATIVE exempts while a page links them
 
 The exit status is 0 only when nothing is to delete, differs or is missing. Nothing on the host is read or changed: the
 listing is made on the host by the owner, for example in cPanel's Terminal from the site's document root:
@@ -29,6 +30,8 @@ import argparse, hashlib, posixpath, re, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import site_identity as si  # noqa: E402  (LEGACY_NATIVE: the retired packages the pages still link, labelled as such)
 SITES = {
     'pocol.net': ROOT / 'deploy/websites/pocol.net',
     'ide.pocol.net': ROOT / 'deploy/websites/ide.pocol.net',
@@ -105,6 +108,8 @@ def compare(site, listing, keep=(), root=None):
                 rows.append(('DIFFERS', path, f'host {digest[:12]}, snapshot {want[path][:12]}'))
         elif KEEP.search(path) or path in keep:
             rows.append(('KEEP', path, 'host configuration, not in a snapshot'))
+        elif site == 'pocol.net' and path.startswith('downloads/') and path[len('downloads/'):] in si.LEGACY_NATIVE:
+            rows.append(('KEEP', path, "the retired network's package, linked as such until the signed release (LEGACY_NATIVE)"))
         else:
             rows.append(('DELETE', path, 'not in the snapshot'))
     for path in sorted(set(want) - set(listing)):
