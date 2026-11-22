@@ -25,8 +25,10 @@ except ImportError:
     TransactionIndex = None
     class SnapshotChanged(RuntimeError): pass
     def valid_options(_): return False
-# The reward and membership reader is part of the gateway (installed beside it); the GeoIP and transaction index modules
-# are optional server-installed pieces.
+# The reward and membership reader is part of the gateway (installed beside it), and so is the transaction index
+# (pocol_transactions.py, used when POCOL_TX_DB names its file). GeoIP has no module in the repository: the network
+# gives no truthful miner location (deploy/explorer/README.md, Miner map), so pocol_getNetworkGeography and
+# /api/miner-locations.php stay unavailable unless the owner decides otherwise.
 from pocol_rewards import (snapshot_v3 as reward_snapshot, validated_fork_schedule, validated_network, DEFAULT_FORK_SCHEDULE,
                            MAX_CALLS_V3, MAX_SECONDS_V3, keccak256, _abi_two_arrays, hex_bytes, REGISTRY, CAPS, CALL_GAS,
                            ACTIVE_SLICE_GAS, MAX_MEMBERS_V3, ACTIVE_PAGE)
@@ -595,8 +597,13 @@ if __name__ == '__main__':
     gateway = Gateway(args.rpc_port, geography, fork_schedule=fork_schedule, network=network)
     gateway.verify_network()
     if os.environ.get('POCOL_TX_DB'):
+        # The transaction index (pocol_transactions.py): a follower thread on this host's node, its SQLite file at
+        # POCOL_TX_DB (bound by POCOL_TX_MAX_ROWS, default pocol_transactions.DEFAULT_MAX_ROWS) and the configured network.
         if TransactionIndex is None: raise RuntimeError('Transaction index module is missing')
-        gateway.transactions = TransactionIndex(os.environ['POCOL_TX_DB'], gateway.query)
+        import pocol_transactions
+        rows = os.environ.get('POCOL_TX_MAX_ROWS', str(pocol_transactions.DEFAULT_MAX_ROWS))
+        if not re.fullmatch(r'[1-9][0-9]{0,9}', rows): parser.error('POCOL_TX_MAX_ROWS: a positive integer')
+        gateway.transactions = TransactionIndex(os.environ['POCOL_TX_DB'], gateway.query, gateway.network, max_rows=int(rows))
         gateway.transactions.start()
     server = Server((args.bind, args.port), gateway, args.site_origin)
     print('PoCol explorer read-only gateway ready', flush=True)
