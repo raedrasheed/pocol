@@ -11,6 +11,13 @@ const POCOL_SUMMARY_SAFE_INTEGER = 9007199254740991;
 const POCOL_SUMMARY_MAX_REPLY = 4194304;
 const POCOL_SUMMARY_CACHE_TTL = 10;
 const POCOL_SUMMARY_STALE_TTL = 300;
+// SITE-05: the members are read in pages of pocol_getMembers (the explorer gateway's v3 membership read, Sites W6/W7:
+// start < 10000, count <= 256), all at one head block, instead of the unpaged pocol_getMiners.
+const POCOL_SUMMARY_PAGE = 256;
+const POCOL_SUMMARY_MAX_MEMBERS = 10000;
+// At most 8 pages per request: a page costs 5 of the gateway's 80 shared request tokens (deploy/rewards/gateway.py COSTS),
+// so a larger batch would always be refused. Up to 256 members the summary makes no extra request.
+const POCOL_SUMMARY_MAX_BATCH = 8;
 
 function pocol_summary_integer($value): int {
     if (!is_int($value) || $value < 0 || $value > POCOL_SUMMARY_SAFE_INTEGER) {
@@ -102,15 +109,49 @@ function pocol_summary_call(int $id, string $method, array $params = []): array 
     return ['jsonrpc' => '2.0', 'id' => $id, 'method' => $method, 'params' => $params];
 }
 
+/** Every member of the ActList, from the first pocol_getMembers page and the pages after it (at most
+ * POCOL_SUMMARY_MAX_BATCH per batch, POCOL_SUMMARY_MAX_MEMBERS in all), all read at the first page's block. */
+function pocol_summary_members(callable $rpc, $first): array {
+    $page = static function ($value, int $start, ?string $hash): array {
+        if (!is_object($value) || !is_array($value->members ?? null) || !array_is_list($value->members)
+            || ($value->start ?? null) !== $start || ($value->count ?? null) !== count($value->members)) {
+            throw new RuntimeException('Invalid members page.');
+        }
+        $active = pocol_summary_integer($value->active ?? null);
+        $blockHash = pocol_summary_hash($value->blockHash ?? null);
+        if ($active > POCOL_SUMMARY_MAX_MEMBERS) throw new RuntimeException('Unsupported membership size.');
+        if ($hash !== null && $blockHash !== $hash) throw new RuntimeException('Membership changed while it was read.');
+        if (count($value->members) !== max(0, min(POCOL_SUMMARY_PAGE, $active - $start))) throw new RuntimeException('Incomplete members page.');
+        return [$active, $blockHash, $value->members];
+    };
+    [$active, $hash, $members] = $page($first, 0, null);
+    $starts = range(POCOL_SUMMARY_PAGE, max(POCOL_SUMMARY_PAGE, $active - 1), POCOL_SUMMARY_PAGE);
+    $starts = array_values(array_filter($starts, static fn(int $s): bool => $s < $active));
+    foreach (array_chunk($starts, POCOL_SUMMARY_MAX_BATCH) as $chunk) {
+        $requests = array_map(static fn(int $s): array => pocol_summary_call(100 + intdiv($s, POCOL_SUMMARY_PAGE), 'pocol_getMembers',
+            [$s, POCOL_SUMMARY_PAGE]), $chunk);
+        $pages = $rpc($requests);
+        if (!is_array($pages) || !array_is_list($pages) || count($pages) !== count($chunk)) throw new RuntimeException('Incomplete members.');
+        foreach ($pages as $i => $value) {
+            [$again, , $more] = $page($value, $chunk[$i], $hash);
+            if ($again !== $active) throw new RuntimeException('Membership changed while it was read.');
+            array_push($members, ...$more);
+        }
+    }
+    if (count($members) !== $active) throw new RuntimeException('Incomplete members.');
+    return $members;
+}
+
 /** The injectable transport is only a PHP function argument, never a request parameter. */
 function pocol_network_summary(callable $rpc, ?int $now = null): array {
     $initial = $rpc([
         pocol_summary_call(1, 'pocol_status'),
         pocol_summary_call(2, 'pocol_getParams'),
-        pocol_summary_call(3, 'pocol_getMiners'),
+        pocol_summary_call(3, 'pocol_getMembers', [0, POCOL_SUMMARY_PAGE]),
     ]);
     if (!is_array($initial) || count($initial) !== 3) throw new RuntimeException('Incomplete snapshot.');
-    [$status, $params, $miners] = $initial;
+    [$status, $params, $first] = $initial;
+    $miners = pocol_summary_members($rpc, $first);
     pocol_summary_identity($status);
     pocol_summary_identity($params);
     if (!isset($status->head) || !is_object($status->head)) throw new RuntimeException('Missing head.');

@@ -34,21 +34,40 @@ rejected('summary unsafe quantity refused', static fn()=>pocol_summary_quantity(
 
 $now = 1700000000;
 $hash = static fn(int $h): string => $h === 0 ? POCOL_SUMMARY_GENESIS : '0x'.str_pad(dechex($h),64,'0',STR_PAD_LEFT);
-$rpc = static function(array $requests) use ($hash): array {
+// SITE-05: the members come in pocol_getMembers pages of 256 at one block (the gateway's v3 read), not pocol_getMiners.
+$page = static function(array $all, int $start, string $at = ''): object {
+    $members = array_slice($all, $start, 256);
+    return (object)['height'=>3,'blockHash'=>$at ?: '0x'.str_repeat('33',32),'active'=>count($all),'start'=>$start,
+        'count'=>count($members),'members'=>$members];
+};
+$members = [(object)['status'=>1,'tomb'=>false,'bondState'=>1],(object)['status'=>2,'tomb'=>false,'bondState'=>1],
+    // ACCRUING (4) mines on probation; NONE (0) and a tomb do not.
+    (object)['status'=>1,'tomb'=>false,'bondState'=>4],(object)['status'=>1,'tomb'=>false,'bondState'=>0],
+    (object)['status'=>1,'tomb'=>true,'bondState'=>1]];
+$pageCalls = [];
+$rpcWith = static function(array $all, ?callable $tamper = null) use ($hash, $page, &$pageCalls): callable {
+  return static function(array $requests) use ($hash, $page, $all, $tamper, &$pageCalls): array {
     if ($requests[0]['method'] === 'pocol_status') {
+        if ($requests[2]['method'] !== 'pocol_getMembers' || $requests[2]['params'] !== [0,256]) throw new RuntimeException('FAIL first page request');
+        $pageCalls[] = 1;
         return [(object)['chainId'=>POCOL_SUMMARY_CHAIN,'genesisHash'=>POCOL_SUMMARY_GENESIS,
             'head'=>(object)['height'=>3,'hash'=>$hash(3)],'pool'=>2],
-            (object)['chainId'=>POCOL_SUMMARY_CHAIN,'genesisHash'=>POCOL_SUMMARY_GENESIS],
-            [(object)['status'=>1,'tomb'=>false,'bondState'=>1],(object)['status'=>2,'tomb'=>false,'bondState'=>1],
-             // ACCRUING (4) mines on probation; NONE (0) and a tomb do not.
-             (object)['status'=>1,'tomb'=>false,'bondState'=>4],(object)['status'=>1,'tomb'=>false,'bondState'=>0],
-             (object)['status'=>1,'tomb'=>true,'bondState'=>1]]];
+            (object)['chainId'=>POCOL_SUMMARY_CHAIN,'genesisHash'=>POCOL_SUMMARY_GENESIS], $page($all, 0)];
+    }
+    if ($requests[0]['method'] === 'pocol_getMembers') {
+        if (count($requests) > 8) throw new RuntimeException('FAIL batch over 8 pages (40 gateway tokens)');
+        $pageCalls[] = count($requests);
+        return array_map(static function(array $r) use ($page, $all, $tamper) {
+            $p = $page($all, $r['params'][0]); return $tamper ? $tamper($p) : $p;
+        }, $requests);
     }
     return array_map(static function(array $r) use ($hash): object {
         $h=hexdec($r['params'][0]);
         return (object)['number'=>'0x'.dechex($h),'hash'=>$hash($h),'parentHash'=>$hash(max(0,$h-1)),'timestamp'=>'0x'.dechex(100+$h*4)];
     },$requests);
+  };
 };
+$rpc = $rpcWith($members);
 $summary = pocol_network_summary($rpc,$now);
 check('summary identity and branch-consistent metrics', $summary['metrics']['eligibleMiners']===2 && $summary['metrics']['blockHeight']===3 && $summary['metrics']['averageBlockTime']==4);
 $mixed = static function(array $requests) use ($rpc): array {
@@ -57,6 +76,20 @@ $mixed = static function(array $requests) use ($rpc): array {
     return $values;
 };
 rejected('summary mixed branch refused', static fn()=>pocol_network_summary($mixed,$now));
+// 600 members: three pages (256 + 256 + 88), the two later ones in one batch; 120 of them eligible.
+$many = [];
+for ($i = 0; $i < 600; $i++) $many[] = (object)['status'=>$i % 5 === 0 ? 1 : 2,'tomb'=>false,'bondState'=>$i % 10 === 0 ? 4 : 1];
+$pageCalls = [];
+check('summary counts every page of a large membership', pocol_network_summary($rpcWith($many),$now)['metrics']['eligibleMiners']===120
+    && $pageCalls===[1,2]);
+$wide = array_fill(0, 10000, (object)['status'=>1,'tomb'=>false,'bondState'=>1]);
+$pageCalls = [];
+check('summary reads 10000 members in bounded batches', pocol_network_summary($rpcWith($wide),$now)['metrics']['eligibleMiners']===10000
+    && $pageCalls===[1,8,8,8,8,7]);
+rejected('summary page at another block refused', static fn()=>pocol_network_summary($rpcWith($many, static function(object $p){$p->blockHash='0x'.str_repeat('44',32);return $p;}),$now));
+rejected('summary short page refused', static fn()=>pocol_network_summary($rpcWith($many, static function(object $p){array_pop($p->members);$p->count--;return $p;}),$now));
+rejected('summary membership that grew while read refused', static fn()=>pocol_network_summary($rpcWith($many, static function(object $p){$p->active++;return $p;}),$now));
+rejected('summary membership over 10000 refused', static fn()=>pocol_network_summary($rpcWith(array_fill(0, 10001, $members[0])),$now));
 
 // F-74: the gateway answers schema pocol-block-reward-v3 (deploy/rewards/pocol_rewards.py snapshot_v3).
 $miner = '0x'.str_repeat('11',20); $payee = '0x'.str_repeat('22',20);
