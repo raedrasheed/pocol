@@ -9,7 +9,7 @@ const R = await import('../dist/lib/retry.js'), P = await import('../dist/lib/pu
 const SOURCE = readFileSync(new URL('../src/publisher-ui.js', import.meta.url), 'utf8').replace(/^import [^;]*;\n/gm, '');
 const HTML = readFileSync(new URL('../src/publisher.html', import.meta.url), 'utf8');
 const JOB_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', KEY = 'studio:job:' + JOB_ID, ADDRESS = '0x1111111111111111111111111111111111111111';
-const NETWORK = {chainId: 1599846715, genesisHash: '0x' + 'ab'.repeat(32), endpoint: 'https://explorer.pocol.net/studio/rpc', name: 'pocol-public'};
+const NETWORK = {chainId: 2656089850, genesisHash: '0x' + 'ab'.repeat(32), endpoint: 'https://explorer.pocol.net/studio/rpc', name: 'pocol-public'};
 const FLOOR = '10000000', TIP = '1000000000';
 const settle = async () => { for (let i = 0; i < 40; i++) await new Promise((r) => setImmediate(r)); };
 function makeElement(id) { return {id, textContent: '', hidden: false, disabled: false, checked: false, value: '', files: [], children: [], replaceChildren(...items) { this.children = items; }, after() {}, append() {}, remove() {}}; }

@@ -22,7 +22,7 @@ internal static class WalletUiTests {
  static void Response(object value){Invoke("Response",Json.Serialize(value));}
  static Dictionary<string,object> D(params object[] pairs){var d=new Dictionary<string,object>();for(int i=0;i<pairs.Length;i+=2)d[(string)pairs[i]]=pairs[i+1];return d;}
  static Dictionary<string,object> Entry(string hash,string kind,string state){return D("hash",hash,"kind",kind,"amount",kind=="registration"?"100":"200.000000000000000001","state",state);}
- static Dictionary<string,object> Snapshot(object activity){return D("type","status","address","0x"+new string('1',40),"balance","1234.000000000000000001","height",143,"chainId",1599846715,"peers",3,"appMode","miner","miningEnabled",true,"miningEligible",true,"miningState","Enabled — waiting for assigned work","blocksMined",5,"bond","100","lifetime",D("continuous",true),"activity",activity);}
+ static Dictionary<string,object> Snapshot(object activity){return D("type","status","address","0x"+new string('1',40),"balance","1234.000000000000000001","height",143,"chainId",2656089850,"peers",3,"appMode","miner","miningEnabled",true,"miningEligible",true,"miningState","Enabled — waiting for assigned work","blocksMined",5,"bond","100","lifetime",D("continuous",true),"activity",activity);}
  static StackPanel Card(int index){var card=Control<StackPanel>("ActivityList").Children[index] as Border;Check(card!=null,"The populated history was not rendered.");return card.Child as StackPanel;}
  static string CardText(int card,int child){return ((TextBlock)Card(card).Children[child]).Text;}
  [STAThread] static int Main(string[] args){

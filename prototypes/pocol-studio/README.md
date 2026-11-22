@@ -56,7 +56,7 @@ The hosted preview is for inspecting the editor. Neither source publication nor 
 
 ## Signing and connection model
 
-The public profile identifies chain `1599846715` and genesis `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`. RN means a trusted remote node: the extension checks network identity and content hashes, but does not reexecute the complete chain locally.
+The public profile identifies chain `2656089850` and genesis `0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e`. RN means a trusted remote node: the extension checks network identity and content hashes, but does not reexecute the complete chain locally.
 
 For an existing Windows desktop wallet, `identity.pocol-key` is protected with Windows DPAPI under the current user. The provided one-time Windows export helper produces a password-encrypted portable file for local import in the extension. The private key is never sent to Studio or the relay. New users can create an encrypted Studio wallet; viewing sites does not require a wallet. Signing requires a funded PoCol Mainnet account.
 

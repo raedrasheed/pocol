@@ -137,7 +137,7 @@ pub const PUBLIC_MAINNET_APPROVAL:&str="OWNER-DECISIONS-2026-11-20 D1";
 /// `NetworkProfile{chain_id:<chainId>,genesis_hash:genesis_hash("<64 hex>"),admission:ExpectedAdmission::FRESH_NETWORK,approval:None}`,
 /// which removes only `network-not-release-pinned` and approves nothing. The launcher reports either pin's reference
 /// and expected admission, and keeps `admission-not-booted`.
-pub const NETWORK_PROFILES:&[NetworkProfile]=&[];
+pub const NETWORK_PROFILES:&[NetworkProfile]=&[NetworkProfile{chain_id:2656089850,genesis_hash:genesis_hash("664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e"),admission:ExpectedAdmission::PUBLIC_MAINNET,approval:Some("OWNER-DECISIONS-2026-11-20 D1")}];
 /// A genesis hash written as 64 lower-case hex digits, as `pocol_status` reports it without `0x`, decoded at compile
 /// time in a `NETWORK_PROFILES` entry (a malformed one does not compile).
 pub const fn genesis_hash(hex:&str)->[u8;32]{

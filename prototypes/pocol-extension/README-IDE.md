@@ -54,7 +54,7 @@ Select the resulting JSON **only in the extension confirmation tab**. The extens
 
 ## Network and limits
 
-PoCol Mainnet / pocol-public: chain ID `1599846715`, genesis `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`, RPC `https://explorer.pocol.net/studio/rpc`, native currency **PCOL** (18 decimals). Execution and receipts use remote-node trust.
+PoCol Mainnet / pocol-public: chain ID `2656089850`, genesis `0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e`, RPC `https://explorer.pocol.net/studio/rpc`, native currency **PCOL** (18 decimals). Execution and receipts use remote-node trust.
 
 The built-in profile's fork schedule is fixed by this release: `[[1,"0"]]`, version 1 from genesis, as the fresh network's genesis records it. There is no setting for it, and RPC responses cannot choose or override it. A later cap raise (fork version 3) arrives as an extension update, together with the node release. A custom local profile uses the schedule its network operator publishes: omitted means `[[1,"0"]]`, and after a cap raise it is `[[1,"0"],[2,"H2"],[3,"H3"]]` with the operator's heights as quoted decimal strings (version 2 changes no rule; it keeps the versions in order). Until that extension update, a custom RP profile of the PoCol Mainnet chain with the cap-raise schedule conflicts with the built-in profile, and conflicting profiles are read-only: only Viewer dApp signing is blocked on them. Changing a profile invalidates active signing sessions. The built-in RN profile trusts the pinned remote node for consensus and execution.
 

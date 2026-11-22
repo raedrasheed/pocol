@@ -33,7 +33,7 @@ curl --fail --max-time 20 https://explorer.pocol.net/studio/health
 ```
 
 Require a successful preflight before installation. The response must identify
-chain `1599846715` and the expected genesis hash. Also test the health endpoint
+chain `2656089850` and the expected genesis hash. Also test the health endpoint
 from an external client after installation; a successful server-local HTTPS
 probe does not prove external reachability.
 
