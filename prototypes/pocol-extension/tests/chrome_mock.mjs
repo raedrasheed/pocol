@@ -10,6 +10,7 @@ export function installChromeMock({ extensionId = 'mockextensionidaaaaaaaaaaaaaa
   if (!globalThis.navigator) Object.defineProperty(globalThis,'navigator',{value:{locks},configurable:true});
   else Object.defineProperty(globalThis.navigator,'locks',{value:locks,configurable:true});
   const data = new Map();
+  const listeners = { message: [], connect: [], removed: [], omnibox: [], action: [], installed: [], changed: [] };
   const storage = {
     holdSets: 0, held: [], setCalls: 0, failSets: 0,
     async get(keys) {
@@ -19,7 +20,11 @@ export function installChromeMock({ extensionId = 'mockextensionidaaaaaaaaaaaaaa
     set(obj) {
       storage.setCalls++;
       if (storage.failSets > 0) { storage.failSets--; return Promise.reject(new Error('io')); }
-      const apply = () => { for (const [k, v] of Object.entries(obj)) data.set(k, structuredClone(v)); };
+      const apply = () => {
+        const changes = {};
+        for (const [k, v] of Object.entries(obj)) { changes[k] = { oldValue: data.has(k) ? structuredClone(data.get(k)) : undefined, newValue: structuredClone(v) }; data.set(k, structuredClone(v)); }
+        for (const f of listeners.changed) f(structuredClone(changes), 'local');
+      };
       if (storage.holdSets > 0 && !Object.keys(obj).some((k) => k.startsWith('pocol:epoch:') || k === 'profiles' || k === 'wallet')) {
         storage.holdSets--; return new Promise((res, rej) => storage.held.push({ release: () => { apply(); res(); }, fail: () => rej(new Error('io')) }));
       }
@@ -31,11 +36,11 @@ export function installChromeMock({ extensionId = 'mockextensionidaaaaaaaaaaaaaa
     release() { const h = storage.held.shift(); if (h) h.release(); return !!h; },
     data,
   };
-  const listeners = { message: [], connect: [], removed: [], omnibox: [], action: [], installed: [] };
+
   let rules = [];
   const tabsCreated = [];
   globalThis.chrome = {
-    storage: { local: storage },
+    storage: { local: storage, onChanged: { addListener: (f) => listeners.changed.push(f) } },
     runtime: {
       id: extensionId, getURL: (p) => `chrome-extension://${extensionId}/${p}`, openOptionsPage() {},
       onMessage: { addListener: (f) => listeners.message.push(f) },
@@ -53,9 +58,10 @@ export function installChromeMock({ extensionId = 'mockextensionidaaaaaaaaaaaaaa
     omnibox: { onInputEntered: { addListener: (f) => listeners.omnibox.push(f) } },
     action: { onClicked: { addListener: (f) => listeners.action.push(f) } },
   };
-  /** Sends an extension-page message (sender is an extension tab) and resolves with the reply. */
-  const send = (msg, tabId = 7) => new Promise((resolve) => {
-    const sender = { id: extensionId, tab: { id: tabId } };
+  /** Sends an extension-page message (sender is an extension tab; `page`, e.g. 'popup.html', sets sender.url to that
+   *  extension page, as Chrome does; tabId null is a page without a tab, such as the toolbar popup) and resolves with the reply. */
+  const send = (msg, tabId = 7, page) => new Promise((resolve) => {
+    const sender = { id: extensionId, ...(tabId === null ? {} : { tab: { id: tabId } }), ...(page ? { url: `chrome-extension://${extensionId}/${page}` } : {}) };
     for (const f of listeners.message) { const keep = f(msg, sender, resolve); if (keep !== true) resolve(undefined); }
   });
   /** Opens a bridge port as the viewer of tab `tabId` would. */
