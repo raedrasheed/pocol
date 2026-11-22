@@ -70,6 +70,27 @@ export function transferFees(baseNext, tip, ceiling) {
   return { maxPriority: t, maxFee };
 }
 
+/** Whether a JSON-RPC error answer to eth_sendRawTransaction proves that the transaction was refused (not pooled, not
+ *  forwarded), so it can never be included. Only those answers make a transfer "rejected"; every other error is
+ *  ambiguous and the transfer stays "unknown" and is followed by its receipt. The PoCol gateway answers a broadcast it
+ *  could not complete, which may already have reached the node, with -32000 "... check transaction hash before
+ *  resubmitting" (deploy/studio/pocol_studio_gateway.py, call), and the node answers a transaction it parks for the
+ *  next block with -32016 "... held for the next block" (pocold node.rs POOL_PARKED): neither is a refusal.
+ *  Refusals: -32021 busy (the gateway before forwarding, or the node's "not pooled"), -32014 oversized, -32020 the
+ *  node's admission deadline (nothing pooled), -32016 pool full without "held", the standard request errors
+ *  -32600/-32601/-32602, and -32000 answers that name an admission check (nonce, funds, fee, caps, signature). */
+const SEND_REFUSED_CODES = new Set([-32021, -32014, -32020, -32600, -32601, -32602]);
+const SEND_REFUSED_32000 = /nonce too (low|high)|NonceToo(Low|High)|insufficient funds|LackOfFund|underpriced|below the next base fee|GasPriceLessThanBasefee|would exceed|intrinsic gas|IntrinsicGas|CallGasCostMoreThanGasLimit|InvalidChainId|invalid (chain id|signature|sender)/i;
+const SEND_AMBIGUOUS = /unavailable|resubmit|check transaction hash|time(d)? ?out|may have/i;
+export function sendRefused(error) {
+  const code = error?.code, message = String(error?.message ?? '');
+  if (!Number.isInteger(code) || SEND_AMBIGUOUS.test(message)) return false;
+  if (SEND_REFUSED_CODES.has(code)) return true;
+  if (code === -32016) return !/held/i.test(message);
+  if (code === -32000) return SEND_REFUSED_32000.test(message);
+  return false;
+}
+
 /** The explorer lookup of an address, for the pinned public network only. The explorer shows the balance, the nonce
  *  and the activity of recent blocks, not a complete history; callers say so. */
 export const EXPLORER_ORIGIN = 'https://explorer.pocol.net';

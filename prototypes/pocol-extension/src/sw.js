@@ -691,6 +691,7 @@ const readHistory = async () => { const h = (await store.get(HISTORY_KEY))[HISTO
 const updateHistory = (hash, patch) => historyLocked(async () => {
   const h = await readHistory(), i = h.findIndex((x) => x.hash === hash);
   if (i >= 0) h[i] = { ...h[i], ...patch, updatedAt: Date.now() }; else h.unshift({ hash, ...patch, createdAt: Date.now(), updatedAt: Date.now() });
+  const e = h[i >= 0 ? i : 0]; for (const k of Object.keys(e)) if (e[k] === undefined) delete e[k]; // a patch value undefined removes the field
   await store.set({ [HISTORY_KEY]: h.slice(0, HISTORY_MAX) });
 });
 async function prepareTransfer(msg, sender) {
@@ -752,31 +753,56 @@ async function confirmTransfer(msg, sender) {
       await updateHistory(signed.hash, ok ? { status: 'pending' } : { status: 'unknown', note: 'The node answered with another hash' });
       return { hash: signed.hash, status: ok ? 'pending' : 'unknown' };
     } catch (e) {
-      if (e?.rpc) { await updateHistory(signed.hash, { status: 'rejected', note: String(e.rpc.message || '').slice(0, 200) }); throw fail('The node did not accept the transaction: ' + String(e.rpc.message || '').slice(0, 200), 'rejected', { hash: signed.hash }); }
-      await updateHistory(signed.hash, { status: 'unknown', note: 'No answer from the node; the transaction may have been sent' });
-      return { hash: signed.hash, status: 'unknown' };
+      // Only an answer that proves a refusal is final (lib/account.js sendRefused). Any other error, such as the
+      // gateway's "check transaction hash before resubmitting" after a broadcast it could not complete, may have
+      // reached the node: the transfer stays "unknown" and refreshHistory follows its receipt, as the publisher does.
+      const said = e?.rpc ? String(e.rpc.message || '').slice(0, 200) : null;
+      if (e?.rpc && acct.sendRefused(e.rpc)) { await updateHistory(signed.hash, { status: 'rejected', note: said }); throw fail('The node did not accept the transaction: ' + said, 'rejected', { hash: signed.hash }); }
+      const note = said === null ? 'No answer from the node; the transaction may have been sent'
+        : `The node answered "${said}", which does not show that it refused the transaction; it may have been sent`;
+      await updateHistory(signed.hash, { status: 'unknown', note });
+      return { hash: signed.hash, status: 'unknown', note };
     }
   });
 }
 /** Receipts of this extension's open transfers (at most REFRESH_MAX): included (status and block, on the canonical
- *  chain), failed, or dropped when the account's nonce moved past it without a receipt. */
+ *  chain), failed, or dropped when the account's nonce moved past it without a receipt. A receipt is not finality: an
+ *  included or failed transfer is read again on every refresh until its block is SETTLE_DEPTH blocks below the head
+ *  ("settled"), and goes back to pending when its receipt or its block leaves the canonical chain (a reorganization),
+ *  as the publisher re-reads a saved receipt against the canonical block (lib/publisher.js). */
+const OPEN_STATES = ['sending', 'pending', 'unknown'], RECHECK_STATES = ['included', 'failed'];
+// Deeper than pocold's reorganization alarm (node.rs K_ALARM = 60 blocks) and its `safe` depth (K_SAFE = 6).
+export const SETTLE_DEPTH = 64n;
 async function refreshHistory() {
   await requireDisclosure();
-  const open = (await readHistory()).filter((x) => ['sending', 'pending', 'unknown'].includes(x.status)).slice(0, REFRESH_MAX);
-  const list = await profiles(); const checked = new Map();
+  const list = await profiles(); const checked = new Map(), heads = new Map();
+  const profileOf = (t) => list.find((x) => x.name === t.network && !x.invalid && x.chainId === t.chainId && x.genesisHash === t.genesisHash);
+  // Entries whose profile is gone or is the placeholder are skipped before the bound, so they never crowd out the rest.
+  const open = (await readHistory()).filter((x) => (OPEN_STATES.includes(x.status) || (RECHECK_STATES.includes(x.status) && !x.settled)) && profileOf(x) && !isPlaceholder(profileOf(x))).slice(0, REFRESH_MAX);
   for (const t of open) {
-    const p = list.find((x) => x.name === t.network && !x.invalid && x.chainId === t.chainId && x.genesisHash === t.genesisHash);
-    if (!p || isPlaceholder(p)) continue;
+    const p = profileOf(t);
     const rpc = rpcFor(p, pools.trust, null, http.inflight, { attempts: 2, deadlineMs: 15000 });
     try {
       if (!checked.has(p.name)) checked.set(p.name, checkNetwork(p, rpc).then(() => true, () => false));
       if (!(await checked.get(p.name))) continue;
       const rc = await rpc('eth_getTransactionReceipt', [t.hash]);
-      if (rc && String(rc.transactionHash).toLowerCase() === t.hash) {
+      const mine = !!rc && String(rc.transactionHash).toLowerCase() === t.hash;
+      if (mine) {
         const b = await rpc('eth_getBlockByNumber', [rc.blockNumber, false]);
-        if (!b || String(b.hash).toLowerCase() !== String(rc.blockHash).toLowerCase()) continue;
-        await updateHistory(t.hash, { status: rc.status === '0x1' ? 'included' : 'failed', blockNumber: Number(quantity(rc.blockNumber, 'block number')), gasUsed: String(quantity(rc.gasUsed, 'gas used')) });
-      } else if (quantity(await rpc('eth_getTransactionCount', [t.from, 'latest']), 'nonce') > BigInt(t.nonce) && !(await rpc('eth_getTransactionReceipt', [t.hash]))) {
+        if (b && String(b.hash).toLowerCase() === String(rc.blockHash).toLowerCase()) {
+          const at = quantity(rc.blockNumber, 'block number');
+          if (!heads.has(p.name)) heads.set(p.name, rpc('eth_getBlockByNumber', ['latest', false]).then((h) => quantity(h?.number, 'block number')));
+          const head = await heads.get(p.name);
+          await updateHistory(t.hash, { status: rc.status === '0x1' ? 'included' : 'failed', blockNumber: Number(at), blockHash: String(rc.blockHash).toLowerCase(), gasUsed: String(quantity(rc.gasUsed, 'gas used')),
+            settled: head >= at && head - at >= SETTLE_DEPTH, note: undefined });
+          continue;
+        }
+      }
+      // No canonical receipt: an entry recorded as included or failed was reorganized out of the chain.
+      if (RECHECK_STATES.includes(t.status))
+        await updateHistory(t.hash, { status: 'pending', blockNumber: undefined, blockHash: undefined, gasUsed: undefined, settled: undefined, note: 'Its block is no longer on the canonical chain (a reorganization); waiting for it to be included again' });
+      if (mine) continue; // a receipt in a block that is not canonical (yet): read it again next time
+      if (quantity(await rpc('eth_getTransactionCount', [t.from, 'latest']), 'nonce') > BigInt(t.nonce) && !(await rpc('eth_getTransactionReceipt', [t.hash]))) {
         // Asked again after the nonce read, so a transaction included between the two reads is not called dropped.
         await updateHistory(t.hash, { status: 'dropped', note: 'Another transaction used this nonce; this one was not included' });
       }

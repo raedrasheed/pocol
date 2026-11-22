@@ -36,12 +36,14 @@ const edit = (file, f) => { const p = join(tree, 'dist', file); writeFileSync(p,
 const RETIRED_ID = JSON.parse(readFileSync(RETIRED, 'utf8')).retired[0];
 const MARK = /\/\/ PLACEHOLDER \(decision D1\)[^]*?export const NETWORK_PLACEHOLDER = true;\n/;
 /** A packager tree with dist/ as the release would be after the identity switch (the D1 mark dropped, a release
- * identity pinned and shown), with the throwaway key in the slot and the manifest; asBuilt keeps the placeholder tree. */
+ * identity pinned and shown), with the throwaway key in the slot and the manifest; asBuilt keeps the network as built and
+ * adds the D1 placeholder mark if the tree no longer carries it (after the identity switch), as tests/account_test.mjs's
+ * distPh does, so the placeholder refusal is tested in both states of the tree. */
 function prepare({ asBuilt = false } = {}) {
   rmSync(join(tree, 'dist'), { recursive: true, force: true }); cpSync(rel, join(tree, 'dist'), { recursive: true });
   mkdirSync(join(tree, 'release'), { recursive: true }); writeFileSync(join(tree, 'release', 'manifest-key.pub'), SLOT);
   edit('manifest.json', (t) => { const { key: _, ...m } = JSON.parse(t); return JSON.stringify({ key: TEST_KEY, ...m }, null, 2) + '\n'; });
-  if (asBuilt) return;
+  if (asBuilt) { edit('lib/studio-network.js', (t) => (t.includes('export const NETWORK_PLACEHOLDER = true;') ? t : t + '\nexport const NETWORK_PLACEHOLDER = true;\n')); return; }
   edit('lib/studio-network.js', (t) => t.replace(MARK, '').replace(/"chainId": \d+/, '"chainId": 4242').replace(/"genesisHash": "0x[0-9a-f]{64}"/, `"genesisHash": "0x${'42'.repeat(32)}"`));
   for (const f of files(join(tree, 'dist')).filter((f) => /\.(js|html|md|json|txt)$/.test(f))) {
     const t = readFileSync(f, 'utf8'), u = t.replaceAll(String(RETIRED_ID.chainId), '4242').replaceAll(RETIRED_ID.genesisHash.slice(2), '42'.repeat(32));

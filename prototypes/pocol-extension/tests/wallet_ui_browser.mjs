@@ -18,7 +18,8 @@
 //  - an endpoint whose genesis differs: the popup says "Wrong network" with the difference, Send refuses with it, and
 //    nothing more is submitted;
 //  - the built-in profile of a placeholder build: "Not connected", no Send;
-//  - EXT-06 (recorded only): whether worker-src 'none' would stop new Worker(blob:) in an extension page of this Chrome;
+//  - EXT-06 (recorded only): whether worker-src 'none' would stop a blob: worker or a packaged worker script (w.js, in
+//    the temporary test copies only) in an extension page of this Chrome;
 //  - EXT-08: a viewer tab opened for a Studio request (viewer.html?confirm=studio) waits for the click and reads nothing.
 import { spawnSync } from 'node:child_process';
 import { createServer, request as httpRequest } from 'node:http';
@@ -72,14 +73,15 @@ async function openBrowser(dist, tag) {
   const page = async (path) => { const p = await ctx.newPage(); await p.goto(`chrome-extension://${id}/${path}`); return p; };
   return { ctx, id, page, close: async () => { await ctx.close(); rmSync(userDir, { recursive: true, force: true }); } };
 }
-/** Runs new Worker(blob:) in an extension page; resolves 'ran' when the worker posts back, else what stopped it. */
-const tryWorker = (p) => p.evaluate(() => new Promise((resolve) => {
+/** Runs new Worker(blob:), or with `packaged` the extension's own file w.js, in an extension page; resolves 'ran' when
+ *  the worker posts back, else what stopped it. */
+const tryWorker = (p, packaged = false) => p.evaluate((packaged) => new Promise((resolve) => {
   try {
-    const w = new Worker(URL.createObjectURL(new Blob(['postMessage(1)'], { type: 'text/javascript' })));
+    const w = new Worker(packaged ? 'w.js' : URL.createObjectURL(new Blob(['postMessage(1)'], { type: 'text/javascript' })));
     w.onmessage = () => resolve('ran'); w.onerror = () => resolve('error event');
     setTimeout(() => resolve('no message'), 3000);
   } catch (e) { resolve('threw ' + e.name); }
-}));
+}), packaged);
 const text = (p, sel) => p.textContent(sel).then((t) => (t || '').trim());
 
 async function main() {
@@ -190,12 +192,15 @@ async function main() {
       ok('popup: the built-in profile of a placeholder build is "Not connected", and Send is disabled', /^Not connected: this build pins a placeholder/.test(await text(popup, '#netText')) && await popup.isDisabled('#send'), await text(popup, '#netText')); }
     else ok('popup: the built-in profile is shown with its pinned endpoint (unreachable here: every host but 127.0.0.1 is blocked)', /explorer\.pocol\.net\/studio\/rpc/.test(await text(popup, '#netDetail')), await text(popup, '#netDetail'));
 
-    // EXT-06, recorded, not asserted: does worker-src 'none' in the extension-page CSP stop new Worker(blob:) in an
-    // extension page of this Chrome? (Chrome for Testing 153.0.8010.12: no, so build.mjs does not add it.)
+    // EXT-06, recorded, not asserted: does worker-src 'none' in the extension-page CSP stop a blob: worker or a packaged
+    // worker script in an extension page of this Chrome? (Chrome for Testing 153.0.8010.12: no, so build.mjs does not add it.)
+    // w.js, a packaged worker script, is written into these temporary test copies only (no release file starts a worker).
+    writeFileSync(join(dist, 'w.js'), 'postMessage(1);\n');
     const csp = join(out, 'dist-worker-src'); cpSync(dist, csp, { recursive: true });
     const m = JSON.parse(readFileSync(join(csp, 'manifest.json'), 'utf8')); m.content_security_policy.extension_pages += "; worker-src 'none'"; writeFileSync(join(csp, 'manifest.json'), JSON.stringify(m, null, 2));
     const c = await openBrowser(csp, 'workersrc'); browsers.push(c);
-    console.log(`INFO EXT-06 ${c.ctx.browser()?.version?.() ?? ''}: blob: worker in options.html with the release CSP: ${await tryWorker(options)}; with worker-src 'none' added: ${await tryWorker(await c.page('options.html'))}`);
+    const withNone = await c.page('options.html');
+    console.log(`INFO EXT-06 ${c.ctx.browser()?.version?.() ?? ''}: in options.html with the release CSP: blob: worker ${await tryWorker(options)}, packaged w.js ${await tryWorker(options, true)}; with worker-src 'none' added: blob: worker ${await tryWorker(withNone)}, packaged w.js ${await tryWorker(withNone, true)}`);
     await c.close(); browsers.pop();
 
     // EXT-08: the Studio-requested viewer tab waits for the click.

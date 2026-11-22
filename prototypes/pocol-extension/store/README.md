@@ -66,7 +66,7 @@ Chrome deletes an extension's storage when the extension is removed, and an exte
 extension with empty storage. In every case, the supported way to keep a wallet is its **encrypted backup**:
 
 1. In the old copy: open Settings, "PoCol wallet", enter the wallet password and choose "Download encrypted backup"
-   (`PoCol-Wallet-<address>-backup.json`). Finish or cancel open publications first (Settings, Publication history).
+   (`PoCol-Wallet-<first 8 hex digits of the address>-backup.json`). Finish or cancel open publications first (Settings, Publication history).
    A Studio wallet backup saved earlier (`PoCol-Studio-Wallet.json`) and the Windows helper's export
    (`tools/Export-Studio-Wallet.ps1`) are the same format and work too.
 2. Install the store version. If the store item has the same id as the side-loaded copy (choice B), remove the

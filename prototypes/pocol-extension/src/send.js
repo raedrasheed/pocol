@@ -62,9 +62,11 @@ $('confirm').onclick = async (e) => {
   const id = review.id; review = null; $('confirm').disabled = true; $('cancel').disabled = true;
   const r = await call({ type: 'send.confirm', id });
   $('cancel').disabled = false; show('resultBox');
+  // "Not sent" only for a refusal the worker proved (ok:false); an ambiguous node answer comes back as status unknown.
   if (!r.ok) { $('resultText').textContent = 'Not sent: ' + errText(r); $('resultHash').textContent = r.error?.hash || ''; return; }
   $('resultHash').textContent = r.hash;
-  $('resultText').textContent = r.status === 'pending' ? 'Sent to the network. Waiting for it to be included in a block…' : 'The node gave no clear answer; the transfer may have been sent. Its status is checked below.';
+  $('resultText').textContent = r.status === 'pending' ? 'Sent to the network. Waiting for it to be included in a block…'
+    : 'The node gave no clear answer; the transfer may have been sent. Do not send it again until its status below is known.' + (r.note ? ' (' + r.note + ')' : '');
   track(r.hash);
 };
 const WORDS = { included: 'Included in block', failed: 'Included but failed (reverted) in block', dropped: 'Dropped: another transaction used its nonce; it was not included.', rejected: 'Rejected by the node.' };

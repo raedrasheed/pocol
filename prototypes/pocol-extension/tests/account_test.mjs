@@ -1,12 +1,13 @@
 // The PoCol wallet (account.*, net.status, send.*, txs.*, connections.*; 2026-11-22, EXT-01..05): the real built
 // service worker with mocked Chrome and a mocked JSON-RPC endpoint (component evidence, not real-browser evidence; the
-// browser run is tests/wallet_ui_browser.mjs and the devnet run tests/e2e_wallet_devnet.mjs). Public test keys only.
+// real-browser run against a local pocold devnet is tests/wallet_ui_browser.mjs). Public test keys only.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import vm from 'node:vm';
 import { Transaction, Wallet, HDNodeWallet } from 'ethers';
 import { build } from '../build.mjs';
 import { installChromeMock, installFetchMock, loadWorker } from './chrome_mock.mjs';
@@ -178,6 +179,19 @@ test('the first-run disclosure must be accepted before any wallet network reques
   const ok = await w.popup({ type: 'net.status', name: 'devnet' }); assert.equal(ok.reachable, true);
 });
 
+test('the first-run disclosure also gates the balance, Send prepare and the receipt refresh (each makes no request before it)', async () => {
+  const w = await world({ disclosure: false });
+  await w.options({ type: 'account.import', kind: 'privateKey', privateKey: KEY2, password: PW });
+  // An open transfer in the history, so a refresh without the gate would read its receipt.
+  await w.mock.storage.set({ 'wallet:history': [{ hash: '0x' + '33'.repeat(32), network: 'devnet', chainId: spec.chainId, genesisHash: spec.hash, from: ADDRESS2, to: TO, value: '1', nonce: '0', status: 'pending' }] });
+  for (const [msg, page] of [[{ type: 'account.balance', name: 'devnet' }, w.popup], [{ type: 'send.prepare', name: 'devnet', to: TO, amount: '1' }, w.send], [{ type: 'txs.refresh' }, w.popup]]) {
+    const r = await page(msg); assert.equal(r.ok, false, msg.type); assert.equal(r.error.code, 'disclosure', msg.type);
+    assert.equal(w.log.length, 0, msg.type + ' sent nothing');
+  }
+  await w.popup({ type: 'account.acceptDisclosure' });
+  assert.equal((await w.popup({ type: 'account.balance', name: 'devnet' })).pcol, '1000 PCOL');
+});
+
 test('network status: chain ID and genesis checked against the profile, head height and age, unreachable endpoint', async () => {
   const w = await world();
   const st = await w.popup({ type: 'net.status', name: 'devnet' });
@@ -242,6 +256,93 @@ test('send: a node rejection, a lost answer and a dropped transaction are record
   w.env.latestNonce = 1n; // the nonce was used by another transaction, and no receipt names this one
   const list = (await w.popup({ type: 'txs.refresh' })).transactions;
   assert.deepEqual(list.map((x) => x.status), ['dropped', 'rejected']);
+});
+
+test('lib/account.js sendRefused: only an answer that proves a refusal is final', () => {
+  // The PoCol gateway's answer to a broadcast it could not complete (deploy/studio/pocol_studio_gateway.py call).
+  assert.equal(A.sendRefused({ code: -32000, message: 'Node unavailable or network identity mismatch; check transaction hash before resubmitting' }), false);
+  assert.equal(A.sendRefused({ code: -32000, message: 'Node unavailable or network identity mismatch' }), false);
+  // pocold node.rs: POOL_PARKED holds a valid transaction for the next block; the other -32016 answers pool nothing.
+  assert.equal(A.sendRefused({ code: -32016, message: '-32016 pool full (gas): held for the next block' }), false);
+  assert.equal(A.sendRefused({ code: -32016, message: '-32016 pool full (sender gas)' }), true);
+  assert.equal(A.sendRefused({ code: -32021, message: 'busy' }), true); assert.equal(A.sendRefused({ code: -32021, message: 'Studio gateway busy; retry shortly' }), true);
+  assert.equal(A.sendRefused({ code: -32020, message: 'compute deadline' }), true); assert.equal(A.sendRefused({ code: -32014, message: '-32014 oversized' }), true);
+  assert.equal(A.sendRefused({ code: -32000, message: 'nonce too low' }), true);
+  assert.equal(A.sendRefused({ code: -32000, message: '-32000 Transaction(NonceTooLow { tx: 0, state: 1 })' }), true);
+  assert.equal(A.sendRefused({ code: -32000, message: "-32000 insufficient funds for gas * price + value with the sender's pooled and parked transactions" }), true);
+  assert.equal(A.sendRefused({ code: -32000, message: '-32000 replacement transaction underpriced' }), true);
+  assert.equal(A.sendRefused({ code: -32000, message: 'something else went wrong' }), false, 'an unknown -32000 is ambiguous');
+  assert.equal(A.sendRefused({ code: -32603, message: 'internal error' }), false); assert.equal(A.sendRefused({ code: '-32000', message: 'nonce too low' }), false); assert.equal(A.sendRefused(null), false);
+});
+
+/** Runs the built send.js against the worker with a minimal DOM (no browser): its result text after one transfer. */
+async function sendPageResult(w, amount) {
+  const els = new Map(), el = (id) => { if (!els.has(id)) els.set(id, { id, textContent: '', hidden: false, disabled: false, checked: false, value: '', className: '', href: '' }); return els.get(id); };
+  const timers = [];
+  const ctx = vm.createContext({ document: { getElementById: el }, location: { hash: '#devnet' }, window: { close() {} },
+    chrome: { runtime: { sendMessage: (m) => w.mock.send(m, 21, 'send.html') } }, setInterval: (f, ms) => { const t = realInterval(f, ms); timers.push(t); return t; }, clearInterval });
+  vm.runInContext(readFileSync(join(dist, 'send.js'), 'utf8'), ctx);
+  const until = async (f, what) => { for (let i = 0; i < 300; i++) { if (f()) return; await new Promise((r) => realTimeout(r, 10)); } throw new Error('send page: ' + what); };
+  try {
+    await until(() => el('from').textContent !== '' && /^Connected/.test(el('netText').textContent), 'ready');
+    assert.equal(el('review').disabled, false, el('netText').textContent);
+    el('to').value = TO; el('amount').value = amount; await el('review').onclick();
+    el('consent').checked = true; el('consent').onchange(); await el('confirm').onclick({ isTrusted: true });
+    await new Promise((r) => realTimeout(r, 100)); // the first receipt check of track()
+    return el('resultText').textContent;
+  } finally { for (const t of timers) clearInterval(t); }
+}
+
+test('send: the gateway\'s ambiguous error after a broadcast is "unknown", never "Not sent", and its receipt makes it included', async () => {
+  const w = await world();
+  await w.options({ type: 'account.import', kind: 'privateKey', privateKey: KEY2, password: PW });
+  // The node got the transaction, but the gateway's answer is its timed-out broadcast error.
+  w.env.sendError = { code: -32000, message: 'Node unavailable or network identity mismatch; check transaction hash before resubmitting' };
+  const page = await sendPageResult(w, '1.5');
+  assert.doesNotMatch(page, /Not sent/); assert.match(page, /may have been sent/); assert.match(page, /check transaction hash before resubmitting/);
+  let list = (await w.popup({ type: 'txs.list' })).transactions; assert.equal(list.length, 1); assert.equal(list[0].status, 'unknown');
+  const hash = list[0].hash;
+  // Included after all: the receipt is read and the entry becomes included.
+  w.env.receipts.set(hash, { transactionHash: hash, status: '0x1', blockNumber: '0x2b', blockHash: '0x' + 'b2'.repeat(32), gasUsed: '0x5208' }); w.env.nonce = 1n; w.env.latestNonce = 1n;
+  const reads = w.count('eth_getTransactionReceipt');
+  list = (await w.popup({ type: 'txs.refresh' })).transactions; assert.equal(list[0].status, 'included'); assert.equal(list[0].blockNumber, 43); assert.equal(list[0].note, undefined);
+  assert.ok(w.count('eth_getTransactionReceipt') > reads, 'the receipt was read');
+  // A refusal the node proves is still "Not sent".
+  w.env.sendError = { code: -32000, message: 'nonce too low' };
+  assert.match(await sendPageResult(w, '1'), /^Not sent: The node did not accept the transaction: nonce too low/);
+});
+
+test('send: a transaction the node parks for the next block (-32016 held) is unknown, not rejected', async () => {
+  const w = await world();
+  const p = await prepared(w); w.env.sendError = { code: -32016, message: '-32016 pool full (gas): held for the next block' };
+  const c = await w.send({ type: 'send.confirm', id: p.id }); assert.equal(c.ok, true, JSON.stringify(c)); assert.equal(c.status, 'unknown');
+  assert.equal((await w.popup({ type: 'txs.list' })).transactions[0].status, 'unknown');
+});
+
+test('history: an included transfer is re-read until it is settled, and goes back to pending when a reorganization removes it', async () => {
+  const w = await world();
+  const p = await prepared(w), c = await w.send({ type: 'send.confirm', id: p.id }); assert.equal(c.status, 'pending');
+  const rc = (block, hashByte = 'b2') => ({ transactionHash: c.hash, status: '0x1', blockNumber: block, blockHash: '0x' + hashByte.repeat(32), gasUsed: '0x5208' });
+  w.env.receipts.set(c.hash, rc('0x2b'));
+  let t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'included'); assert.equal(t.blockNumber, 43); assert.equal(t.settled, false);
+  // A reorganization: the receipt is gone.
+  w.env.receipts.delete(c.hash); let reads = w.count('eth_getTransactionReceipt');
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0];
+  assert.ok(w.count('eth_getTransactionReceipt') > reads, 'an included entry is read again'); assert.equal(t.status, 'pending'); assert.equal(t.blockNumber, undefined); assert.match(t.note, /no longer on the canonical chain/);
+  // A receipt whose block is not the canonical one at that height is not included either.
+  w.env.receipts.set(c.hash, rc('0x2c', 'ee'));
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'pending');
+  // Included again in another block; then SETTLE_DEPTH blocks deep it is settled and no longer read.
+  w.env.receipts.set(c.hash, rc('0x2c'));
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'included'); assert.equal(t.blockNumber, 44); assert.equal(t.note, undefined);
+  w.env.receipts.set(c.hash, { ...rc('0x2c'), status: '0x0' });
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'failed', 'a changed receipt is followed');
+  w.env.receipts.set(c.hash, rc('0x2c')); w.env.height = 44 + 63;
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.settled, false, '63 blocks deep');
+  w.env.height = 44 + 64;
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'included'); assert.equal(t.settled, true);
+  reads = w.count('eth_getTransactionReceipt'); w.env.receipts.delete(c.hash);
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(w.count('eth_getTransactionReceipt'), reads, 'a settled entry is not read'); assert.equal(t.status, 'included');
 });
 
 test('EXT-03: a site\'s account grant is listed and revocable in Settings; after revoking it gets no account until it asks again', async () => {

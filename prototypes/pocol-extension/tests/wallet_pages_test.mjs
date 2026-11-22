@@ -73,3 +73,18 @@ test('EXT-07: vendor/ethers.js is the unmodified ethers 6.17.0 dist/ethers.min.j
   assert.equal(createHash('sha256').update(readFileSync(join(dist, 'vendor', 'ethers.js'))).digest('hex'), ETHERS_MIN_SHA256);
   assert.ok(readFileSync(join(EXT, 'store', 'listing.md'), 'utf8').includes(ETHERS_MIN_SHA256), 'store/listing.md names the hash');
 });
+
+test('the vendored @noble modules are their npm files as store/listing.md says: secp256k1 unchanged, hashes with only the import made relative and the source-map comment removed', () => {
+  const nm = join(EXT, 'node_modules', '@noble');
+  assert.ok(readFileSync(join(dist, 'vendor', 'secp256k1', 'index.js')).equals(readFileSync(join(nm, 'secp256k1', 'index.js'))), 'vendor/secp256k1/index.js is byte-identical');
+  const hashes = readdirSync(join(dist, 'vendor', 'hashes')).filter((f) => f.endsWith('.js')).sort();
+  assert.deepEqual(hashes, ['_md.js', '_u64.js', 'crypto.js', 'hmac.js', 'sha2.js', 'sha3.js', 'utils.js']);
+  for (const f of hashes) {
+    const npm = readFileSync(join(nm, 'hashes', 'esm', f), 'utf8'), shipped = read(join('vendor', 'hashes', f));
+    assert.equal(shipped, npm.replace(/from '@noble\/hashes\/crypto'/g, "from './crypto.js'").replace(/\n\/\/# sourceMappingURL=.*$/m, ''), f);
+    assert.equal(shipped.split('\n').length >= npm.split('\n').length - 1, true, f + ': at most the source-map line is removed');
+  }
+  const listing = readFileSync(join(EXT, 'store', 'listing.md'), 'utf8').replace(/\s+/g, ' ');
+  assert.match(listing, /`vendor\/ethers\.js` and `vendor\/secp256k1\/index\.js` are byte-identical to their npm files; the `vendor\/hashes\/` modules of @noble\/hashes 1\.8\.0 are its `esm\/` files with only the `@noble\/hashes\/crypto` import made relative/);
+  assert.equal(JSON.parse(readFileSync(join(EXT, 'package-lock.json'), 'utf8')).packages['node_modules/@noble/hashes'].version, '1.8.0');
+});
