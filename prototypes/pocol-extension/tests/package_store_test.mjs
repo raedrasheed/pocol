@@ -72,7 +72,7 @@ test('the store zip is the release build with manifest.json without "key", repro
   prepare();
   const a = join(root, 'a', 'store.zip'), b = join(root, 'b', 'store.zip');
   const ra = store([a]); assert.equal(ra.status, 0, ra.stderr);
-  assert.match(ra.stdout, new RegExp(`^extension id ${extensionId(TEST_KEY)} \\(the store item id must be this\\)$`, 'm'));
+  assert.match(ra.stdout, new RegExp(`^extension id ${extensionId(TEST_KEY)} \\(the side-loaded release's; the store item has it only with the key\\.pem method, otherwise note the id the dashboard assigns\\)$`, 'm'));
   const rb = store([b]); assert.equal(rb.status, 0, rb.stderr);
   assert.ok(readFileSync(a).equals(readFileSync(b)), 'two store zips of the same dist/ differ');
   assert.equal(readFileSync(a + '.sha256', 'utf8'), `${sha(readFileSync(a))}  store.zip\n`);
@@ -98,13 +98,21 @@ test('a build that the release packager refuses is refused for the store too', (
   assert.equal(existsSync(join(root, 'widened.zip')) || existsSync(join(root, 'otherkey.zip')), false);
 });
 
+test('the unofficial key.pem method is never the default: --first-upload-key alone is refused and writes nothing', () => {
+  prepare();
+  const out = join(root, 'unacknowledged.zip'), r = store(['--first-upload-key', KEY_PEM, out]);
+  assert.notEqual(r.status, 0); assert.match(r.stderr, /Refusing --first-upload-key without --unofficial-key-pem/); assert.equal(existsSync(out), false);
+  const plain = store([join(root, 'plain.zip')]); assert.equal(plain.status, 0, plain.stderr);
+  assert.equal('key.pem' in unzip(join(root, 'plain.zip')).members, false, 'the default store zip holds no key');
+});
+
 test('the first upload adds the matching private key as key.pem, and only the matching one', () => {
   prepare();
   const wrong = join(root, 'wrong.zip');
-  let r = store(['--first-upload-key', OTHER_PEM, wrong]);
+  let r = store(['--first-upload-key', OTHER_PEM, '--unofficial-key-pem', wrong]);
   assert.notEqual(r.status, 0); assert.match(r.stderr, /not the private key of release\/manifest-key\.pub/); assert.equal(existsSync(wrong), false);
   const first = join(root, 'first.zip');
-  r = store(['--first-upload-key', KEY_PEM, first]); assert.equal(r.status, 0, r.stderr);
+  r = store(['--first-upload-key', KEY_PEM, '--unofficial-key-pem', first]); assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /CONTAINS THE PRIVATE KEY \(key\.pem\)/);
   assert.equal(existsSync(first + '.sha256'), false, 'no .sha256 for a zip that holds a private key');
   const { members, modes, manifest } = unzip(first);

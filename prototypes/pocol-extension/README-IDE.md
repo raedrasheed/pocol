@@ -1,8 +1,20 @@
 # PoCol Studio, IDE & Viewer 0.5.0
 
-Version 0.5.0 is the extension for the fresh PoCol Mainnet (consensus v3). It combines Studio website publication, IDE contract deployment and the verified Viewer. Network labels use PoCol Mainnet, and Studio and IDE keep their addresses, `https://studio.pocol.net` and `https://ide.pocol.net`. The release pins the network's identity and its fork schedule; there is no activation setting. The Viewer wallet address belongs to the network (see `README-STUDIO.md`). Studio confirmation defaults to English, with Arabic available from the language control.
+Version 0.5.0 is the extension for the fresh PoCol Mainnet (consensus v3). It combines Studio website publication, IDE contract deployment and the verified Viewer. Network labels use PoCol Mainnet, and Studio and IDE keep their addresses, `https://studio.pocol.net` and `https://ide.pocol.net`. The release pins the network's identity and its fork schedule; there is no activation setting. The Viewer's local development wallet serves local networks only (see `README-STUDIO.md`); the PoCol wallet below is the Mainnet wallet. Studio confirmation defaults to English, with Arabic available from the language control.
 
 Contract deployment and contract writes from PoCol IDE use the **same PoCol wallet address** as Studio and the native Windows/Linux wallet. No MetaMask account is needed. Websites send public contract intents; private keys and passwords are accepted only in the extension's trusted confirmation tab.
+
+## The PoCol wallet
+
+The toolbar button opens the PoCol wallet. It has one account: the same encrypted wallet (`studio:wallet`, schema `pocol-studio-vault-v1`, PBKDF2-SHA256 600,000 iterations and AES-256-GCM) that Studio and IDE sign with, so the address is the same everywhere. The key is decrypted only in the extension's service worker while the wallet is unlocked (15 minutes); the popup, Send and Settings pages only send it messages.
+
+- **Status (popup):** the network profile (PoCol Mainnet built in, or a local profile you added), its chain ID and endpoint, and whether the endpoint is reachable and answers with the profile's chain ID and genesis hash, with the latest block's height and age; the lock state, the address and the balance. Before the first network request the wallet shows what it sends where and asks you to agree.
+- **Create or import (Settings, PoCol wallet):** a new wallet (its encrypted backup is downloaded at once), an encrypted PoCol wallet file (a backup, `PoCol-Studio-Wallet.json`, or the Windows or Linux helper's export), a private key, or a BIP-39 English recovery phrase, of which the first account `m/44'/60'/0'/0/0` is imported without a BIP-39 passphrase (only its key is kept; the phrase is not stored and cannot be shown again; the extension does not create phrases, because its wallet format holds a key, not a phrase). A different saved wallet is replaced only after you confirm.
+- **Backup (Settings):** after the password is entered again, the encrypted wallet file is downloaded. It is how you keep the wallet when you reinstall, move to another browser or to the Chrome Web Store version (a separate installation with empty storage): import it there under "An encrypted PoCol wallet file".
+- **Send PCOL:** the Send page shows the network, chain ID, genesis, endpoint, sender, recipient, amount, fee (expected and maximum) and the total, and the transfer is signed in the worker only after the consent box and your click on **Confirm and send**. It is an EIP-1559 (type 2) transaction whose signed payload carries the profile's chain ID, so it is valid on that chain only; the worker re-checks the endpoint's chain ID, genesis and the account nonce right before signing and submits once with `eth_sendRawTransaction` to the profile's endpoint. It is refused when the endpoint is another network (the page shows the difference) and while the build pins the placeholder network.
+- **Transactions:** the transfers sent from this extension, with their status from receipts (pending, included, failed, dropped, rejected, unknown). It is not the address's full history: for PoCol Mainnet the wallet links to the address on explorer.pocol.net.
+- **Connected sites:** Studio and IDE never receive the key or address on their own; each operation opens the extension's confirmation. A website opened in the viewer gets an account only after you approve it there, for that tab only, and Settings lists and ends these grants. The extension has no general provider for other websites.
+- **One account:** Studio, IDE and the publication jobs use the one saved wallet, so the wallet has one account per browser profile. To use another account, back up the current one and import the other.
 
 ## Upgrade from 0.4.1 or earlier
 
@@ -24,7 +36,7 @@ A first installation is steps 3 and 4. Later releases keep the same extension ID
 5. Click **Prepare transaction review**. Check the signing address, target or expected deployment address, bytecode/calldata fingerprints, value, and maximum PCOL fee.
 6. Select the consent checkbox and click **Confirm & sign transaction**. Keep the confirmation tab open while it checks the receipt.
 
-The original imported key is used directly. The Viewer's seed-derived wallet is a separate mechanism and is not used for IDE or Studio publication; its address belongs to each network (see `README-STUDIO.md`).
+The original imported key is used directly. The Viewer's seed-derived wallet is a separate mechanism for local networks only and is not used for IDE or Studio publication (see `README-STUDIO.md`).
 
 ## Linux encrypted export
 

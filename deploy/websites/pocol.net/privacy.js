@@ -23,12 +23,19 @@
         {
           "heading": "The Chrome extension",
           "items": [
-            "Your wallet keys are created in your browser, or imported from your encrypted wallet file, and stored only in this extension's local storage in Chrome, encrypted with your password (PBKDF2-SHA256 with 600,000 iterations and AES-256-GCM). Your password and your private keys never leave the extension, except as the encrypted backup file that the extension saves to your computer when you create your Studio wallet.",
-            "To read the network and send transactions, the extension contacts the PoCol network gateway at https://explorer.pocol.net/studio/rpc, or a node on your own computer (127.0.0.1) if you add one. These requests carry your wallet address (to read its balance and transaction count), the transactions you approve, and the website or contract files you choose to publish. Like every internet request, they show your IP address to the gateway.",
-            "The extension also stores on your device the network profiles you add and the progress of each publication, including its signed transactions until the publication completes, so that an interrupted publication can resume. Removing the extension deletes all of this, so keep the encrypted wallet backup that the extension downloads when you create your Studio wallet.",
+            "Your wallet keys are created in your browser, or imported from your encrypted wallet file, a private key or a recovery phrase, and stored only in this extension's local storage in Chrome, encrypted with your password (PBKDF2-SHA256 with 600,000 iterations and AES-256-GCM). Of a recovery phrase only the derived key of its first account is kept; the phrase itself is not stored. Your password and your private keys never leave the extension, except inside the encrypted backup file that the extension saves to your computer when you create your wallet or ask for a backup.",
+            "To read the network and send transactions, the extension contacts the PoCol network gateway at https://explorer.pocol.net/studio/rpc, or a node on your own computer (127.0.0.1) if you add one. These requests carry your wallet address (to read its balance and transaction count), the transactions you approve, the hashes of the transfers you sent (to read their receipts), and the website or contract files you choose to publish. Like every internet request, they show your IP address to the gateway. Before the wallet makes its first such request, it shows what it sends and asks you to agree.",
+            "The extension also stores on your device the network profiles you add, the progress of each publication (including its signed transactions until the publication completes, so that an interrupted publication can resume), and a list of the transfers you sent from it (hash, recipient, amount and status), so that it can show their status. Removing the extension deletes all of this, so keep an encrypted backup of your wallet (Settings, Back up).",
+            "You send PCOL from the extension's own Send page: it shows the network, the recipient, the amount, the fee and the total, and the transfer is signed only after you confirm it there.",
             "The extension works with two websites only, https://studio.pocol.net and https://ide.pocol.net, and receives from them the publication or contract you ask it to handle. Nothing is signed or sent until you approve it in the extension's own window. The extension does not read other websites, your tabs or your browsing history.",
-            "On-chain websites that you open in the extension's viewer are loaded from the PoCol network and run in an isolated sandbox with no access to your wallet or to the extension. When such a site asks for a signature, the extension asks you first.",
+            "On-chain websites that you open in the extension's viewer are loaded from the PoCol network and run in an isolated sandbox with no access to your wallet or to the extension. When such a site asks for your account or a signature, the extension asks you first; an account you grant to a site is for that tab only, and you can end it in Settings.",
             "The extension contacts no other server, uses no analytics, and does not sell or share your information."
+          ]
+        },
+        {
+          "heading": "Chrome Web Store User Data Policy",
+          "items": [
+            "The PoCol extension's use of your information complies with the Chrome Web Store User Data Policy, including the Limited Use requirements: it uses your information only for the features this policy describes, transfers it only to the PoCol network gateway or the node you add, to carry out your requests, and never uses or transfers it for advertising, for creditworthiness or lending, or for any purpose unrelated to these features."
           ]
         },
         {
@@ -81,12 +88,19 @@
         {
           "heading": "إضافة Chrome",
           "items": [
-            "تُنشأ مفاتيح محفظتك داخل متصفحك، أو تُستورد من ملف محفظتك المشفّر، وتُخزَّن فقط في التخزين المحلي لهذه الإضافة في Chrome، مشفّرة بكلمة مرورك (PBKDF2-SHA256 بـ 600,000 تكرار وAES-256-GCM). لا تغادر كلمة مرورك ولا مفاتيحك الخاصة الإضافة أبدًا، إلا في ملف النسخة الاحتياطية المشفّرة الذي تحفظه الإضافة على جهازك عند إنشاء محفظة Studio.",
-            "لقراءة الشبكة وإرسال المعاملات تتصل الإضافة ببوابة شبكة PoCol على https://explorer.pocol.net/studio/rpc، أو بعقدة على جهازك (127.0.0.1) إن أضفتها. تحمل هذه الطلبات عنوان محفظتك (لقراءة رصيده وعدد معاملاته)، والمعاملات التي توافق عليها، وملفات المواقع أو العقود التي تختار نشرها. وكأي طلب عبر الإنترنت، تكشف هذه الطلبات عنوان IP الخاص بك للبوابة.",
-            "تخزّن الإضافة على جهازك أيضًا ملفات تعريف الشبكات التي تضيفها وتقدّم كل عملية نشر، بما في ذلك معاملاتها الموقّعة حتى يكتمل النشر، لكي يمكن استئناف عملية نشر انقطعت. إزالة الإضافة تحذف كل ذلك، لذا احتفظ بالنسخة الاحتياطية المشفّرة للمحفظة التي تنزّلها الإضافة عند إنشاء محفظة Studio.",
+            "تُنشأ مفاتيح محفظتك داخل متصفحك، أو تُستورد من ملف محفظتك المشفّر أو من مفتاح خاص أو من عبارة استرداد، وتُخزَّن فقط في التخزين المحلي لهذه الإضافة في Chrome، مشفّرة بكلمة مرورك (PBKDF2-SHA256 بـ 600,000 تكرار وAES-256-GCM). من عبارة الاسترداد لا يُحفظ إلا المفتاح المشتق لحسابها الأول، ولا تُخزَّن العبارة نفسها. لا تغادر كلمة مرورك ولا مفاتيحك الخاصة الإضافة أبدًا، إلا داخل ملف النسخة الاحتياطية المشفّرة الذي تحفظه الإضافة على جهازك عند إنشاء محفظتك أو عندما تطلب نسخة احتياطية.",
+            "لقراءة الشبكة وإرسال المعاملات تتصل الإضافة ببوابة شبكة PoCol على https://explorer.pocol.net/studio/rpc، أو بعقدة على جهازك (127.0.0.1) إن أضفتها. تحمل هذه الطلبات عنوان محفظتك (لقراءة رصيده وعدد معاملاته)، والمعاملات التي توافق عليها، وبصمات التحويلات التي أرسلتها (لقراءة إيصالاتها)، وملفات المواقع أو العقود التي تختار نشرها. وكأي طلب عبر الإنترنت، تكشف هذه الطلبات عنوان IP الخاص بك للبوابة. وقبل أول طلب من هذا النوع تعرض المحفظة ما ترسله وتطلب موافقتك.",
+            "تخزّن الإضافة على جهازك أيضًا ملفات تعريف الشبكات التي تضيفها، وتقدّم كل عملية نشر (بما في ذلك معاملاتها الموقّعة حتى يكتمل النشر، لكي يمكن استئناف عملية نشر انقطعت)، وقائمة بالتحويلات التي أرسلتها منها (البصمة والمستلم والمبلغ والحالة) لكي تعرض حالتها. إزالة الإضافة تحذف كل ذلك، لذا احتفظ بنسخة احتياطية مشفّرة من محفظتك (الإعدادات، النسخ الاحتياطي).",
+            "ترسل PCOL من صفحة الإرسال الخاصة بالإضافة: تعرض الشبكة والمستلم والمبلغ والرسوم والإجمالي، ولا يُوقَّع التحويل إلا بعد أن تؤكده فيها.",
             "تعمل الإضافة مع موقعين فقط، https://studio.pocol.net وhttps://ide.pocol.net، وتتلقى منهما عملية النشر أو العقد الذي تطلب منها معالجته. لا يُوقَّع شيء ولا يُرسَل قبل موافقتك في نافذة الإضافة نفسها. لا تقرأ الإضافة مواقع أخرى ولا علامات التبويب لديك ولا سجل تصفحك.",
-            "تُحمَّل المواقع المنشورة على السلسلة التي تفتحها في عارض الإضافة من شبكة PoCol، وتعمل في بيئة معزولة لا تصل إلى محفظتك ولا إلى الإضافة. وعندما يطلب موقع منها توقيعًا، تسألك الإضافة أولًا.",
+            "تُحمَّل المواقع المنشورة على السلسلة التي تفتحها في عارض الإضافة من شبكة PoCol، وتعمل في بيئة معزولة لا تصل إلى محفظتك ولا إلى الإضافة. وعندما يطلب موقع منها حسابك أو توقيعًا، تسألك الإضافة أولًا؛ والحساب الذي تمنحه لموقع يقتصر على علامة التبويب تلك، ويمكنك إنهاؤه من الإعدادات.",
             "لا تتصل الإضافة بأي خادم آخر، ولا تستخدم أدوات تحليل، ولا تبيع معلوماتك ولا تشاركها."
+          ]
+        },
+        {
+          "heading": "سياسة بيانات المستخدم في سوق Chrome الإلكتروني",
+          "items": [
+            "يلتزم استخدام إضافة PoCol لمعلوماتك بسياسة بيانات المستخدم في سوق Chrome الإلكتروني، بما في ذلك متطلبات الاستخدام المحدود (Limited Use): فهي لا تستخدم معلوماتك إلا للميزات التي تصفها هذه السياسة، ولا تنقلها إلا إلى بوابة شبكة PoCol أو العقدة التي تضيفها لتنفيذ طلباتك، ولا تستخدمها ولا تنقلها أبدًا للإعلانات أو لتقييم الجدارة الائتمانية أو الإقراض أو لأي غرض لا علاقة له بهذه الميزات."
           ]
         },
         {

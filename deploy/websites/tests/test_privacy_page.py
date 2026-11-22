@@ -89,6 +89,31 @@ class PolicyMatchesTheCode(unittest.TestCase):
         self.assertIn('...(await encryptSeed(secret, password))', keyfile)
         self.assertIn('PBKDF2-SHA256 with 600,000 iterations and AES-256-GCM', json.dumps(translations()['en']))
 
+    def test_the_wallet_statements_are_what_the_worker_does(self):
+        # 2026-11-22 (EXT-02/04): import from a private key or a BIP-39 phrase (only the derived key is kept), a backup at
+        # any time, the list of sent transfers kept on the device, receipts read by hash, and the first-run agreement.
+        policy = json.dumps(translations()['en'])
+        sw = (EXT / 'src' / 'sw.js').read_text(encoding='utf-8')
+        account = (EXT / 'src' / 'lib' / 'account.js').read_text(encoding='utf-8')
+        self.assertIn("else if (msg.kind === 'phrase') secret = acct.phraseToSecret(msg.phrase);", sw)
+        self.assertIn('Only the derived key is kept; the phrase itself is never stored.', account)
+        self.assertIn('Of a recovery phrase only the derived key of its first account is kept; the phrase itself is not stored.', policy)
+        self.assertIn("case 'account.export': {", sw)
+        self.assertIn('when you create your wallet or ask for a backup', policy)
+        self.assertIn("HISTORY_KEY = 'wallet:history'", sw)
+        self.assertIn("rpc('eth_getTransactionReceipt', [t.hash])", sw)
+        self.assertIn('a list of the transfers you sent from it (hash, recipient, amount and status)', policy)
+        self.assertIn('the hashes of the transfers you sent (to read their receipts)', policy)
+        self.assertIn('async function requireDisclosure()', sw)
+        self.assertIn('Before the wallet makes its first such request, it shows what it sends and asks you to agree.', policy)
+
+    def test_the_limited_use_statement_is_in_the_policy(self):
+        # Chrome Web Store User Data Policy, Limited Use: an affirmative statement on the extension's website.
+        en, ar = translations()['en'], translations()['ar']
+        section = next(s for s in en['sections'] if s['heading'] == 'Chrome Web Store User Data Policy')
+        self.assertIn('complies with the Chrome Web Store User Data Policy, including the Limited Use requirements', section['items'][0])
+        self.assertIn('Limited Use', ' '.join(i for s in ar['sections'] for i in s['items']))
+
     def test_the_servers_write_no_request_log_and_the_faucet_keeps_no_ip_on_disk(self):
         for rel in ('deploy/rewards/gateway.py', 'deploy/studio/pocol_studio_gateway.py', 'deploy/faucet/pocol_faucet.py'):
             self.assertRegex((ROOT / rel).read_text(encoding='utf-8'), r'def log_message\(self[^)]*\): pass', rel)

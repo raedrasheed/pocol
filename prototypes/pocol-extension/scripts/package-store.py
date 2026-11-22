@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Package the release build for the Chrome Web Store.
 
-    python3 scripts/package-store.py [OUTPUT.zip] [--retired FILE]
-    python3 scripts/package-store.py --first-upload-key KEY.pem [OUTPUT.zip]   (the owner, once, for the first upload)
+    python3 scripts/package-store.py [OUTPUT.zip] [--retired FILE]          (every store upload; the recommended way)
+    python3 scripts/package-store.py --first-upload-key KEY.pem --unofficial-key-pem [OUTPUT.zip]
+                                                     (only if the owner chooses the unofficial key.pem method, once)
 
-The Chrome Web Store refuses an upload whose manifest.json has a "key" field ("key field is not allowed in manifest"),
-and the release manifest has one: build.mjs writes the owner's public key of release/manifest-key.pub into it, which
-gives the side-loaded release its fixed extension id. This packager makes the store upload from the same dist/:
+The release manifest has a "key" field: build.mjs writes the owner's public key of release/manifest-key.pub into it,
+which gives the side-loaded release its fixed extension id. Developer reports say the Chrome Web Store refuses an
+upload whose manifest has one (no current official page says so), and a store item gets its own id at its first
+upload in any case. This packager makes the store upload from the same dist/:
   - it runs every check of scripts/package-release.py first (check_release: the release name, MV3 at package.json's
     version, the exact permissions, host permissions, content scripts, background, sandbox and CSPs, no network
     placeholder, no retired network, the committed owner key), so it refuses whatever that packager refuses;
@@ -15,13 +17,15 @@ gives the side-loaded release its fixed extension id. This packager makes the st
   - the archive metadata is the release zip's (scripts/package-release.py write_release_zip), so the store zip is
     reproducible too, and its `<zip>.sha256` (integrity only) is written beside it.
 
-The extension id. A store item's id is fixed at its first upload. To give the store item the id that the side-loaded
-release already has (and that pocol.net publishes), the owner uploads, the first time only, a zip that also holds the
-matching private key as key.pem at its root: --first-upload-key KEY.pem checks that KEY.pem is the private key of
-release/manifest-key.pub (with `openssl pkey`) and writes `<name>-first-upload.zip` with key.pem added. That zip holds a
-private key: upload it once from the owner's machine, then delete it; never publish it, sign it or commit it (no
-.sha256 is written for it). Later uploads use the zip without key.pem. Before submitting the first upload for review,
-the owner checks that the item id the dashboard shows is the id printed here (store/README.md).
+The extension id is the owner's decision (store/README.md, "The store item's id"). The documented and recommended
+route is to upload this zip without any key, accept the id the store assigns, and, if side-loaded builds should share
+it, adopt the item's public key (dashboard, Package tab, View public key) in release/manifest-key.pub for later
+releases; users move their wallets with the encrypted backup in every case. The alternative is the historical key.pem
+method, which only an archived Chromium page describes: --first-upload-key KEY.pem writes `<name>-first-upload.zip`
+with the matching private key added as key.pem, after checking with `openssl pkey` that KEY.pem is the private key of
+release/manifest-key.pub. It is refused unless --unofficial-key-pem acknowledges that the method is unofficial, that
+the zip holds the release private key, and that a failed attempt may leave the id reserved. That zip is never
+published, signed or committed (no .sha256 is written for it); upload it once from the owner's machine and delete it.
 
 Nothing here signs or uploads anything.
 """
@@ -99,8 +103,14 @@ def main(argv):
     parser.add_argument('output', nargs='?', type=Path)
     parser.add_argument('--retired', type=Path, default=root.parents[1] / 'deploy' / 'mainnet' / 'retired-networks.json')
     parser.add_argument('--first-upload-key', type=Path, metavar='KEY.pem',
-                        help='the private key of release/manifest-key.pub, added as key.pem for the first upload only')
+                        help='the unofficial key.pem method only: the private key of release/manifest-key.pub, added as key.pem')
+    parser.add_argument('--unofficial-key-pem', action='store_true',
+                        help='acknowledge that the key.pem method is unofficial and puts the release private key into the zip')
     args = parser.parse_args(argv)
+    if args.first_upload_key is not None and not args.unofficial_key_pem:
+        raise SystemExit('Refusing --first-upload-key without --unofficial-key-pem: the key.pem upload is not an official Chrome Web '
+                         'Store method and puts the release private key into the zip. The recommended way is the zip without a key '
+                         '(store/README.md, "The store item\'s id").')
     dist = root / 'dist'
     version = json.loads((root / 'package.json').read_text(encoding='utf-8'))['version']
     for name in REQUIRED:
@@ -114,11 +124,13 @@ def main(argv):
     stem = f'PoCol-Studio-IDE-Viewer-{version}-chrome-web-store'
     output = args.output or root / 'releases' / (stem + ('-first-upload.zip' if args.first_upload_key else '.zip'))
     digest = write_store_zip(dist, output, args.first_upload_key)
-    print(f'{output}\nSHA-256 {digest}\n{output.stat().st_size} bytes\nextension id {release_id} (the store item id must be this)')
+    print(f'{output}\nSHA-256 {digest}\n{output.stat().st_size} bytes\nextension id {release_id} (the side-loaded release\'s; the store item has it '
+          f'only with the key.pem method, otherwise note the id the dashboard assigns)')
     if args.first_upload_key:
         print('CONTAINS THE PRIVATE KEY (key.pem): upload it once as the first upload, then delete it; never publish, sign or commit it')
     else:
-        print('Chrome Web Store upload: manifest.json without "key"; every other file is the release build')
+        print('Chrome Web Store upload: manifest.json without "key"; every other file is the release build. The store assigns the '
+              'item id at the first upload unless the owner chose the unofficial key.pem method (store/README.md)')
 
 
 if __name__ == '__main__':
