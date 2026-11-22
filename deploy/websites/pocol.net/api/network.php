@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 // Public, read-only summary. The browser never supplies RPC methods or an upstream URL.
 const POCOL_SUMMARY_SCHEMA = 'pocol-network-summary-v1';
-const POCOL_SUMMARY_CHAIN = 1599846715;
-const POCOL_SUMMARY_GENESIS = '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca';
+const POCOL_SUMMARY_CHAIN = 2656089850;
+const POCOL_SUMMARY_GENESIS = '0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e';
 const POCOL_SUMMARY_SOURCE = 'https://explorer.pocol.net';
 const POCOL_SUMMARY_RPC = 'https://explorer.pocol.net/api/rpc.php';
 const POCOL_SUMMARY_SAFE_INTEGER = 9007199254740991;
