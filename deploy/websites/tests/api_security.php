@@ -34,62 +34,81 @@ rejected('summary unsafe quantity refused', static fn()=>pocol_summary_quantity(
 
 $now = 1700000000;
 $hash = static fn(int $h): string => $h === 0 ? POCOL_SUMMARY_GENESIS : '0x'.str_pad(dechex($h),64,'0',STR_PAD_LEFT);
-// SITE-05: the members come in pocol_getMembers pages of 256 at one block (the gateway's v3 read), not pocol_getMiners.
-$page = static function(array $all, int $start, string $at = ''): object {
-    $members = array_slice($all, $start, 256);
-    return (object)['height'=>3,'blockHash'=>$at ?: '0x'.str_repeat('33',32),'active'=>count($all),'start'=>$start,
-        'count'=>count($members),'members'=>$members];
-};
-$members = [(object)['status'=>1,'tomb'=>false,'bondState'=>1],(object)['status'=>2,'tomb'=>false,'bondState'=>1],
-    // ACCRUING (4) mines on probation; NONE (0) and a tomb do not.
-    (object)['status'=>1,'tomb'=>false,'bondState'=>4],(object)['status'=>1,'tomb'=>false,'bondState'=>0],
-    (object)['status'=>1,'tomb'=>true,'bondState'=>1]];
-$pageCalls = [];
-$rpcWith = static function(array $all, ?callable $tamper = null) use ($hash, $page, &$pageCalls): callable {
-  return static function(array $requests) use ($hash, $page, $all, $tamper, &$pageCalls): array {
+// SITE-05 and the 2026-11-22 review: the eligible count is the gateway's pocol_getMemberCounts (one call, at one block),
+// not pocol_getMiners and not pages of pocol_getMembers (5 shared gateway tokens a page).
+$counts = static fn(int $active, int $tomb, int $eligible, array $states = []): object => (object)['height'=>3,
+    'blockHash'=>'0x'.str_repeat('33',32),'active'=>$active,'live'=>$active-$tomb,'eligible'=>$eligible,'tomb'=>$tomb,
+    'bondStates'=>(object)array_replace(['NONE'=>0,'HELD'=>$active,'BURNED'=>0,'PAID'=>0,'ACCRUING'=>0], $states)];
+$summaryCalls = [];
+$rpcWith = static function(object $memberCounts, ?callable $tamper = null) use ($hash, &$summaryCalls): callable {
+  return static function(array $requests) use ($hash, $memberCounts, $tamper, &$summaryCalls): array {
+    $summaryCalls[] = array_column($requests, 'method');
     if ($requests[0]['method'] === 'pocol_status') {
-        if ($requests[2]['method'] !== 'pocol_getMembers' || $requests[2]['params'] !== [0,256]) throw new RuntimeException('FAIL first page request');
-        $pageCalls[] = 1;
+        if ($requests[2]['method'] !== 'pocol_getMemberCounts' || $requests[2]['params'] !== []) throw new RuntimeException('FAIL counts request');
+        $c = clone $memberCounts; $c->bondStates = clone $memberCounts->bondStates;
         return [(object)['chainId'=>POCOL_SUMMARY_CHAIN,'genesisHash'=>POCOL_SUMMARY_GENESIS,
             'head'=>(object)['height'=>3,'hash'=>$hash(3)],'pool'=>2],
-            (object)['chainId'=>POCOL_SUMMARY_CHAIN,'genesisHash'=>POCOL_SUMMARY_GENESIS], $page($all, 0)];
+            (object)['chainId'=>POCOL_SUMMARY_CHAIN,'genesisHash'=>POCOL_SUMMARY_GENESIS], $tamper ? $tamper($c) : $c];
     }
-    if ($requests[0]['method'] === 'pocol_getMembers') {
-        if (count($requests) > 8) throw new RuntimeException('FAIL batch over 8 pages (40 gateway tokens)');
-        $pageCalls[] = count($requests);
-        return array_map(static function(array $r) use ($page, $all, $tamper) {
-            $p = $page($all, $r['params'][0]); return $tamper ? $tamper($p) : $p;
-        }, $requests);
-    }
+    if ($requests[0]['method'] !== 'eth_getBlockByNumber') throw new RuntimeException('FAIL unexpected summary request');
     return array_map(static function(array $r) use ($hash): object {
         $h=hexdec($r['params'][0]);
         return (object)['number'=>'0x'.dechex($h),'hash'=>$hash($h),'parentHash'=>$hash(max(0,$h-1)),'timestamp'=>'0x'.dechex(100+$h*4)];
     },$requests);
   };
 };
-$rpc = $rpcWith($members);
+// Five members: HELD, ACCRUING (4, mines on probation), NONE, a HELD tomb and BURNED: two eligible.
+$five = $counts(5, 1, 2, ['NONE'=>1,'HELD'=>2,'BURNED'=>1,'ACCRUING'=>1]);
+$rpc = $rpcWith($five);
+$summaryCalls = [];
 $summary = pocol_network_summary($rpc,$now);
 check('summary identity and branch-consistent metrics', $summary['metrics']['eligibleMiners']===2 && $summary['metrics']['blockHeight']===3 && $summary['metrics']['averageBlockTime']==4);
+check('summary makes two requests: status, params and counts, then the blocks',
+    $summaryCalls === [['pocol_status','pocol_getParams','pocol_getMemberCounts'], array_fill(0, 4, 'eth_getBlockByNumber')]);
 $mixed = static function(array $requests) use ($rpc): array {
     $values=$rpc($requests);
     if($requests[0]['method']==='eth_getBlockByNumber')$values[1]->hash='0x'.str_repeat('ff',32);
     return $values;
 };
 rejected('summary mixed branch refused', static fn()=>pocol_network_summary($mixed,$now));
-// 600 members: three pages (256 + 256 + 88), the two later ones in one batch; 120 of them eligible.
-$many = [];
-for ($i = 0; $i < 600; $i++) $many[] = (object)['status'=>$i % 5 === 0 ? 1 : 2,'tomb'=>false,'bondState'=>$i % 10 === 0 ? 4 : 1];
-$pageCalls = [];
-check('summary counts every page of a large membership', pocol_network_summary($rpcWith($many),$now)['metrics']['eligibleMiners']===120
-    && $pageCalls===[1,2]);
-$wide = array_fill(0, 10000, (object)['status'=>1,'tomb'=>false,'bondState'=>1]);
-$pageCalls = [];
-check('summary reads 10000 members in bounded batches', pocol_network_summary($rpcWith($wide),$now)['metrics']['eligibleMiners']===10000
-    && $pageCalls===[1,8,8,8,8,7]);
-rejected('summary page at another block refused', static fn()=>pocol_network_summary($rpcWith($many, static function(object $p){$p->blockHash='0x'.str_repeat('44',32);return $p;}),$now));
-rejected('summary short page refused', static fn()=>pocol_network_summary($rpcWith($many, static function(object $p){array_pop($p->members);$p->count--;return $p;}),$now));
-rejected('summary membership that grew while read refused', static fn()=>pocol_network_summary($rpcWith($many, static function(object $p){$p->active++;return $p;}),$now));
-rejected('summary membership over 10000 refused', static fn()=>pocol_network_summary($rpcWith(array_fill(0, 10001, $members[0])),$now));
+// 10,000 members cost the same two requests as five (deploy/websites/tests/network_budget.py replays them through the
+// gateway's own token bucket).
+$summaryCalls = [];
+check('summary reads 10000 members in one counts call',
+    pocol_network_summary($rpcWith($counts(10000, 0, 9000, ['HELD'=>9000,'PAID'=>1000])),$now)['metrics']['eligibleMiners']===9000
+    && count($summaryCalls) === 2 && !in_array('pocol_getMembers', array_merge(...$summaryCalls), true));
+check('summary of an empty membership', pocol_network_summary($rpcWith($counts(0, 0, 0)),$now)['metrics']['eligibleMiners']===0);
+foreach ([
+    'membership over 10000' => static function(object $c){$c->active=10001;$c->live=10001;$c->bondStates->HELD=10001;return $c;},
+    'live and tombs that are not the membership' => static function(object $c){$c->live++;return $c;},
+    'bond states that are not the membership' => static function(object $c){$c->bondStates->PAID++;return $c;},
+    'more eligible than live' => static function(object $c){$c->eligible=$c->live+1;return $c;},
+    'more eligible than HELD and ACCRUING' => static function(object $c){$c->bondStates->HELD--;$c->bondStates->NONE++;$c->eligible=3;return $c;},
+    'an unknown bond state' => static function(object $c){$c->bondStates->SLASHED=0;return $c;},
+    'a missing bond state' => static function(object $c){unset($c->bondStates->PAID);return $c;},
+    'a string count' => static function(object $c){$c->eligible='2';return $c;},
+    'a negative count' => static function(object $c){$c->tomb=-1;$c->live=6;return $c;},
+    'no block hash' => static function(object $c){unset($c->blockHash);return $c;},
+    'no counts' => static fn(object $c) => null,
+] as $name => $tamper) rejected('summary member counts refused: '.$name, static fn()=>pocol_network_summary($rpcWith($five, $tamper),$now));
+// One refresh keeps to POCOL_SUMMARY_DEADLINE across its requests: each request gets what is left (at most 12 s), and a
+// request that would start, or that ended, past it fails the refresh.
+$clock = 0.0; $given = [];
+$slow = static function(float $seconds) use ($rpc, &$clock, &$given): callable {
+    return static function(array $requests, float $timeout) use ($rpc, $seconds, &$clock, &$given): array {
+        $given[] = $timeout; $clock += $seconds; return $rpc($requests);
+    };
+};
+$tick = static function() use (&$clock): float { return $clock; };
+check('summary within its deadline', pocol_network_summary(pocol_summary_deadline($slow(4.0), POCOL_SUMMARY_DEADLINE, $tick),$now)['metrics']['eligibleMiners']===2
+    && $given === [12.0, 11.0]);
+$clock = 0.0; $given = [];
+rejected('summary past its deadline refused', static fn()=>pocol_network_summary(pocol_summary_deadline($slow(8.0), POCOL_SUMMARY_DEADLINE, $tick),$now));
+check('the second request was given only the 7 s left', $given === [12.0, 7.0]);
+$clock = 0.0; $given = [];
+rejected('no request starts once the deadline has passed', static fn()=>pocol_network_summary(pocol_summary_deadline($slow(15.0), POCOL_SUMMARY_DEADLINE, $tick),$now));
+check('only the first request was sent', $given === [12.0]);
+check('the deadline is 15 s', POCOL_SUMMARY_DEADLINE === 15);
 
 // F-74: the gateway answers schema pocol-block-reward-v3 (deploy/rewards/pocol_rewards.py snapshot_v3).
 $miner = '0x'.str_repeat('11',20); $payee = '0x'.str_repeat('22',20);
@@ -134,6 +153,27 @@ $wrong = clone $reward; $wrong->beneficiaries=[$reward->beneficiaries[0],$reward
 rejected('duplicate beneficiary refused', static fn()=>pocol_reward_validate($wrong,$now));
 $wrong = clone $reward; $wrong->beneficiaries=[$reward->beneficiaries[0],(object)['minerId'=>$miner,'rewardAddress'=>$payee,'amountWei'=>'0']];
 rejected('empty beneficiary refused', static fn()=>pocol_reward_validate($wrong,$now));
+// 2026-11-22 review: the two vectors above are also refused by the paid-sum check. Each vector below balances (paid 9,
+// bond 3, the beneficiary count matches), so only the check it names refuses it; tests/README.md lists the removals that
+// were run to confirm that each one fails without its check.
+$wrong = clone $reward; $wrong->beneficiaryCount=3;
+$wrong->beneficiaries=[(object)['minerId'=>$miner,'rewardAddress'=>$payee,'amountWei'=>'4'],
+    (object)['minerId'=>$miner,'rewardAddress'=>$payee,'amountWei'=>'2'],$reward->beneficiaries[1]];
+rejected('balanced duplicate beneficiary refused', static fn()=>pocol_reward_validate($wrong,$now));
+$wrong->beneficiaries[1]=(object)['minerId'=>$miner,'rewardAddress'=>'0x'.str_repeat('55',20),'amountWei'=>'2'];
+check('the same miner with another reward address is not a duplicate', pocol_reward_validate($wrong,$now)['beneficiaryCount']===3);
+$wrong = clone $reward; $wrong->beneficiaryCount=3;
+$wrong->beneficiaries=[...$reward->beneficiaries,(object)['minerId'=>'0x'.str_repeat('55',20),'rewardAddress'=>'0x'.str_repeat('66',20),'amountWei'=>'0']];
+rejected('balanced empty beneficiary refused', static fn()=>pocol_reward_validate($wrong,$now));
+$wrong = clone $reward;
+$wrong->beneficiaries=[(object)['minerId'=>$miner,'rewardAddress'=>$payee,'amountWei'=>'6','bondAccruedWei'=>'0'],$reward->beneficiaries[1]];
+rejected('explicit zero bond fill refused', static fn()=>pocol_reward_validate($wrong,$now));
+$wrong = clone $reward; unset($wrong->closing);
+rejected('reward without the closing key refused', static fn()=>pocol_reward_validate($wrong,$now));
+foreach (['no', 0, null] as $value) {
+    $wrong = clone $reward; $wrong->winnerAccruing=$value;
+    rejected('winnerAccruing that is not a boolean refused', static fn()=>pocol_reward_validate($wrong,$now));
+}
 $wrong = clone $reward; $wrong->settlementHeight=3;
 rejected('settlement at or before the block refused', static fn()=>pocol_reward_validate($wrong,$now));
 $wrong = clone $reward; $wrong->final=true; $wrong->settlementHeight=null;
@@ -144,6 +184,10 @@ $final->projectedBurnedWei='0'; $final->projectedBondWei='0'; $final->projectedC
 $final->beneficiaryCount=0; $final->closing=(object)['closeHeight'=>2,'cursorDone'=>true];
 $final->tipsWei='3'; $final->carryInWei='4'; // burned by finalize, not a pot
 check('final block without a pot accepted', pocol_reward_validate($final,$now)['final']===true);
+$wrong = clone $final; $wrong->settlementHeight=7;
+rejected('final block with a settlement height refused', static fn()=>pocol_reward_validate($wrong,$now));
+$wrong = clone $final; unset($wrong->settlementHeight);
+rejected('final block without the settlementHeight key refused', static fn()=>pocol_reward_validate($wrong,$now));
 $closing = clone $reward; $closing->closing=(object)['closeHeight'=>2,'cursorDone'=>false,'earliestFinalHeight'=>6,'settlementMayBeFinal'=>true];
 check('closing summary passed', pocol_reward_validate($closing,$now)['closing']['settlementMayBeFinal']===true);
 $closing->closing=(object)['closeHeight'=>2,'cursorDone'=>false,'earliestFinalHeight'=>6];

@@ -118,6 +118,33 @@ class PolicyMatchesTheCode(unittest.TestCase):
         self.assertIn('Chrome Web Store User Data Policy', ar[0])
         self.assertIn('never uses or transfers it for advertising, for creditworthiness or lending', en[0])
 
+    def test_the_policy_says_that_a_connected_site_receives_the_wallet_address(self):
+        # The viewer's wallet provider (sw.js wallet()): eth_requestAccounts asks for the confirmAccounts approval and
+        # then gives the site the address; eth_accounts gives it again to an approved site; a transaction's result goes
+        # back to the site. Studio and the IDE receive the status and result of their jobs (studio-content.js and
+        # ide-content.js post the extension's answers to the page). The policy, and its Limited Use statement, must say
+        # so instead of "only to the PoCol gateway or your own node" (2026-11-22 review).
+        sw = (EXT / 'src' / 'sw.js').read_text(encoding='utf-8')
+        self.assertIn("approval(sess, ask, { type: 'confirmAccounts', site: sess.site, address, network: sess.profile.name })", sw)
+        self.assertIn("return { result: [address] };", sw)
+        self.assertIn("if (m.method === 'eth_accounts') return { result: sess.approved === address", sw)
+        for script in ('studio-content.js', 'ide-content.js'):
+            self.assertIn('window.postMessage({', (EXT / 'src' / script).read_text(encoding='utf-8'), script)
+        t = translations()
+        for lang, address, sites in (('en', 'shares your wallet address', 'returns to studio.pocol.net or ide.pocol.net'),
+                                     ('ar', 'تشارك عنوان محفظتك', 'وتعيد إلى studio.pocol.net أو ide.pocol.net')):
+            items = [i for s in t[lang]['sections'] for i in s['items']]
+            limited = next(i for i in items if 'Limited Use' in i)
+            self.assertIn(address, limited, lang)
+            self.assertIn(sites, limited, lang)
+        en = [i for s in t['en']['sections'] for i in s['items']]
+        viewer = next(i for i in en if i.startswith('On-chain websites that you open'))
+        self.assertIn('only after you approve the connection does the extension give that site your wallet address', viewer)
+        policy = json.dumps(t, ensure_ascii=False)
+        for claim in ('sends it only to the PoCol gateway or your own node as those features need, and never',
+                      'does not sell or share your information', 'ولا تبيع معلوماتك ولا تشاركها.'):
+            self.assertNotIn(claim, policy)
+
     def test_no_pocol_site_sets_a_cookie(self):
         for base in ('deploy/websites', 'prototypes/pocol-studio/dist', 'prototypes/pocol-extension/src'):
             for path in sorted((ROOT / base).rglob('*')):

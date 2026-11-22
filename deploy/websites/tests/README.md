@@ -7,6 +7,8 @@ synthetic data. They do not call the live PoCol network or use an existing walle
 python3 -B -m unittest discover -s deploy/websites/tests -p 'test_*.py' -v
 python3 -B deploy/websites/tools/site_identity.py --check
 php deploy/websites/tests/api_security.php
+python3 -B deploy/websites/tests/reward_check_mutants.py                    # each reward.php check removed alone must fail it
+python3 -B deploy/websites/tests/network_budget.py                          # the summary at 10,000 members vs Gateway.charge
 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
   POCOL_CHROMIUM=/path/to/chromium node deploy/websites/tests/site_pages.mjs        # every page: width, RTL, links, CSP
 python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v   # the explorer's /api reads (Sites W8)
@@ -63,7 +65,18 @@ that the W14 edits, undone on a copy, give back every served file byte for byte.
 Arabic), and that the "MAINNET EDITION" buttons offer no package before the signed release. `test_privacy_page.py`
 checks `privacy.html` against `privacy.js` (English static text, Arabic for every entry, text-only rendering, the footer
 link on every page) and each statement of the policy against the code it describes. `browser_security.mjs` renders the
-policy in both languages at 390 px. `api_security.php` counts HELD (1) and ACCRUING (4) members as eligible miners.
+policy in both languages at 390 px. `api_security.php` counts HELD (1) and ACCRUING (4) members as eligible miners. Its reward vectors each balance (paid,
+bond and beneficiary count agree), so only the check a vector names refuses it; `reward_check_mutants.py` removes each
+`reward.php` refusal check alone (duplicate pair, empty beneficiary, explicit zero bond fill, a final block's
+`settlementHeight` key and null value, the `closing` key, a boolean `winnerAccruing`, a final block's empty pot, source,
+specVersion, the paid and bond sums) and requires the suite to fail each time. `projectedBondWei <= projectedPaidWei` is
+implied by the per-beneficiary sums and cannot fail alone, so it is not in the list (2026-11-22 review).
+`network_budget.py` runs `api/network.php`'s summary at 10,000 members, records its two requests (`pocol_status`,
+`pocol_getParams`, `pocol_getMemberCounts`, then 20 blocks: 42 gateway tokens whatever the membership) and replays
+them, every 10 s for five minutes, through the real `Gateway.charge` beside explorer visitors reading at half the
+refill rate: no request of either may be refused. The paged summary it replaces cost 222 tokens a refresh there and
+failed it. `api_security.php` checks the counts (one block, live + tomb and the bond states add up, eligible within
+live, HELD and ACCRUING) and the 15 s deadline of a refresh across its requests.
 
 ## Site truth (owner decision 4, 2026-11-18)
 
@@ -133,7 +146,8 @@ checked there (`prototypes/pocol-studio/tests/model.test.mjs` checks the install
 
 `test_guide_pages.py` checks that each guide page's static English is `guide-content.js`'s render (sections, intro,
 description and table of contents) and that each in-page link has its target. `test_host_files.py` checks
-`tools/host_files.py` with synthetic host listings. `test_release_page.py` signs a synthetic release with a throwaway
+`tools/host_files.py` with synthetic host listings (cPanel's `.user.ini`, `php.ini` and `error_log` kept; a differing
+`.htaccess` merged, not replaced). `test_release_page.py` signs a synthetic release with a throwaway
 ed25519 key in a temporary copy and checks `tools/release_page.py` (needs `ssh-keygen`).
 
 ## Explorer smoke on a v3 devnet (Sites W11, W8)

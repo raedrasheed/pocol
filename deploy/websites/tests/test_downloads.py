@@ -98,6 +98,25 @@ class DownloadLinks(unittest.TestCase):
                         self.assertIn(RETIRED_LABEL[1], link['label']['ar'], link)
         self.assertGreater(seen, 0)
 
+    def test_the_verify_text_does_not_deny_the_retired_package_the_same_section_links(self):
+        # 2026-11-22 review: "this page offers no package" was false while the same section of the home page links the
+        # retired network's 0.4.0 Windows package. The text says no PoCol Mainnet package, and names the retired one.
+        page = (MAIN / 'index.html').read_text(encoding='utf-8')
+        retired = [href for href, label in anchors(page) if 'downloads/' in href and any(w in label for w in RETIRED_LABEL)]
+        about = (MAIN / 'about-locales.js').read_text(encoding='utf-8')
+        start = about.index('const extra = ') + len('const extra = ')
+        extra, _ = json.JSONDecoder().raw_decode(about, start)
+        en, ar = extra['en']['appsVerifyBody'], extra['ar']['appsVerifyBody']
+        self.assertNotIn('offers no package', en)
+        self.assertNotIn('أي حزمة قبل', ar)
+        self.assertIn('this page offers no PoCol Mainnet package', en)
+        self.assertIn('أي حزمة لشبكة PoCol Mainnet', ar)
+        if retired:
+            self.assertIn('the only package it links is the retired network’s Windows package (0.4.0)', en)
+            self.assertIn('حزمة Windows للشبكة السابقة (0.4.0)', ar)
+            self.assertTrue(all('PoCol-Mainnet-0.4.0-Windows.zip' in href for href in retired), retired)
+        self.assertIn(html.escape(en, quote=False), page)
+
     def test_no_text_tells_users_to_download_a_retired_package_for_pocol_mainnet(self):
         for path, text in served_text():
             self.assertNotIn('download the complete PoCol-Mainnet-0.4.0', text, path.name)

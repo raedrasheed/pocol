@@ -127,7 +127,8 @@ PoCol Mainnet the public network. The retired
 network's upgrade, migration and Android-update texts are replaced: nothing carries over to the new network. The
 static source lists are the guide's, and the README, V3 program and CP links pin main at `4db2652`. The 0.5.0
 download links and names and the IDE's "0.4.0 or later" messages change with the signed release (W16); the extension
-ID and the release key fingerprint are published already (2026-11-22, below). Until then the links beside "Coming from the retired network?" (home page and
+ID and the release key fingerprint are in the snapshot (2026-11-22, below); they are public once the owner approves
+their early publication and uploads it. Until then the links beside "Coming from the retired network?" (home page and
 tools page) are labelled as the retired network's 0.4.0 Windows package; W16 replaces or removes them. No other page
 offers a native package before W16 (2026-11-22): the home page's "MAINNET EDITION" buttons
 (`wallet-downloads.js`) show "No release available", and the tools page and the guide no longer offer the 0.4.0
@@ -148,11 +149,13 @@ does.
   `site_identity.py --drop-download`, so they are files to delete from the hosts. `tests/test_downloads.py` refuses any
   extension package name other than the signed release's (`assemble_release.py`, none before the switch) recorded as a
   kept-out download.
-- **Extension ID and release key (SITE-03).** The extension page (section `verify-release`) and the home page's
-  "Verify a download" publish, in English and Arabic, the extension ID `gggcoflmedlhlkcdhebmoepmggdnafmp` and the
-  release key fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` with `deploy/release/README.md`'s user
-  procedure; `tests/test_downloads.py` derives both from `manifest-key.pub` and `allowed_signers`. The page says that no
-  signed release is offered yet.
+- **Extension ID and release key (SITE-03).** The extension page (section `verify-release`) and the guide's
+  extension topic carry, in English and Arabic, the extension ID `gggcoflmedlhlkcdhebmoepmggdnafmp` and the release
+  key fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` with `deploy/release/README.md`'s user
+  procedure; the home page's "Verify a download" carries the fingerprint only and links that section.
+  `tests/test_downloads.py` derives both from `manifest-key.pub` and `allowed_signers`. The page says that no signed
+  release is offered yet. This is the repository snapshot: nothing is public until the owner approves the early
+  publication and uploads it (pending on 2026-11-22).
 - **Download structure.** `wallet-downloads.js` has a `release` record. `tools/release_page.py RELEASE_DIR` fills the
   buttons (URL, size, SHA-256, `.sig`) and the record (version, signed `SHA256SUMS` and `.sig`) only from a directory
   that `deploy/release/verify_release.py` verifies with the committed `allowed_signers`, and records every release
@@ -161,8 +164,14 @@ does.
 - **Reward page (F-74).** `api/reward.php` and `reward.js` read `pocol-block-reward-v3` (`deploy/rewards/README.md`) and
   show its summary with neutral labels. The headline wording ("Collaboration. Rewarded." and its subtitle) and the
   new labels await the owner's S1 wording decision (`development/STATUS-EN.md`).
-- **Network summary (SITE-05).** `api/network.php` pages `pocol_getMembers` (256 a page, at most 8 pages a request, all
-  at one block, at most 10,000 members) instead of the unpaged `pocol_getMiners`.
+- **Network summary (SITE-05, 2026-11-22 review).** `api/network.php` takes the eligible-miner count from the
+  gateway's `pocol_getMemberCounts` (the ActList's counts at one block, at most 10,000 members) instead of the unpaged
+  `pocol_getMiners`. Paging `pocol_getMembers` instead would cost 5 of the gateway's shared request tokens a page
+  (80, refilled at 20 a second, shared with every explorer visitor): 222 tokens a refresh at 10,000 members, refused
+  part-way from about 4,000. A refresh is now two requests, 42 tokens, at any size, and all its requests together keep
+  to 15 s. `tests/network_budget.py` replays them through the real `Gateway.charge`. The gateway that serves
+  `pocol_getMemberCounts` must be installed before this snapshot is uploaded; with an older gateway the summary
+  answers "temporarily unavailable".
 - **Headers, 404, robots (SITE-06, SITE-07).** `pocol.net/.htaccess` sets nosniff, the referrer and permissions
   policies, `X-Frame-Options DENY` and a `'self'` CSP (`connect-src` adds `https://explorer.pocol.net`; style
   attributes are allowed for the guide's illustration), refuses directory listings and `config.php`, and serves the
@@ -171,7 +180,11 @@ does.
 - **Uploads (SITE-02).** An overwrite upload leaves stale files served. After each upload the owner lists the document
   root on the host and runs `tools/host_files.py --site SITE --listing FILE` (pocol.net, ide.pocol.net,
   studio.pocol.net): it names each file to delete, each that differs and each that is missing, and keeps host
-  configuration (`api/config.php`, `.well-known/`, `cgi-bin/`) and the `LEGACY_NATIVE` package while a page links it.
+  configuration (`api/config.php`, cPanel's `.user.ini` and `php.ini`, `error_log`, `.well-known/`, `cgi-bin/`) and
+  the `LEGACY_NATIVE` package while a page links it. A host `.htaccess` that differs is `MERGE`, never replaced: cPanel
+  writes its MultiPHP handler block and redirects there, so the owner keeps those and adds the snapshot's `.htaccess`
+  unchanged, and `--host-copy .htaccess=COPY` (a downloaded copy of the listed file) confirms that the snapshot's
+  directives are in it as one block (2026-11-22 review). Where a snapshot has no `.htaccess` the host's is kept.
   `pocol.net/README-AR.txt`, the IDE's `DEPLOY-README-AR.txt` and the Studio README give the step.
 
 A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` and `index.html` follows, as does the

@@ -150,6 +150,22 @@ async function main() {
     } else nodeFront(block, siteDir);
     await wait(async () => (await fetch(`http://127.0.0.1:${FRONT}/index.html`)).ok, 30000, `the ${MODE} front`);
     const base = `http://127.0.0.1:${FRONT}`;
+    // 2026-11-22 review: pocol.net's summary (api/network.php) sends [pocol_status, pocol_getParams, pocol_getMemberCounts]
+    // through /api/rpc.php with no Origin; the counts are the same block's ActList as a full pocol_getMembers page.
+    {
+      const r = await fetch(`http://127.0.0.1:${FRONT}/api/rpc.php`, { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify([1, 2, 3].map((id, i) => ({ jsonrpc: '2.0', id, method: ['pocol_status', 'pocol_getParams', 'pocol_getMemberCounts'][i], params: [] }))) });
+      const batch = r.status === 200 ? await r.json() : [];
+      const counts = batch.find((a) => a.id === 3)?.result;
+      const page = await rpc(EXPLORER_GW, 'pocol_getMembers', [0, 256], '/rpc');
+      const live = page.members.filter((m) => !m.tomb), eligible = live.filter((m) => m.bondState === 1 || m.bondState === 4).length;
+      const states = {}; for (const m of page.members) states[m.bondStateLabel] = (states[m.bondStateLabel] || 0) + 1;
+      ok('the summary batch with pocol_getMemberCounts passes /api/rpc.php, and its counts are the members page\'s (no registration is pending here)',
+        r.status === 200 && counts && counts.active === page.active && counts.active === page.members.length && counts.live === live.length
+        && counts.eligible === eligible && counts.tomb === page.members.length - live.length && counts.eligible >= 1
+        && Object.entries(counts.bondStates).every(([k, v]) => v === (states[k] || 0)),
+        JSON.stringify({ status: r.status, counts, page: { active: page.active, height: page.height, eligible } }));
+    }
     const relayed = await rpc(FRONT, 'eth_blockNumber', [], '/api/rpc.php');
     ok('/api/rpc.php relays a read to the explorer gateway on the devnet (no Origin: a server-side caller such as pocol.net)', /^0x[0-9a-f]+$/.test(relayed), relayed);
     // health.php compares the gateway's pocol_getParams with its configured network: HTTP 200 with networkMatch and PASS

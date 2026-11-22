@@ -106,6 +106,13 @@ The gateway also serves the explorer's membership reads, each at one head block 
   height (`lengths`, whose heldTotal bounds every bond, and `activeSlice` pages, cached per head) and at most 32 other
   records; past that bound `proposerEligible` is `null`, never guessed. It also answers for records outside the
   active list, such as `registerReplacing` victims (status 2).
+- `pocol_getMemberCounts` (no parameters, token cost 20; 2026-11-22): the ActList's counts at one head block, from
+  the same `lengths` and `activeSlice` scan that `proposerEligible` uses (cached per head, at most 40 pages):
+  `active`, `live` (not tomb), `eligible` (live and HELD or ACCRUING, the rule pocol.net's summary shows), `tomb` and
+  `bondStates` (the members in each labelled bond state), with `height` and `blockHash`. pocol.net's
+  `api/network.php` reads it once a refresh instead of paging `pocol_getMembers` through the shared budget (40 pages,
+  200 tokens, at 10,000 members). A pocol.net snapshot that reads it needs a gateway that serves it: install the
+  gateway first.
 - `pocol_getRemovable` (cost 10) and `pocol_finality` (cost 1) are forwarded to the node. `pocol_getMiners` stays for
   compatibility; the explorer bundle no longer calls it (Sites W7: it reads `pocol_getMembers` pages).
 

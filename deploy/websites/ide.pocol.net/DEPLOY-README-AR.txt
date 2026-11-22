@@ -26,7 +26,7 @@ PoCol IDE — دليل النشر على ide.pocol.net
 find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > ~/ide.pocol.net-files.txt
 ثم قارنها بهذه النسخة في نسخة من المستودع:
 python3 deploy/websites/tools/host_files.py --site ide.pocol.net --listing ide.pocol.net-files.txt
-احذف من الخادم كل ملف تذكره الأداة بعلامة DELETE، وأعد رفع كل ملف بعلامة DIFFERS أو MISSING، ثم أعد إنشاء القائمة وكرر حتى تطبع الأداة OK. ملفات الإعداد التي لا تكون في أي نسخة (api/config.php و.well-known/ وcgi-bin/) تظهر بعلامة KEEP ولا تُحذف.
+احذف من الخادم كل ملف تذكره الأداة بعلامة DELETE، وأعد رفع كل ملف بعلامة DIFFERS أو MISSING، ثم أعد إنشاء القائمة وكرر حتى تطبع الأداة OK. ملفات الإعداد التي لا تكون في أي نسخة (api/config.php و.user.ini وphp.ini وerror_log و.well-known/ وcgi-bin/، وملف .htaccess الخاص بالخادم لأن هذه النسخة لا تتضمن ملف .htaccess) تظهر بعلامة KEEP ولا تُحذف.
 
 3. التحقق بعد الرفع
 

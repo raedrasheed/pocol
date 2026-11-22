@@ -253,6 +253,19 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(status, 400)
         status, _ = self.call('POST', '/rpc', '{}', {'Content-Type': 'application/json'}); self.assertEqual(status, 404)
 
+    def test_a_budget_refusal_exposes_retry_after_to_a_cross_origin_page(self):
+        # Studio (https://studio.pocol.net) posts to https://explorer.pocol.net/studio/rpc; a browser lets the page read
+        # Retry-After only when Access-Control-Expose-Headers names it (model.js capsPrecheck honours it, capped at 3 s).
+        self.gateway.charge = lambda *args, **kwargs: False
+        conn = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=3)
+        conn.request('POST', '/studio/rpc', json.dumps(request()), {'Content-Type': 'application/json', 'Origin': 'https://studio.pocol.net'})
+        response = conn.getresponse(); response.read(); conn.close()
+        self.assertEqual(response.status, 429)
+        self.assertEqual(response.getheader('Retry-After'), '2')
+        self.assertEqual(response.getheader('Access-Control-Allow-Origin'), '*')
+        exposed = [h.strip().lower() for h in (response.getheader('Access-Control-Expose-Headers') or '').split(',')]
+        self.assertIn('retry-after', exposed)
+
     def test_size_content_type_and_bad_json(self):
         status, _ = self.call('POST', '/studio/rpc', 'x'*(g.MAX_REQUEST+1), {'Content-Type': 'application/json'}); self.assertEqual(status, 413)
         status, _ = self.call('POST', '/studio/rpc', '{}'); self.assertEqual(status, 415)

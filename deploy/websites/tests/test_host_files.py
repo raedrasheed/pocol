@@ -2,7 +2,9 @@
 """deploy/websites/tools/host_files.py (SITE-02): a host listing is compared with a site's snapshot. A file the
 snapshot no longer has (the retired network's invitation and extension package) is to delete, a changed file differs,
 a snapshot file the host lacks is missing (a kept-out release file is named as such), and host configuration
-(api/config.php, .well-known/, cgi-bin/) is kept. Synthetic listings only; no host is contacted."""
+(api/config.php, cPanel's .user.ini and php.ini, error_log, .well-known/, cgi-bin/) is kept. A host .htaccess that
+differs is to merge, not to replace (cPanel writes its PHP handler there), and is kept once a copy of it holds the
+snapshot's directives unchanged. Synthetic listings only; no host is contacted."""
 import contextlib, hashlib, io, sys, tempfile, unittest
 from pathlib import Path
 
@@ -33,7 +35,7 @@ class HostFiles(unittest.TestCase):
             with self.subTest(site=site):
                 rc, out, err = self.run_main(site, text(listing_of(site), star=site == 'ide.pocol.net'))
                 self.assertEqual(rc, 0, out + err)
-                self.assertIn(f'OK {site}: delete 0, differs 0, missing 0', out)
+                self.assertIn(f'OK {site}: delete 0, differs 0, merge 0, missing 0', out)
 
     def test_retired_files_left_by_an_overwrite_upload_are_to_delete(self):
         listing = listing_of('pocol.net')
@@ -53,7 +55,7 @@ class HostFiles(unittest.TestCase):
                                                        'downloads/PoCol-Mainnet-0.4.0-Linux.zip': '7' * 64}))
         self.assertIn('KEEP     downloads/PoCol-Mainnet-0.4.0-Windows.zip', legacy)
         self.assertIn('DELETE   downloads/PoCol-Mainnet-0.4.0-Linux.zip', legacy)
-        self.assertIn('delete 4, differs 0, missing 0, keep 2', out)
+        self.assertIn('delete 4, differs 0, merge 0, missing 0, keep 2', out)
         rc, out, _ = self.run_main('pocol.net', text({**listing, 'notes.txt': '4' * 64}), '--keep', 'notes.txt')
         self.assertEqual(rc, 0, out)
 
@@ -86,6 +88,72 @@ class HostFiles(unittest.TestCase):
             (base / 'extra.js').write_bytes(b'1')
             with self.assertRaises(hf.Refused):
                 hf.expected('pocol.net', tmp)
+
+    def test_cpanel_php_settings_and_error_logs_are_kept(self):
+        # 2026-11-22 review: cPanel's MultiPHP INI Editor writes .user.ini or php.ini, and PHP writes error_log, into the
+        # document root (and api/); deleting them would drop the host's PHP settings.
+        listing = listing_of('pocol.net')
+        host = {'.user.ini': '1' * 64, 'php.ini': '2' * 64, 'error_log': '3' * 64, 'api/error_log': '4' * 64,
+                'api/.user.ini': '5' * 64, 'api/config.php': '6' * 64}
+        rc, out, _ = self.run_main('pocol.net', text({**listing, **host}))
+        self.assertEqual(rc, 0, out)
+        for path in host:
+            self.assertIn(f'KEEP     {path}  (host configuration, not in a snapshot)', out)
+        # Only those names: a file that merely contains them is still to delete.
+        rc, out, _ = self.run_main('pocol.net', text({**listing, 'php.ini.bak': '7' * 64, 'old_error_log.txt': '8' * 64}))
+        self.assertEqual(rc, 1)
+        self.assertIn('DELETE   php.ini.bak', out)
+        self.assertIn('DELETE   old_error_log.txt', out)
+
+    def test_a_differing_htaccess_is_merged_not_replaced(self):
+        snapshot = (hf.SITES['pocol.net'] / '.htaccess').read_bytes()
+        cpanel = (b'# php -- BEGIN cPanel-generated handler, do not edit\n'
+                  b'<IfModule mime_module>\n  AddHandler application/x-httpd-ea-php82 .php .php8 .phtml\n</IfModule>\n'
+                  b'# php -- END cPanel-generated handler, do not edit\n')
+        host = cpanel + b'\n' + snapshot
+        listing = dict(listing_of('pocol.net'), **{'.htaccess': hashlib.sha256(host).hexdigest()})
+        rc, out, _ = self.run_main('pocol.net', text(listing))
+        self.assertEqual(rc, 1)
+        self.assertIn('MERGE    .htaccess  (host ', out)
+        self.assertIn("keep its cPanel-generated block and any redirect, add the snapshot's .htaccess unchanged", out)
+        self.assertNotIn('DIFFERS  .htaccess', out)
+        self.assertIn('merge 1,', out)
+        with tempfile.TemporaryDirectory() as tmp:
+            copy = Path(tmp) / 'host.htaccess'
+            copy.write_bytes(host)
+            rc, out, _ = self.run_main('pocol.net', text(listing), '--host-copy', f'.htaccess={copy}')
+            self.assertEqual(rc, 0, out)
+            self.assertIn("KEEP     .htaccess  (merged: the host's own directives and the snapshot's, unchanged)", out)
+            # The snapshot's directives before the host's, with a comment of the owner's among them, are merged as well.
+            later = snapshot.replace(b'Options -Indexes', b'# kept by the owner\nOptions -Indexes') + b'\n' + cpanel
+            copy.write_bytes(later)
+            rc, out, _ = self.run_main('pocol.net', text(dict(listing, **{'.htaccess': hashlib.sha256(later).hexdigest()})),
+                                       '--host-copy', f'.htaccess={copy}')
+            self.assertEqual(rc, 0, out)
+            # A copy that is not the listed file, or that lacks, changes or splits a snapshot directive, is still to merge.
+            copy.write_bytes(host + b'# edited after the listing\n')
+            rc, out, _ = self.run_main('pocol.net', text(listing), '--host-copy', f'.htaccess={copy}')
+            self.assertEqual(rc, 1)
+            self.assertIn('MERGE    .htaccess  (the --host-copy file is not the listed host file)', out)
+            for bad in (cpanel + snapshot.replace(b'  Header always set X-Frame-Options "DENY"\n', b''),
+                        cpanel + snapshot.replace(b'Options -Indexes', b'Options +Indexes'),
+                        cpanel + snapshot.replace(b'ErrorDocument 404 /404.html\n', b'') + b'ErrorDocument 404 /404.html\n'):
+                self.assertNotEqual(bad, cpanel + snapshot)
+                copy.write_bytes(bad)
+                rc, out, _ = self.run_main('pocol.net', text(dict(listing, **{'.htaccess': hashlib.sha256(bad).hexdigest()})),
+                                           '--host-copy', f'.htaccess={copy}')
+                self.assertEqual(rc, 1, out)
+                self.assertIn("does not hold the snapshot's directives as one unchanged block", out)
+            # A copy of a file the listing does not have is refused.
+            rc, _, err = self.run_main('pocol.net', text(listing), '--host-copy', f'api/.htaccess={copy}')
+            self.assertEqual(rc, 2)
+            self.assertIn('the listing has no such file', err)
+        # Where the snapshot has no .htaccess (ide.pocol.net), the host's own is kept, not deleted.
+        _, out, _ = self.run_main('ide.pocol.net', text(dict(listing_of('ide.pocol.net'), **{'.htaccess': '9' * 64})))
+        self.assertIn("KEEP     .htaccess  (the host's .htaccess; the snapshot has none here", out)
+        # Any other file that differs is still uploaded again.
+        rc, out, _ = self.run_main('pocol.net', text(dict(listing_of('pocol.net'), **{'robots.txt': '0' * 64})))
+        self.assertIn('DIFFERS  robots.txt', out)
 
     def test_malformed_listings_are_refused(self):
         good = 'a' * 64
