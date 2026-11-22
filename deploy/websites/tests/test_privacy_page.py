@@ -63,7 +63,9 @@ class PrivacyPage(unittest.TestCase):
         self.assertIn(MAIN / 'privacy.html', pages)
         for page in pages:
             footer = re.search(r'<footer.*?</footer>', page.read_text(encoding='utf-8'), re.S).group(0)
-            self.assertRegex(footer, r'<a href="privacy\.html\?v=[0-9a-f]{12}" data-i18n="privacyLink">Privacy policy</a>', page.name)
+            # 404.html is served for any missing path, so its links are root-absolute (/privacy.html).
+            prefix = '/' if page.name == '404.html' else ''
+            self.assertRegex(footer, rf'<a href="{prefix}privacy\.html\?v=[0-9a-f]{{12}}" data-i18n="privacyLink">Privacy policy</a>', page.name)
         text = (MAIN / 'locales.js').read_text(encoding='utf-8')
         locales = json.loads(text[len('window.POCOL_LOCALES = '):].rstrip().rstrip(';'))
         self.assertEqual(locales['en']['privacyLink'], 'Privacy policy')
@@ -104,6 +106,17 @@ class PolicyMatchesTheCode(unittest.TestCase):
         css = ''.join(p.read_text(encoding='utf-8') for p in (ROOT / 'deploy/websites/explorer.pocol.net/assets').glob('*.css'))
         self.assertIn('fonts.googleapis.com', css)
         self.assertIn('fonts.googleapis.com', json.dumps(translations()['en']))
+
+    def test_the_limited_use_statement_is_published(self):
+        # Chrome Web Store User Data Policy, Limited Use: "An affirmative statement that your use of the data complies
+        # with the Limited Use restrictions must be disclosed on a website belonging to your extension" (CWS memo, 4).
+        t = translations()
+        en = [i for s in t['en']['sections'] for i in s['items'] if 'Limited Use' in i]
+        ar = [i for s in t['ar']['sections'] for i in s['items'] if 'Limited Use' in i]
+        self.assertEqual((len(en), len(ar)), (1, 1))
+        self.assertIn('adheres to the Chrome Web Store User Data Policy, including the Limited Use requirements', en[0])
+        self.assertIn('Chrome Web Store User Data Policy', ar[0])
+        self.assertIn('never uses or transfers it for advertising, for creditworthiness or lending', en[0])
 
     def test_no_pocol_site_sets_a_cookie(self):
         for base in ('deploy/websites', 'prototypes/pocol-studio/dist', 'prototypes/pocol-extension/src'):
