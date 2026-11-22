@@ -264,6 +264,16 @@ class ExtensionPackage(unittest.TestCase):
                 if EXTENSION_PACKAGE.fullmatch(name.split('/', 1)[1]):
                     self.assertEqual(name.split('/', 1)[1], allowed, f'{key} keeps out {name}')
 
+    def test_the_sites_readme_describes_no_extension_download_that_no_site_offers(self):
+        # deploy/websites/README.md is not served; its "Site truth" paragraph once said "The 0.5.0 download links and
+        # names ... change with the signed release" after the 0.5.0 links were withdrawn. A version it calls a download
+        # link must be one a served file still names.
+        offered = {m.group(1) for _, _, text in self.served()
+                   for m in re.finditer(r'PoCol-Studio-IDE-Viewer-([0-9]+\.[0-9]+\.[0-9]+)\.zip', text)}
+        readme = ' '.join((WEB / 'README.md').read_text(encoding='utf-8').split())
+        described = set(re.findall(r'\b([0-9]+\.[0-9]+\.[0-9]+) download links?\b', readme))
+        self.assertLessEqual(described, offered, 'deploy/websites/README.md describes extension download links no site has')
+
     def test_the_published_extension_id_and_key_fingerprint_are_the_repositorys(self):
         # The id: the first 128 bits of sha256 of the manifest key's DER, as build.mjs extensionId and
         # package-release.py --extension-id derive it.

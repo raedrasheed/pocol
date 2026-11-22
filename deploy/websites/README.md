@@ -103,7 +103,7 @@ Sites W14 (site texts) is `tools/w14-text-edits.json`, applied once with `--edit
 no activation setting", every in-place extension update (replace the files in the same folder, Reload) by README-IDE.md's
 order without version numbers (export the wallet, Remove the old version, verify the signature, Load unpacked, compare
 the extension ID with pocol.net, import the wallet), DEPLOY-README-AR.txt sections 2 and 4 are rewritten for a fresh
-network, and the IDE's download button names the package it links (0.4.1, it said 0.4.0). Step 7 of the mainnet runbook moved that button and its link to 0.5.0 with the identity switch, recorded as the anchored edits `tools/step7-release-edits.json` on top of W14's (the W14 test undoes and redoes both). `--check` also refuses an
+network, and the IDE's download button names the package it links (0.4.1, it said 0.4.0). Step 7 of the mainnet runbook moved that button and its link to 0.5.0 with the identity switch, recorded as the anchored edits `tools/step7-release-edits.json` on top of W14's (the W14 test undoes and redoes both); `tools/release-pending-edits.json` then replaced that link with `pocol.net/chrome-extension.html#verify-release` (SITE-01, below). `--check` also refuses an
 extension version label that is not package.json's (a capability message "X or later" is exempt) and a native package
 name that is not `deploy/release/assemble_release.py`'s at `deploy/standalone/package.py`'s version; the retired
 `PoCol-Mainnet-0.4.0-Windows.zip` that the pages link, labelled as the retired network's, until the signed release (W16)
@@ -129,8 +129,9 @@ refuses the old experimental-admission text, a fixed readiness value and a launc
 served files and in the clients' user interface sources. The Studio note and the extension's Options page also call
 PoCol Mainnet the public network. The retired
 network's upgrade, migration and Android-update texts are replaced: nothing carries over to the new network. The
-static source lists are the guide's, and the README, V3 program and CP links pin main at `4db2652`. The 0.5.0
-download links and names and the IDE's "0.4.0 or later" messages change with the signed release (W16); the extension
+static source lists are the guide's, and the README, V3 program and CP links pin main at `4db2652`. No site links
+or names an extension package before the signed release (SITE-01, below); the IDE's "0.4.0 or later" messages change
+with the signed release (W16); the extension
 ID and the release key fingerprint are in the snapshot (2026-11-22, below); they are public once the owner approves
 their early publication and uploads it. Since step 7
 pocol.net publishes the extension ID and the release key fingerprint users compare (the extension guide,
