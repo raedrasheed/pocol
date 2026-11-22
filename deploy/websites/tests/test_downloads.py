@@ -13,7 +13,8 @@ prototypes/pocol-studio/dist, explorer.pocol.net) while no signed PoCol Mainnet 
   extension zip link or listed digest until the signed release). Step 7 listed and linked an unsigned 0.5.0 zip: a
   digest of an unsigned build, which goes stale with any change to the extension and was not a signed release. CI
   (full-nonce-upgrade.yml) packages the extension twice and requires the same bytes, and refuses a listed extension
-  line that is not that build's."""
+  line that is not that build's. No text tells a user to download an extension package now or says one ships with a
+  site copy (the home page's install step says when one is offered, as the guide does)."""
 import hashlib, html, json, re, sys, unittest
 from pathlib import Path
 
@@ -158,6 +159,26 @@ class ExtensionPackage(unittest.TestCase):
             for path, text in served_text(site):
                 self.assertEqual(sorted(set(EXTENSION_PACKAGE.findall(text))), [],
                                  f'{path.relative_to(ROOT)} names an extension package before the signed release')
+
+    # Texts that tell a user to download, or say a copy ships with, an extension package that no site offers before the
+    # signed release (the home page's Studio and IDE help, the IDE's deploy guide), in English and Arabic.
+    DOWNLOAD_NOW = ('Download and extract the ZIP', 'extract the ZIP', 'The download includes',
+                    'نزّل ZIP', 'فك ضغط ZIP', 'يتضمن التنزيل', 'المرفقة مع هذه النسخة')
+
+    def test_no_text_offers_an_extension_package_before_the_signed_release(self):
+        for name, site in SITES.items():
+            for path, text in served_text(site):
+                for phrase in self.DOWNLOAD_NOW:
+                    self.assertNotIn(phrase, text, f'{path.relative_to(ROOT)}: {phrase}')
+        # The home page's install step says when a package is offered, as the guide's install bullet does.
+        locales = (MAIN / 'about-locales.js').read_text(encoding='utf-8')
+        extra = json.JSONDecoder().raw_decode(locales, locales.index('const extra = ') + len('const extra = '))[0]
+        self.assertIn('until then pocol.net offers no extension package', extra['en']['studioStep1Body'])
+        self.assertIn('لا يعرض pocol.net أي حزمة للإضافة قبل ذلك', extra['ar']['studioStep1Body'])
+        self.assertIn(f'data-i18n="studioStep1Body">{html.escape(extra["en"]["studioStep1Body"], quote=False)}</p>',
+                      (MAIN / 'index.html').read_text(encoding='utf-8'))
+        readme = (IDE / 'DEPLOY-README-AR.txt').read_text(encoding='utf-8')
+        self.assertIn('المسار الأساسي هو إضافة PoCol التي تُنشر مع الإصدار الموقّع، ولا ترافق هذه النسخة.', readme)
 
     def test_no_site_lists_an_extension_package_digest(self):
         for name, site in SITES.items():

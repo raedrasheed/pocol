@@ -3,9 +3,10 @@
 This release targets `studio.pocol.net` with the matching PoCol Studio & Viewer extension 0.5.0 and the
 `explorer.pocol.net/studio/rpc` relay. It is the release of the step-7 identity switch: the Studio web app
 (`dist/app.js`) names PoCol Mainnet (the identity in the repository's root README), live since its genesis time
-2026-11-21 20:20:56 UTC, in its network details and links the 0.5.0 extension package; the extension checks the
-network identity against its built-in profile before it signs. Its version follows the extension's (0.5.0) instead of
-the earlier 0.1.x numbering.
+2026-11-21 20:20:56 UTC, in its network details; its install dialog links pocol.net's extension release and
+verification page (`chrome-extension.html#install`) and no extension package before the signed release. The
+extension checks the network identity against its built-in profile before it signs. Its version follows the
+extension's (0.5.0) instead of the earlier 0.1.x numbering.
 
 ## Verified locally
 

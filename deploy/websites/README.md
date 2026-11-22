@@ -131,7 +131,10 @@ extension guide, Studio's install dialog, the IDE and `DEPLOY-README-AR.txt`: th
 goes stale with any change to the extension and is not a signed release. Those lines and files were withdrawn
 (`--drop-download`, `keptOut` is empty), and the links now open the extension guide's install section
 (`chrome-extension.html#install`, which publishes the extension ID and the release key fingerprint); the IDE's button
-is the anchored edit `tools/release-pending-edits.json`, applied after step 7's. The home page's "MAINNET EDITION"
+is the anchored edit `tools/release-pending-edits.json`, applied after step 7's, and `DEPLOY-README-AR.txt` section 4,
+which still said the extension ships with the IDE copy, is `tools/release-pending-text-edits.json`, applied after that.
+The home page's install steps say the package comes with the signed release, and Studio's release builder no longer
+copies the zip into `dist/downloads` or the cPanel ZIP (`prototypes/pocol-studio/tests/build-release.test.mjs`). The home page's "MAINNET EDITION"
 buttons (`wallet-downloads.js`) show "No release available", and the tools page and the guide no longer offer the
 retired network's 0.4.0 Windows and Linux packages as PoCol Mainnet applications, the retired network's invitation
 (`downloads/network.pocol.json`, removed 2026-11-13) or `downloads/PoCol-Apps-README.txt` (never in the snapshot).

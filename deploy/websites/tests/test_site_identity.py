@@ -77,6 +77,9 @@ EXT_VERSION = json.loads((ROOT / si.EXTENSION_PACKAGE).read_text(encoding='utf-8
 NATIVE_VERSION = si.release.native_version(ROOT)
 
 RELEASE_PENDING = 'deploy/websites/tools/release-pending-edits.json'
+# DEPLOY-README-AR.txt section 4 said the extension ships with the IDE copy ("المرفقة مع هذه النسخة") while downloads/
+# holds none before the signed release; the anchored edit, applied after RELEASE_PENDING, says it is published with it.
+RELEASE_PENDING_TEXT = 'deploy/websites/tools/release-pending-text-edits.json'
 
 def undo(text, edits_path, key):
     """The text of BUNDLES key (or file) `key` before the anchored edits of edits_path, undone in reverse."""
@@ -810,8 +813,12 @@ class SiteIdentity(unittest.TestCase):
     def test_the_w14_edits_reproduce_the_served_files(self):
         # Sites W14's site texts are anchored edits (tools/w14-text-edits.json): undone in reverse on a copy, the tool's
         # own --edits run gives back every served file byte for byte, with the IDE bundle's name and the derived files.
-        # The SITE-01 edits (tools/release-pending-edits.json) came after W14, so they are undone first and redone last.
+        # The SITE-01 edits (tools/release-pending-edits.json) and the deploy guide's (tools/release-pending-text-edits.json)
+        # came after W14, so they are undone first, in reverse, and redone last, in order.
         root = self.copy()
+        self.assertEqual(self.run_tool(root, '--edits', str(self.undo_file(root, RELEASE_PENDING_TEXT))), 0, self.last_errors)
+        self.assertIn('المسار الأساسي هو إضافة PoCol المرفقة مع هذه النسخة.',
+                      (root / si.IDE / 'DEPLOY-README-AR.txt').read_text(encoding='utf-8'))
         self.assertEqual(self.run_tool(root, '--edits', str(self.undo_file(root, RELEASE_PENDING))), 0, self.last_errors)
         after_w14 = snapshot(root)
         edits = json.loads((ROOT / 'deploy/websites/tools/w14-text-edits.json').read_text(encoding='utf-8'))
@@ -837,6 +844,8 @@ class SiteIdentity(unittest.TestCase):
         both.unlink()
         self.assertEqual(snapshot(root), after_w14)
         self.assertEqual(self.run_tool(root, '--edits', str(ROOT / RELEASE_PENDING)), 0, self.last_errors)
+        self.assertNotEqual(snapshot(root), snapshot(ROOT))
+        self.assertEqual(self.run_tool(root, '--edits', str(ROOT / RELEASE_PENDING_TEXT)), 0, self.last_errors)
         self.assertEqual(snapshot(root), snapshot(ROOT))
 
     def test_the_release_pending_edits_reproduce_the_served_ide_bundle(self):

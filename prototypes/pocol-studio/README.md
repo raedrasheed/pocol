@@ -24,8 +24,13 @@ python3 prototypes/pocol-studio/scripts/build-release.py --output-dir /tmp/pocol
 
 The builder creates the Chrome ZIP, cPanel ZIP, checksum-verified gateway
 installer, gateway source ZIP, `release-manifest.json` and `SHA256SUMS.txt`.
-It also refreshes the editor's `dist/downloads/PoCol-Studio-IDE-Viewer-<version>.zip` from the
-matching extension build. Generated ZIPs are release artifacts, not source.
+Generated ZIPs are release artifacts, not source. Until the signed release
+(owner policy 2026-11-22: no extension package link or listed digest before it),
+the Chrome ZIP is only an artifact for signing: the builder does not copy it into
+`dist/downloads` or the cPanel ZIP, refuses a `dist/` that holds an extension
+package, and requires Studio's install dialog (`dist/app.js`) to link
+`https://pocol.net/chrome-extension.html#install` and no package
+(`tests/build-release.test.mjs`).
 An optional `--guide /path/to/quick-start.txt` adds the Arabic quick-start.
 For separate checkouts, pass `--studio-dir`, `--extension-dir` and
 `--gateway-dir` explicitly. ZIP metadata is fixed for reproducible output.
