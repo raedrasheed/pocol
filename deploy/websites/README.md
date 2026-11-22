@@ -87,6 +87,7 @@ python3 -B deploy/websites/tools/site_identity.py --check            # what CI r
 python3 -B deploy/websites/tools/site_identity.py --to NEW.json --gateway-host HOST --commit SHA   # the switch (W15, W16)
 python3 -B deploy/websites/tools/site_identity.py --edits EDITS.json  # anchored bundle edits (W7, W14)
 python3 -B deploy/websites/tools/site_identity.py --download deploy/websites/pocol.net/downloads/NAME=SHA256   # a kept-out line
+python3 -B deploy/websites/tools/site_identity.py --drop-download deploy/websites/pocol.net/downloads/NAME     # withdraw one
 ```
 
 Sites W7 (the explorer's v3 membership, light refresh and Registry decoding) is `tools/explorer-w7-edits.json`, applied
@@ -105,12 +106,15 @@ the extension ID with pocol.net, import the wallet), DEPLOY-README-AR.txt sectio
 network, and the IDE's download button names the package it links (0.4.1, it said 0.4.0). Step 7 of the mainnet runbook moved that button and its link to 0.5.0 with the identity switch, recorded as the anchored edits `tools/step7-release-edits.json` on top of W14's (the W14 test undoes and redoes both). `--check` also refuses an
 extension version label that is not package.json's (a capability message "X or later" is exempt) and a native package
 name that is not `deploy/release/assemble_release.py`'s at `deploy/standalone/package.py`'s version; the retired
-`PoCol-Mainnet-0.4.0-Windows.zip` and `-Linux.zip` that the pages link until the signed release (W16) are exempt while a
-page still names them. `--download PATH=SHA256` (repeatable) writes the `SHA256SUMS.txt` line of a release file kept
+`PoCol-Mainnet-0.4.0-Windows.zip` that the pages link, labelled as the retired network's, until the signed release (W16)
+is exempt while a page still names it (`LEGACY_NATIVE`; the retired `-Linux.zip` left it with its last link on
+2026-11-22). `--download PATH=SHA256` (repeatable) writes the `SHA256SUMS.txt` line of a release file kept
 out of Git (an archive, its `.sig` or `.sha256`), adds its name to the site's `keptOut` list in `site-identity.json`
 and drops the kept-out lines (and names) of other versions of the same archive family and their unversioned copies; a
 tracked file it supersedes must be removed first. Only the lines `keptOut` names are carried for files that are not in
 the snapshot, so a tracked file that is deleted (a `.sha256`) loses its line and `--check` fails until a run drops it.
+`--drop-download PATH` (repeatable) withdraws a kept-out file: its `keptOut` name and its `SHA256SUMS.txt` line go, and
+the copy on the host is then deleted.
 
 Site truth (owner decision 4, 2026-11-18: no text states anything untrue or presents the public launch as prevented or
 conditional). The explorer bundle's installer step names `deploy/explorer/install_explorer_gateway.py --site DIR` and
@@ -151,7 +155,19 @@ does.
   `PoCol-Studio-Chrome.zip` and the two tracked `.sha256` files left `SHA256SUMS.txt` and `keptOut` through
   `site_identity.py --drop-download`, so they are files to delete from the hosts. `tests/test_downloads.py` refuses any
   extension package name other than the signed release's (`assemble_release.py`, none before the switch) recorded as a
-  kept-out download.
+  kept-out download. Step 7 had also listed an unsigned 0.5.0 extension zip in both sites' `SHA256SUMS.txt`, `keptOut`
+  and tracked `.sha256` files and linked it: the digest of an unsigned build, which goes stale with any change to the
+  extension and is not a signed release. Those lines and files were withdrawn when step 7 was merged here, and until
+  `tools/release_page.py` records a signed release no site lists an extension package digest
+  (`tests/test_downloads.py`). `DEPLOY-README-AR.txt` section 4, which still said the extension ships with the IDE copy,
+  is the anchored edit `tools/release-pending-text-edits.json`, applied after `release-pending-edits.json` (the W14
+  reproduction test undoes and redoes both). The home page's install steps say the package comes with the signed
+  release, and no site text tells a user to download an extension package now. Studio's release builder no longer
+  copies the zip into `dist/downloads` or the cPanel ZIP, and refuses a `dist/app.js` that links an extension package
+  or a `dist/` that holds one (`prototypes/pocol-studio/tests/build-release.test.mjs`). CI (`full-nonce-upgrade.yml`)
+  packages the extension twice, requires the same bytes, and refuses a listed extension package line that is not this
+  build's. `tests/test_downloads.py` also checks every site's `downloads/` links (pocol.net, the IDE, Studio's `dist/`
+  and the explorer) and that no site file names the content version of a retired network's invitation.
 - **Extension ID and release key (SITE-03).** The extension page (section `verify-release`) and the guide's
   extension topic carry, in English and Arabic, the extension ID `gggcoflmedlhlkcdhebmoepmggdnafmp` and the release
   key fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` with `deploy/release/README.md`'s user

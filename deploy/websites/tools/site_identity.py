@@ -49,8 +49,8 @@ copy such as `PoCol-Studio-Chrome.zip`). A file of the snapshot that it supersed
 until it is removed, and a PATH that is in the snapshot is refused (its line is its own digest).
 
 --drop-download PATH (repeatable) withdraws a kept-out file that the site no longer serves (2026-11-22: the retired
-network's extension package): its name leaves keptOut and its SHA256SUMS.txt line goes, so the file is one to delete
-from the host. A PATH that keptOut does not name, or that a --download of the same run gives, is refused.
+network's extension package, and the unsigned 0.5.0 extension package step 7 listed): its name leaves keptOut and its
+SHA256SUMS.txt line goes, so the file is one to delete from the host. A PATH that keptOut does not name, or that a --download of the same run gives, is refused.
 
 --check also refuses: any retired identity (deploy/mainnet/retired-networks.json) other than the declared one, so the
 check turns on by itself once the snapshots pin a network that is not retired (a retired identity on the declared chain

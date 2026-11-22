@@ -3,6 +3,11 @@
 
 Run the extension build and component tests first. This script does not install
 dependencies, sign transactions, deploy services, or upload anything.
+
+Before the signed release (owner policy 2026-11-22: no extension package link or listed digest until then), the
+Chrome ZIP is a release artifact for the owner to sign, not a Studio download: it is not copied into dist/downloads
+nor into the cPanel ZIP, and Studio's install dialog (dist/app.js) must link pocol.net's release verification
+(RELEASE_PAGE) and name no extension package.
 """
 import argparse
 import hashlib
@@ -17,6 +22,23 @@ import zipfile
 
 def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+# An extension package name (the versioned release ZIP or the old unversioned one), like the one
+# deploy/websites/tests/test_downloads.py refuses on every site.
+EXTENSION_PACKAGE = re.compile(r'PoCol-Studio-(?:IDE-Viewer-[^"\'<>\s/]+?|Chrome)\.zip')
+RELEASE_PAGE = 'https://pocol.net/chrome-extension.html#verify-release'
+
+
+def check_install_dialog(app_js):
+    """Studio's install dialog links pocol.net's release verification, and no extension package, before the signed
+    release; raises ValueError otherwise."""
+    packages = sorted(set(EXTENSION_PACKAGE.findall(app_js)))
+    if packages:
+        raise ValueError(f'dist/app.js names the extension package(s) {packages}: no extension package is linked '
+                         'before the signed release; link ' + RELEASE_PAGE + ' instead.')
+    if RELEASE_PAGE not in app_js:
+        raise ValueError(f'dist/app.js does not link {RELEASE_PAGE} (the extension release and verification).')
 
 
 def files_under(root):
@@ -78,27 +100,26 @@ def main():
     version = json.loads((extension / 'package.json').read_text())['version']
     if manifest.get('version') != version:
         raise ValueError('Extension build is stale: package and manifest versions differ.')
-    # Studio's install dialog downloads the extension package this release ships, and only that one.
-    links = set(re.findall(r'downloads/PoCol-Studio-IDE-Viewer-[^"\'<>\s]+?\.zip', (dist / 'app.js').read_text(encoding='utf-8')))
-    if links != {f'downloads/PoCol-Studio-IDE-Viewer-{version}.zip'}:
-        raise ValueError(f'dist/app.js links the extension as {sorted(links)}, not version {version}: '
-                         'update the link and the app.js?v= content version in dist/index.html.')
+    # Studio's install dialog links the release verification page, not a package (owner policy 2026-11-22).
+    check_install_dialog((dist / 'app.js').read_text(encoding='utf-8'))
+    # dist/ is uploaded as it is (README.md), so a package an older builder copied into dist/downloads would be served.
+    stale = sorted(p.relative_to(dist).as_posix() for p in files_under(dist)
+                   if p.relative_to(dist).parts[0] == 'downloads' and EXTENSION_PACKAGE.search(p.name))
+    if stale:
+        raise ValueError(f'dist/ holds the extension package(s) {stale}: delete them; no extension package is served '
+                         'before the signed release.')
     subprocess.run([sys.executable, str(gateway / 'build_installer.py')], check=True)
     output.mkdir(parents=True, exist_ok=True)
 
     chrome_zip = output / f'PoCol-Studio-IDE-Viewer-{version}.zip'
     extension_inputs = files_under(extension_dist)
+    # The Chrome ZIP is a release artifact for signing only; the Studio web package carries no downloads/.
     subprocess.run([sys.executable, str(extension / 'scripts/package-release.py'), str(chrome_zip)], check=True)
-    downloads = dist / 'downloads'
-    downloads.mkdir(exist_ok=True)
-    shutil.copyfile(chrome_zip, downloads / chrome_zip.name)
 
     web_inputs = []
     for path in files_under(dist):
         rel = path.relative_to(dist)
-        if '.openai' in rel.parts:
-            continue
-        if rel.parts[0] == 'downloads' and rel.as_posix() != 'downloads/' + chrome_zip.name:
+        if '.openai' in rel.parts or rel.parts[0] == 'downloads':
             continue
         web_inputs.append((rel.as_posix(), path))
     write_zip(output / 'PoCol-Studio-cPanel.zip', web_inputs)
@@ -125,10 +146,7 @@ def main():
         guide_name = 'PoCol-Studio-Quick-Start-AR.txt'
         shutil.copyfile(guide, output / guide_name)
         artifact_names.append(guide_name)
-    sources = {
-        'studio/' + name: sha256(path) for name, path in web_inputs
-        if not name.startswith('downloads/')
-    }
+    sources = {'studio/' + name: sha256(path) for name, path in web_inputs}
     sources.update({'extension/' + p.relative_to(extension_dist).as_posix(): sha256(p)
                     for p in extension_inputs})
     sources.update({'gateway/' + name: sha256(gateway / name) for name in gateway_names})

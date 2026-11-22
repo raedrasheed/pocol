@@ -8,7 +8,7 @@ PoCol Studio — دليل التفعيل الأول
 افتح cPanel > Domains > Create A New Domain.
 اكتب studio.pocol.net، وألغِ Share document root، وحدد مجلدًا مستقلاً.
 في File Manager افتح جذر هذا النطاق وارفع PoCol-Studio-cPanel.zip ثم اختر Extract.
-يجب أن يظهر index.html مباشرة في جذر النطاق، ومعه app.js وstudio.css ومجلد downloads.
+يجب أن يظهر index.html مباشرة في جذر النطاق، ومعه app.js وstudio.css. لا تتضمن الحزمة مجلد downloads ولا حزمة للإضافة قبل الإصدار الموقّع.
 الحزمة تتضمن .htaccess؛ فعّل إظهار الملفات المخفية في File Manager للتحقق من وجوده.
 فعّل شهادة HTTPS/AutoSSL ثم افتح https://studio.pocol.net.
 إن كانت إدارة DNS خارج cPanel، أضف studio إلى عنوان خادم cPanel المعتمد لديك.

@@ -1,37 +1,68 @@
 #!/usr/bin/env python3
-"""pocol.net's download links (2026-11-22). No PoCol Mainnet native package is released before
-the signed release (W16), so:
-- every link to pocol.net's downloads/ names a file the snapshot holds, one that site-identity.json keeps out of Git
-  (its SHA256SUMS.txt line is kept), or a retired package that site_identity.py's LEGACY_NATIVE exempts. The removed
-  invitation (downloads/network.pocol.json, the retired network's, removed 2026-11-13) and PoCol-Apps-README.txt (never
-  in the snapshot) are linked nowhere;
+"""The websites' download links and listed downloads (pocol.net, ide.pocol.net, studio.pocol.net's
+prototypes/pocol-studio/dist, explorer.pocol.net; 2026-11-22). No PoCol Mainnet native package is released before the
+signed release (W16), so:
+- no site file names the content version (the first 12 hex digits of the SHA-256, the `?v=` value site_identity.py
+  writes) of an invitation of a retired network;
+- every downloads/ link of a site names a file that site's snapshot holds, one that site-identity.json keeps out of Git
+  (its SHA256SUMS.txt line is kept), or, on pocol.net, a retired package that site_identity.py's LEGACY_NATIVE exempts.
+  The removed invitation (downloads/network.pocol.json, the retired network's, removed 2026-11-13),
+  PoCol-Apps-README.txt (never in the snapshot) and the retired Linux package are linked nowhere;
 - the home page's "MAINNET EDITION" buttons (wallet-downloads.js) offer no package, so they show "No release available";
 - a retired package is only ever linked with a label that says it is the retired network's, in English and Arabic;
-- no site (pocol.net, ide.pocol.net, studio.pocol.net) names an extension package before its signed release: the
-  retired network's 0.4.1 build (SITE-01) is not offered, and after the release only the release's own package,
-  recorded as a kept-out download, may be linked;
+- no site names an extension package before its signed release: the retired network's 0.4.1 build (SITE-01) and the
+  unsigned 0.5.0 zip step 7 listed are not offered, and after the release only the release's own package, recorded as
+  a kept-out download, may be linked. Until tools/release_page.py records a signed release, no site lists an extension
+  package digest (SHA256SUMS.txt, a tracked .sha256, keptOut), and no text tells a user to download an extension
+  package now or says one ships with a site copy;
 - the extension ID and the release key fingerprint that pocol.net publishes (SITE-03) are the ones the repository's
   manifest key and allowed_signers give, by the documented derivations."""
 import base64, hashlib, html, json, re, shutil, subprocess, sys, unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-MAIN = ROOT / 'deploy' / 'websites' / 'pocol.net'
-IDE = ROOT / 'deploy' / 'websites' / 'ide.pocol.net'
+WEB = ROOT / 'deploy' / 'websites'
+MAIN = WEB / 'pocol.net'
+IDE = WEB / 'ide.pocol.net'
+EXPLORER = WEB / 'explorer.pocol.net'
 STUDIO = ROOT / 'prototypes' / 'pocol-studio' / 'dist'
-sys.path.insert(0, str(ROOT / 'deploy' / 'websites' / 'tools'))
+sys.path.insert(0, str(WEB / 'tools'))
 sys.path.insert(0, str(ROOT / 'deploy' / 'release'))
 import site_identity as si  # noqa: E402
 
-# An absolute https://pocol.net/ link, a root- or dot-relative one right after a quote, '=' or '(' ("/downloads/…",
-# "./downloads/…"), or a bare relative "downloads/…".
-LINK = re.compile(r'(?:https://pocol\.net/|(?<=["\'=(])\.?/|(?<![A-Za-z0-9_./:-]))downloads/([A-Za-z0-9][A-Za-z0-9._-]*)')
-RETIRED_LABEL = ('Retired network', 'للشبكة السابقة')
+# The invitations (network.pocol.json) of the networks in deploy/mainnet/retired-networks.json. That file records chain
+# ID and genesis hash only, and the retired invitation is no longer in the tree, so its SHA-256 is recorded here: it is
+# the SHA-256 of `git show 882eeaee^:deploy/mainnet/h15000/network.pocol.json` (the invitation of chain 1599846715,
+# deleted from the tree by 882eeaee), whose content version f4ed13730195 the pages linked as
+# https://pocol.net/downloads/network.pocol.json?v=f4ed13730195 (withdrawn 2026-11-22).
+RETIRED_INVITATIONS = {1599846715: 'f4ed1373019563106a4ba0af9f063c874c667a5be50a2b42f32f16e2dcbeaf3b'}
 
-def served_text():
-    for path in sorted(MAIN.rglob('*')):
-        if path.is_file() and path.suffix in ('.html', '.js'):
-            yield path, path.read_text(encoding='utf-8')
+SITES = {'pocol.net': MAIN, 'ide.pocol.net': IDE, 'studio.pocol.net': STUDIO, 'explorer.pocol.net': EXPLORER}
+# An absolute https:// link to a PoCol site (group 1, its host), a root- or dot-relative one right after a quote, a
+# backtick, '=' or '(' ("/downloads/…", "./downloads/…"), or a bare relative "downloads/…" (group 2, the file name).
+LINK = re.compile(r'(?:https://((?:ide\.|studio\.|explorer\.)?pocol\.net)/|(?<=["\'`=(])\.?/|(?<![A-Za-z0-9_./:-]))'
+                  r'downloads/([A-Za-z0-9][A-Za-z0-9._-]*)')
+RETIRED_LABEL = ('Retired network', 'للشبكة السابقة')
+TEXT = ('.html', '.js', '.txt', '.json', '.css', '.webmanifest', '.svg', '.md', '.php')
+
+def site_files(site):
+    for path in sorted(site.rglob('*')):
+        if path.is_file() and path.suffix in TEXT:
+            yield path, path.read_text(encoding='utf-8', errors='replace')
+
+def served_text(site=MAIN):
+    """The site's pages, scripts and texts (not SHA256SUMS.txt, which lists files rather than linking them)."""
+    for path, text in site_files(site):
+        if path.suffix in ('.html', '.js', '.txt') and path.name != si.SUMS:
+            yield path, text
+
+def declared():
+    return json.loads((ROOT / si.DECLARED).read_text(encoding='utf-8'))
+
+def release_record():
+    """wallet-downloads.js's "release" record: "" until tools/release_page.py records a verified signed release."""
+    text = (MAIN / 'wallet-downloads.js').read_text(encoding='utf-8')
+    return json.loads(text[len('window.POCOL_DOWNLOADS = '):].rstrip().rstrip(';')).get('release', '')
 
 def guide():
     text = (MAIN / 'guide-content.js').read_text(encoding='utf-8')
@@ -44,28 +75,60 @@ def anchors(text):
         if href:
             yield html.unescape(href.group(1)), html.unescape(re.sub(r'<[^>]+>', '', m.group(2)))
 
+class RetiredInvitation(unittest.TestCase):
+    def test_the_recorded_invitations_are_of_retired_networks(self):
+        retired = {n['chainId'] for n in json.loads((ROOT / si.RETIRED).read_text(encoding='utf-8'))['retired']}
+        self.assertTrue(set(RETIRED_INVITATIONS) <= retired, RETIRED_INVITATIONS)
+        self.assertNotIn(declared()['chainId'], RETIRED_INVITATIONS)
+
+    def test_no_site_file_names_a_retired_invitation_or_its_content_version(self):
+        for chain, digest in RETIRED_INVITATIONS.items():
+            for name, site in SITES.items():
+                for path, text in site_files(site):
+                    self.assertFalse(digest[:12] in text, f'{path.relative_to(ROOT)} names the content version of chain '
+                                     f"{chain}'s invitation (retired)")
+            self.assertFalse(digest[:12] in (ROOT / si.DECLARED).read_text(encoding='utf-8'), si.DECLARED)
+
 class DownloadLinks(unittest.TestCase):
     def test_the_link_pattern_sees_every_link_form(self):
         sample = ('<a href="https://pocol.net/downloads/a.zip?v=1">x</a> <a href="downloads/b.zip">x</a> '
                   '<a href="/downloads/c.zip">x</a> <a href=\'./downloads/d.zip\'>x</a> url(/downloads/e.png) '
-                  'https://example.org/downloads/f.zip other/downloads/g.zip')
-        self.assertEqual(LINK.findall(sample), ['a.zip', 'b.zip', 'c.zip', 'd.zip', 'e.png'])
+                  'href:`/downloads/f.zip` https://ide.pocol.net/downloads/g.zip\n- downloads/h.zip '
+                  'https://example.org/downloads/x.zip other/downloads/y.zip')
+        self.assertEqual(LINK.findall(sample), [('pocol.net', 'a.zip'), ('', 'b.zip'), ('', 'c.zip'), ('', 'd.zip'),
+                                                ('', 'e.png'), ('', 'f.zip'), ('ide.pocol.net', 'g.zip'), ('', 'h.zip')])
+
+    # The owner's upload guides (pocol.net/README-AR.txt, ide.pocol.net/DEPLOY-README-AR.txt, SITE-02) and the sentence
+    # in them that names the removed invitation as an old file that stays on the host until it is deleted.
+    HOST_GUIDES = ('README-AR.txt', 'DEPLOY-README-AR.txt')
+    STALE_FILE_NOTE = 'يبقى على الخادم كل ملف لم يعد في هذه النسخة ويظل متاحًا للزوار، مثل ملف الشبكة القديم downloads/network.pocol.json'
 
     def test_every_download_link_is_served_kept_out_or_an_exempt_retired_package(self):
-        declared = json.loads((ROOT / si.DECLARED).read_text(encoding='utf-8'))
-        kept_out = {name.split('/', 1)[1] for name in declared['keptOut']['pocol.net']}
-        # The snapshot may hold no download file at all (git keeps no empty folder).
-        downloads = MAIN / 'downloads'
-        tracked = {p.name for p in downloads.iterdir() if p.is_file()} if downloads.is_dir() else set()
-        allowed = tracked | kept_out | set(si.LEGACY_NATIVE)
+        kept = declared()['keptOut']
+        allowed = {}
+        for name, site in SITES.items():
+            downloads = site / 'downloads'  # the snapshot may hold no download file at all (git keeps no empty folder)
+            tracked = {p.name for p in downloads.iterdir() if p.is_file()} if downloads.is_dir() else set()
+            allowed[name] = tracked | {n.split('/', 1)[1] for n in kept.get(name, [])}
+        allowed['pocol.net'] |= set(si.LEGACY_NATIVE)
         found = set()
-        for path, text in served_text():
-            for name in LINK.findall(text):
-                found.add(name)
-                self.assertIn(name, allowed, f'{path.name} links downloads/{name}, which pocol.net does not serve')
+        for name, site in SITES.items():
+            for path, text in served_text(site):
+                if path.name in self.HOST_GUIDES:
+                    # The upload step names the removed invitation as a stale file to delete from the host; it links
+                    # nothing. Only that sentence is set aside, and it must say so.
+                    self.assertLessEqual(text.count('downloads/network.pocol.json'), text.count(self.STALE_FILE_NOTE),
+                                         path.relative_to(ROOT))
+                    text = text.replace(self.STALE_FILE_NOTE, '')
+                for host, file in LINK.findall(text):
+                    target = host or name
+                    found.add((target, file))
+                    self.assertIn(file, allowed[target], f'{path.relative_to(ROOT)} links {target}/downloads/{file}, '
+                                  'which is not in that snapshot, not kept out (site-identity.json) and not an exempt '
+                                  'retired package')
         self.assertTrue(found)
         for gone in ('network.pocol.json', 'PoCol-Apps-README.txt', 'PoCol-Mainnet-0.4.0-Linux.zip'):
-            self.assertNotIn(gone, found)
+            self.assertNotIn(('pocol.net', gone), found)
 
     def test_the_mainnet_edition_buttons_offer_no_package_before_the_signed_release(self):
         text = (MAIN / 'wallet-downloads.js').read_text(encoding='utf-8')
@@ -137,15 +200,54 @@ def release_extension_name():
 class ExtensionPackage(unittest.TestCase):
     """SITE-01 and SITE-03."""
     def served(self):
-        for site in (MAIN, IDE, STUDIO):
+        for site in (MAIN, IDE, STUDIO, EXPLORER):
             for path in sorted(site.rglob('*')):
                 if path.is_file() and path.suffix in ('.html', '.js', '.txt') and path.name != 'SHA256SUMS.txt':
                     yield site, path, path.read_text(encoding='utf-8')
 
     def test_the_package_pattern_sees_every_extension_package_name(self):
-        sample = 'downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip /downloads/PoCol-Studio-Chrome.zip PoCol-Studio-IDE-Viewer-12.0.3.zip'
+        sample = 'downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip /downloads/PoCol-Studio-Chrome.zip PoCol-Studio-IDE-Viewer-12.0.3.zip.sha256'
         self.assertEqual(EXTENSION_PACKAGE.findall(sample),
                          ['PoCol-Studio-IDE-Viewer-0.4.1.zip', 'PoCol-Studio-Chrome.zip', 'PoCol-Studio-IDE-Viewer-12.0.3.zip'])
+
+    # Texts that tell a user to download, or say a copy ships with, an extension package that no site offers before the
+    # signed release (the home page's Studio and IDE help, the IDE's deploy guide), in English and Arabic.
+    DOWNLOAD_NOW = ('Download and extract the ZIP', 'extract the ZIP', 'The download includes',
+                    'نزّل ZIP', 'فك ضغط ZIP', 'يتضمن التنزيل', 'المرفقة مع هذه النسخة')
+
+    def test_no_text_offers_an_extension_package_before_the_signed_release(self):
+        for name, site in SITES.items():
+            for path, text in served_text(site):
+                for phrase in self.DOWNLOAD_NOW:
+                    self.assertNotIn(phrase, text, f'{path.relative_to(ROOT)}: {phrase}')
+        # The home page's install step says when a package is offered, as the guide's install bullet does.
+        locales = (MAIN / 'about-locales.js').read_text(encoding='utf-8')
+        extra = json.JSONDecoder().raw_decode(locales, locales.index('const extra = ') + len('const extra = '))[0]
+        self.assertIn('until then pocol.net offers no extension package', extra['en']['studioStep1Body'])
+        self.assertIn('لا يعرض pocol.net أي حزمة للإضافة قبل ذلك', extra['ar']['studioStep1Body'])
+        self.assertIn(f'data-i18n="studioStep1Body">{html.escape(extra["en"]["studioStep1Body"], quote=False)}</p>',
+                      (MAIN / 'index.html').read_text(encoding='utf-8'))
+        readme = (IDE / 'DEPLOY-README-AR.txt').read_text(encoding='utf-8')
+        self.assertIn('المسار الأساسي هو إضافة PoCol التي تُنشر مع الإصدار الموقّع، ولا ترافق هذه النسخة.', readme)
+
+    def test_no_site_lists_an_extension_package_digest_before_the_signed_release(self):
+        # Step 7 listed the digest of an unsigned 0.5.0 build (withdrawn 2026-11-22). Only after tools/release_page.py
+        # records a verified signed release may pocol.net list the release's own package, as a kept-out line.
+        allowed = {release_extension_name()} - {None} if release_record() else set()
+        for name, site in SITES.items():
+            sums = site / si.SUMS
+            if sums.exists():
+                listed = {m.group(0) for line in sums.read_text(encoding='utf-8').splitlines()
+                          for m in [EXTENSION_PACKAGE.search(line)] if m}
+                self.assertLessEqual(listed, allowed if name == 'pocol.net' else set(),
+                                     f'{sums.relative_to(ROOT)} lists an extension package')
+            downloads = site / 'downloads'
+            if downloads.is_dir():
+                self.assertEqual(sorted(p.name for p in downloads.iterdir() if EXTENSION_PACKAGE.search(p.name)), [],
+                                 f'{downloads.relative_to(ROOT)} tracks an extension package checksum')
+        for key, names in declared()['keptOut'].items():
+            kept = {m.group(0) for n in names for m in [EXTENSION_PACKAGE.search(n)] if m}
+            self.assertLessEqual(kept, allowed if key == 'pocol.net' else set(), f'{si.DECLARED} keeps out for {key}')
 
     def test_no_site_offers_an_extension_package_before_its_signed_release(self):
         declared = json.loads((ROOT / si.DECLARED).read_text(encoding='utf-8'))['keptOut']
