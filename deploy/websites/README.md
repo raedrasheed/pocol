@@ -113,8 +113,10 @@ served files and in the clients' user interface sources. The Studio note and the
 PoCol Mainnet the public network. The retired
 network's upgrade, migration and Android-update texts are replaced: nothing carries over to the new network. The
 static source lists are the guide's, and the README, V3 program and CP links pin main at `4db2652`. The 0.5.0
-download links and names, the published extension ID and key fingerprint, and the IDE's "0.4.0 or later" messages
-change with the signed release (W16). Until then the links beside "Coming from the retired network?" (home page and
+download links and names and the IDE's "0.4.0 or later" messages change with the signed release (W16). Since step 7
+pocol.net publishes the extension ID and the release key fingerprint users compare (the extension guide,
+`chrome-extension.html` and the home page's IDE help, in English and Arabic; `tests/test_w14_texts.py`,
+`PublishedReleaseIds`). Until then the links beside "Coming from the retired network?" (home page and
 tools page) are labelled as the retired network's 0.4.0 Windows package; W16 replaces or removes them.
 `tests/test_launch_decisions.py` (`LaunchTexts`) refuses the removed texts.
 

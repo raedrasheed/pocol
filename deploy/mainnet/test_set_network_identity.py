@@ -181,36 +181,38 @@ KEPT = {
 # files name that chain (test_every_tracked_file_that_names_the_public_network_chain_is_listed), so a new mention is
 # reviewed here; once the tree pins a network on that chain their mentions are not taken for unlisted client pins
 # (ID-04: the switch rehearsal found these 27 files, and the runbook, flagged). A retired identity is still refused in
-# them like anywhere else.
+# them like anywhere else. Each entry is (the number of times the file names the chain ID, the reason): the count is
+# pinned too, so a new mention inside a file that is already listed is reviewed here as well; in readiness.rs only its
+# #[cfg(test)] module may name it (outside_tests).
 MAINNET_NAMED = {
-    '.github/workflows/public-mainnet-e2e.yml': 'CI of the ceremony-filled mainnet profile on its own chain (throwaway keys)',
-    'deploy/faucet/README.md': 'documents the faucet configuration of the mainnet chain',
-    'deploy/faucet/config.mainnet.example.json': "the faucet's mainnet configuration example (its chain ID)",
-    'deploy/faucet/pocol_faucet.py': "the faucet's mainnet chain ceiling (MAINNET_CHAIN_IDS)",
-    'deploy/mainnet/README.md': 'the step-7 runbook names the published identity the switch checks',
-    'deploy/mainnet/test_v3_profiles.py': "checks the committed profiles' chain IDs",
-    'deploy/mainnet/v3-profile.json': 'the mainnet profile: its chain ID is the public network chain',
-    'deploy/public-testnet/node_operator.py': "the release tools' public network chains (PUBLIC_NETWORK_CHAINS)",
-    'deploy/rehearsal/registration_fill.py': 'refuses the mainnet chain unless asked',
-    'deploy/rehearsal/test_collect_measures.py': 'tests the refusal of an unexpected chain ID',
-    'deploy/rehearsal/test_registration_fill.py': 'tests the refusal of the mainnet chain',
-    'deploy/release/README.md': "documents the cross-platform build check's throwaway genesis on the mainnet chain",
-    'deploy/release/compare_build_identity.py': 'builds a throwaway genesis on the mainnet chain to compare builds',
-    'deploy/standalone/Initialize-PoColNetwork.ps1': "the ceremony's profile table and public network chains",
-    'deploy/standalone/README.md': "documents the ceremony's mainnet profile",
-    'deploy/standalone/test_initialize_network.ps1': "tests the ceremony's profile table",
-    'deploy/standalone/test_initialize_network.py': "tests the ceremony's profile table",
-    'prototypes/lp1-node/src/profile.rs': 'PUBLIC_NETWORK_CHAINS of the profile code (R22, OWNER-DECISIONS-2026-11-20 D5)',
-    'prototypes/lp1-node/tests/gate.rs': 'tests the public-network scope gate on the mainnet chain',
-    'prototypes/lp1-node/tests/profile.rs': 'tests PUBLIC_NETWORK_CHAINS',
-    'prototypes/lp4-execution/src/admission/tests.rs': 'tests the admission of the mainnet chain',
-    'prototypes/lp4-execution/src/p1_profile.rs': 'PUBLIC_NETWORK_CHAINS of the profile code (a copy of profile.rs)',
-    'prototypes/pocold/src/mobile.rs': "the mobile engine's throwaway genesis on the mainnet chain (temp dir only)",
-    'prototypes/pocold/src/readiness.rs': "readiness tests of the public chain's entry form (WRITTEN, PUBLIC)",
-    'prototypes/pocold/tests/e2e_admission_interop.py': 'single-host interop test on the mainnet chain (throwaway keys)',
-    'prototypes/pocold/tests/e2e_public_genesis.py': 'single-host public-network genesis test (throwaway keys)',
-    'prototypes/pocold/tests/fn4_profiles.rs': 'builds and admits the committed mainnet profile',
-    'prototypes/pocold/tests/launch_delay_asert.rs': 'the late-start check of the fresh-network profiles',
+    '.github/workflows/public-mainnet-e2e.yml': (1, 'CI of the ceremony-filled mainnet profile on its own chain (throwaway keys)'),
+    'deploy/faucet/README.md': (1, 'documents the faucet configuration of the mainnet chain'),
+    'deploy/faucet/config.mainnet.example.json': (1, "the faucet's mainnet configuration example (its chain ID)"),
+    'deploy/faucet/pocol_faucet.py': (1, "the faucet's mainnet chain ceiling (MAINNET_CHAIN_IDS)"),
+    'deploy/mainnet/README.md': (2, 'the step-7 runbook names the published identity the switch checks'),
+    'deploy/mainnet/test_v3_profiles.py': (1, "checks the committed profiles' chain IDs"),
+    'deploy/mainnet/v3-profile.json': (1, 'the mainnet profile: its chain ID is the public network chain'),
+    'deploy/public-testnet/node_operator.py': (1, "the release tools' public network chains (PUBLIC_NETWORK_CHAINS)"),
+    'deploy/rehearsal/registration_fill.py': (2, 'refuses the mainnet chain unless asked'),
+    'deploy/rehearsal/test_collect_measures.py': (2, 'tests the refusal of an unexpected chain ID'),
+    'deploy/rehearsal/test_registration_fill.py': (3, 'tests the refusal of the mainnet chain'),
+    'deploy/release/README.md': (1, "documents the cross-platform build check's throwaway genesis on the mainnet chain"),
+    'deploy/release/compare_build_identity.py': (2, 'builds a throwaway genesis on the mainnet chain to compare builds'),
+    'deploy/standalone/Initialize-PoColNetwork.ps1': (3, "the ceremony's profile table and public network chains"),
+    'deploy/standalone/README.md': (1, "documents the ceremony's mainnet profile"),
+    'deploy/standalone/test_initialize_network.ps1': (2, "tests the ceremony's profile table"),
+    'deploy/standalone/test_initialize_network.py': (1, "tests the ceremony's profile table"),
+    'prototypes/lp1-node/src/profile.rs': (2, 'PUBLIC_NETWORK_CHAINS of the profile code (R22, OWNER-DECISIONS-2026-11-20 D5)'),
+    'prototypes/lp1-node/tests/gate.rs': (3, 'tests the public-network scope gate on the mainnet chain'),
+    'prototypes/lp1-node/tests/profile.rs': (4, 'tests PUBLIC_NETWORK_CHAINS'),
+    'prototypes/lp4-execution/src/admission/tests.rs': (1, 'tests the admission of the mainnet chain'),
+    'prototypes/lp4-execution/src/p1_profile.rs': (2, 'PUBLIC_NETWORK_CHAINS of the profile code (a copy of profile.rs)'),
+    'prototypes/pocold/src/mobile.rs': (1, "the mobile engine's throwaway genesis on the mainnet chain (temp dir only)"),
+    'prototypes/pocold/src/readiness.rs': (3, "readiness tests of the public chain's entry form (WRITTEN, PUBLIC)"),
+    'prototypes/pocold/tests/e2e_admission_interop.py': (2, 'single-host interop test on the mainnet chain (throwaway keys)'),
+    'prototypes/pocold/tests/e2e_public_genesis.py': (4, 'single-host public-network genesis test (throwaway keys)'),
+    'prototypes/pocold/tests/fn4_profiles.rs': (3, 'builds and admits the committed mainnet profile'),
+    'prototypes/pocold/tests/launch_delay_asert.rs': (1, 'the late-start check of the fresh-network profiles'),
 }
 # Shipped with the packages, so the identity-switch release replaces or bumps them: while the tree pins a retired
 # network each holds its pattern (the old release's version, or text that is true only on the retired network); once
@@ -225,6 +227,18 @@ STEP3 = {
     'prototypes/pocol-extension/package.json': re.compile(r'"version":\s*"0\.4\.1"'),
     'prototypes/pocol-studio/package.json': re.compile(r'"version":\s*"0\.1\.1"'),
     'prototypes/pocol-studio/dist/app.js': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
+}
+# Current documents whose text described the tree before the switch: once the tree pins a network that is not retired,
+# none may still say that the pin is the retired network's, that the extension holds the D1 placeholder, that no launch
+# network is pinned, or that the client texts carry the retired identity. Matched on whitespace-joined text, so a
+# rewrapped line is still found.
+SUPERSEDED_AFTER_SWITCH = {
+    'README.md': re.compile(r"(?i)that pin is the retired network's|Until the new genesis exists|is launching a brand-new public network"),
+    'deploy/mainnet/README.md': re.compile(r"(?i)Until the new genesis exists, the extension's built-in profile|it holds a placeholder|"
+                                           r"keep the tree's identity until the switch|\(CI checks the refusal instead of packaging\)"),
+    'development/public-network/FINDINGS.md': re.compile(r"(?i)No launch network is pinned in the clients yet|"
+                                                         r"until the identity switch the source holds the D1 placeholder|"
+                                                         r"carry the retired network identity until the identity switch\.\*\* Until"),
 }
 TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, ni.NODE_SPEC, ni.RETIRED, ni.PROFILES,
                                                                   ni.REHEARSAL_PROFILE, ni.PUBLIC_CHAINS, ni.MAINNET_PROFILE]
@@ -273,11 +287,25 @@ def unaccounted(files, current=CUR_ANYWHERE, gone=GONE_ANYWHERE, named=None, cur
     def pins_current(rel, text):
         if rel in ni.FILES:
             return False
-        found = current_genesis if rel in named else current
-        return found is not None and found.search(without_profiles(rel, text))
+        text = without_profiles(rel, text)
+        if rel not in named:
+            return current is not None and current.search(text)
+        # readiness.rs names the public chain in its tests only: outside its #[cfg(test)] module the chain ID alone is
+        # still a pin.
+        if rel == ni.PROFILES and current is not None and current.search(outside_tests(text)):
+            return True
+        return current_genesis is not None and current_genesis.search(text)
     return [rel for rel, text in files
             if not rel.startswith(tuple(KEPT_PREFIXES)) and rel not in KEPT
             and (pins_current(rel, text) or (gone is not None and gone.search(text)))]
+
+# The start of a Rust file's test module.
+TEST_MODULE = re.compile(r'(?m)^#\[cfg\(test\)\]\s*\nmod tests\s*\{')
+
+def outside_tests(text):
+    """A Rust file's text before its #[cfg(test)] module (the whole text when it has none)."""
+    m = TEST_MODULE.search(text)
+    return text if m is None else text[:m.start()]
 
 def without_profiles(rel, text):
     """The text the current-identity guard searches: in ni.PROFILES only the NETWORK_PROFILES declaration's body is
@@ -1028,14 +1056,24 @@ class SetNetworkIdentity(unittest.TestCase):
         # In readiness.rs only the NETWORK_PROFILES entry is exempt; a copy anywhere else in that file is flagged.
         entry = ni.PROFILES_DECL + ni.profiles_text([(CUR_CHAIN, CUR_GENESIS)], PUBLIC) + '];\n'
         self.assertEqual(unaccounted([(ni.PROFILES, entry)]), [])
-        # readiness.rs names the public network chain in its own tests (MAINNET_NAMED), so once the tree pins that chain a
-        # stray chain ID there is not taken for a pin; a stray genesis hash is flagged whatever the tree pins.
-        chain_flagged = [] if ni.PROFILES in NAMED else [ni.PROFILES]
-        for stray, flagged in ((f'// chain {CUR_CHAIN}\n', chain_flagged), (f'const G:&str="{CUR_GENESIS}";\n', [ni.PROFILES]),
-                               (f'const G:&str="0x{CUR_GENESIS.upper()}";\n', [ni.PROFILES])):
+        # A stray chain ID or genesis hash outside readiness.rs's test module is flagged whatever the tree pins.
+        for stray in (f'// chain {CUR_CHAIN}\n', f'const G:&str="{CUR_GENESIS}";\n', f'const G:&str="0x{CUR_GENESIS.upper()}";\n'):
             with self.subTest(stray=stray):
-                self.assertEqual(unaccounted([(ni.PROFILES, entry + stray)]), flagged)
-                self.assertEqual(unaccounted([(ni.PROFILES, ni.PROFILES_DECL + '];\n' + stray)]), flagged)
+                self.assertEqual(unaccounted([(ni.PROFILES, entry + stray)]), [ni.PROFILES])
+                self.assertEqual(unaccounted([(ni.PROFILES, ni.PROFILES_DECL + '];\n' + stray)]), [ni.PROFILES])
+                tests = '#[cfg(test)]\nmod tests{\n    const PUBLIC:u64=1;\n}\n'
+                self.assertEqual(unaccounted([(ni.PROFILES, entry + stray + tests)]), [ni.PROFILES])
+        # readiness.rs names the public network chain in its own tests (MAINNET_NAMED), so once the tree pins that chain
+        # its chain ID inside the #[cfg(test)] module is not taken for a pin; a genesis hash there is flagged.
+        inside = entry + f'#[cfg(test)]\nmod tests{{\n    const PUBLIC:u64={CUR_CHAIN};\n}}\n'
+        named = set(MAINNET_NAMED)
+        self.assertEqual(unaccounted([(ni.PROFILES, inside)], named=named), [])
+        self.assertEqual(unaccounted([(ni.PROFILES, inside)], named=set()), [ni.PROFILES])
+        self.assertEqual(unaccounted([(ni.PROFILES, inside.replace('const PUBLIC:u64=', f'const G:&str="{CUR_GENESIS}";const PUBLIC:u64='))],
+                                     named=named), [ni.PROFILES])
+        self.assertEqual(unaccounted([(ni.PROFILES, entry + f'// chain {CUR_CHAIN}\n' + inside[len(entry):])], named=named), [ni.PROFILES])
+        self.assertEqual(outside_tests('a\n#[cfg(test)]\nmod tests {\nb'), 'a\n')
+        self.assertEqual(outside_tests('a\n'), 'a\n')
         # In a file outside FILES and outside MAINNET_NAMED the current chain ID alone is a pin, whatever the tree pins.
         self.assertEqual(unaccounted([('z.rs', f'// chain {CUR_CHAIN}\n')]), ['z.rs'])
         # A retired identity the tree no longer pins: flagged everywhere outside the kept files, FILES included.
@@ -1107,6 +1145,13 @@ class SetNetworkIdentity(unittest.TestCase):
                 found.add(rel)
         self.assertEqual(sorted(found - set(MAINNET_NAMED)), [], 'names the public network chain: add it to FILES (a client pin) '
                          'or to MAINNET_NAMED with a reason')
+        # The number of mentions in each listed file is pinned too, so a new one inside a listed file is reviewed here.
+        counted = {rel: len(MAINNET_ANYWHERE.findall(without_profiles(rel, (ni.ROOT / rel).read_text(encoding='utf-8'))))
+                   for rel in sorted(found & set(MAINNET_NAMED))}
+        self.assertEqual({rel: n for rel, n in counted.items() if n != MAINNET_NAMED[rel][0]}, {},
+                         'names the public network chain more or fewer times than MAINNET_NAMED pins: review the mentions '
+                         'and update the count')
+        self.assertTrue(all(isinstance(n, int) and n > 0 and reason for n, reason in MAINNET_NAMED.values()))
         self.assertEqual(sorted(set(MAINNET_NAMED) - found), [], 'no longer names the public network chain: remove it from MAINNET_NAMED')
         self.assertFalse(set(MAINNET_NAMED) & (set(ni.FILES) | set(KEPT)))
         # The exemption covers only the current network on the public chain: a retired identity in a named file, and a
@@ -1128,6 +1173,29 @@ class SetNetworkIdentity(unittest.TestCase):
             self.assertEqual(held, list(STEP3), 'update STEP3 to what the files hold today')
         # The detector works: each pattern finds the text it names on the retired release's tree.
         self.assertIsNotNone(STEP3['prototypes/pocol-studio/dist/app.js'].search('PoCol-Studio-IDE-Viewer-0.4.1.zip'))
+
+    def test_the_documents_no_longer_describe_the_tree_before_the_switch(self):
+        held = {rel: rx.search(' '.join((ni.ROOT / rel).read_text(encoding='utf-8').split()))
+                for rel, rx in SUPERSEDED_AFTER_SWITCH.items()}
+        if SWITCHED:
+            self.assertEqual({rel: m.group(0) for rel, m in held.items() if m}, {},
+                             'the tree pins a network that is not retired: these texts still describe the tree before the switch')
+        # The detector works: each pattern finds the pre-switch text it was written for.
+        for rel, sample in (
+                ('README.md', "Until the new genesis exists, that pin is the retired network's; the clients are switched"),
+                ('deploy/mainnet/README.md', "Until the new genesis exists, the extension's built-in profile pins no retired network"),
+                ('deploy/mainnet/README.md', 'so no release ships it (CI checks the refusal instead of packaging).'),
+                ('deploy/mainnet/README.md', "The extension READMEs keep the tree's identity until the switch."),
+                ('development/public-network/FINDINGS.md', '**No launch network is pinned in the clients yet.** NETWORK_PROFILES'),
+                ('development/public-network/FINDINGS.md', 'preimage; until the identity switch the source holds the D1 placeholder, F-57)'),
+                ('development/public-network/FINDINGS.md', '**Client texts, the Studio gateway and the websites carry the retired '
+                 'network identity until the identity switch.** Until the identity switch (set_network_identity.py')):
+            self.assertRegex(sample, SUPERSEDED_AFTER_SWITCH[rel], rel)
+        # The history that replaced them is not taken for a pre-switch claim.
+        for rel, sample in (('deploy/mainnet/README.md', 'Before step 7, while the new genesis did not exist, the extension'),
+                            ('development/public-network/FINDINGS.md', "**The websites still link the retired network's native "
+                             'packages and invitation; the client pins moved to PoCol Mainnet at step 7.**')):
+            self.assertNotRegex(sample, SUPERSEDED_AFTER_SWITCH[rel], rel)
 
     def test_a_spec2_genesis_without_the_full_nonce_domain_is_refused(self):
         # ID-03: the release node admits a spec-2 genesis only with nonceMode 1 and the extension's profile check refuses

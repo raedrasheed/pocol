@@ -182,9 +182,11 @@ unchanged" notes) must be gone by then. The native 0.5.0 bump (owner decision 20
 what `STEP3` still lists (the extension and Studio versions and the 0.4.x extension download names) moves with the
 signed 0.5.0 extension release and its download links. Files outside `FILES` that name the public network's chain ID
 on purpose (its profile code, the ceremony, the faucet, the release build check, their tests and this runbook) are
-listed in `MAINNET_NAMED` of the test with a reason; a test requires exactly those, so a new mention is reviewed there,
-and once the tree pins that chain their mentions are not taken for unlisted client pins (a retired identity in them is
-still refused). `deploy/release/assemble_release.py` refuses a release whose
+listed in `MAINNET_NAMED` of the test with a reason and the number of times each names the chain ID; a test requires
+exactly those files and counts, so a new mention, in a new file or in a listed one, is reviewed there. Once the tree
+pins that chain their mentions are not taken for unlisted client pins, except in `readiness.rs` outside its
+`#[cfg(test)]` module, where the chain ID alone is still a pin; a retired identity, and a copy of the current genesis
+hash, in them are still refused. `deploy/release/assemble_release.py` refuses a release whose
 extension `package.json` version is not the native version, so no release is assembled before the switch sets it to
 0.5.0: the ceremony runs on unsigned CI artifacts (step 1), and the first signed release follows the switch (step 7).
 
@@ -201,14 +203,18 @@ integers, widths and bounds of every field of the final CP schema v2 of 59 field
 M_0List order and reserved ids) accepts it and its `sysCodeHash` names the v3 program
 set. A refused `--to` writes nothing. Spec-1 switches are unchanged.
 
-## The extension's built-in profile placeholder (decision D1)
+## The extension's built-in profile placeholder (decision D1, history)
 
-Until the new genesis exists, the extension's built-in profile (`prototypes/pocol-extension/src/lib/studio-network.js`)
-pins no retired network: it holds a placeholder, the spec-2 (v3) devnet GenesisSpec of the decoder corpus
-(`tests/data/decoder-corpus-v3.json`, item `v3/base`) under a chain ID of no network, whose invitation is
-`placeholder-network.pocol.json`. The file carries the `NETWORK_PLACEHOLDER` mark, its `FILES` counts are then counts
-of the placeholder, and `prototypes/pocol-extension/scripts/package-release.py` refuses a build that carries the mark,
-so no release ships it (CI checks the refusal instead of packaging).
+Before step 7, while the new genesis did not exist, the extension's built-in profile
+(`prototypes/pocol-extension/src/lib/studio-network.js`) pinned no retired network: it held a placeholder, the spec-2
+(v3) devnet GenesisSpec of the decoder corpus (`tests/data/decoder-corpus-v3.json`, item `v3/base`) under a chain ID
+of no network, whose invitation is `placeholder-network.pocol.json`. The file carried the `NETWORK_PLACEHOLDER` mark,
+its `FILES` counts were counts of the placeholder, and `prototypes/pocol-extension/scripts/package-release.py` refused
+a build that carried the mark, so no release could ship it (CI checked the refusal instead of packaging).
+
+Step 7 replaced the placeholder with PoCol Mainnet and removed the mark: the built-in profile now pins PoCol Mainnet with its
+GenesisSpec, CI packages the extension, and the extension READMEs name PoCol Mainnet. The
+placeholder mechanism stays as tooling, and its tests keep exercising it on test copies:
 
 ```sh
 python3 deploy/mainnet/set_network_identity.py --placeholder deploy/mainnet/placeholder-network.pocol.json [--check]
@@ -217,7 +223,7 @@ python3 deploy/mainnet/set_network_identity.py --placeholder deploy/mainnet/plac
 `--placeholder` writes a spec-2 placeholder (never a retired network or the tree's own) into `PLACEHOLDER_FILES` only.
 The identity switch (`--from`/`--to`) replaces the placeholder there with the `--to` identity and removes the mark, so
 the switch stays one run. The extension pages (`publisher.html`, `contract.html`) name no network: their chain ID chip
-is filled from the built-in profile at run time. The extension READMEs keep the tree's identity until the switch.
+is filled from the built-in profile at run time.
 
 ## Local checks
 

@@ -70,7 +70,9 @@ def invitation(spec, seeds):
 # Every tree the tool reads (the document roots, the PHP test, the declared identity, the retired list, the extension
 # version and the native release version).
 COPIED = ['deploy/websites', si.STUDIO]
-COPIED_FILES = [si.RETIRED, si.EXTENSION_PACKAGE, si.NATIVE_PACKAGE]
+# The node's SPEC_VERSION and the profile code's PUBLIC_NETWORK_CHAINS are read from the --root tree, as
+# set_network_identity.py reads them.
+COPIED_FILES = [si.RETIRED, si.EXTENSION_PACKAGE, si.NATIVE_PACKAGE, ni.NODE_SPEC, ni.PUBLIC_CHAINS]
 EXT_VERSION = json.loads((ROOT / si.EXTENSION_PACKAGE).read_text(encoding='utf-8'))['version']
 NATIVE_VERSION = si.release.native_version(ROOT)
 
@@ -81,6 +83,29 @@ def snapshot(root):
             if path.is_file() and '__pycache__' not in path.parts:
                 out[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     return out
+
+def kept_digest(root, site, name):
+    """The SHA-256 a site's SHA256SUMS.txt lists for `name`, read independently of the tool."""
+    for line in (root / site / si.SUMS).read_text(encoding='utf-8').splitlines():
+        digest, listed = line.split('  ', 1)
+        if listed == name:
+            return digest
+    raise AssertionError(f'{site}/{si.SUMS}: no line for {name}')
+
+def kept_out_links(root, site):
+    """{downloads/<name>: {?v= tokens}} of the links in a site's text files to download files that are not on disk."""
+    found = {}
+    for path in (root / site).rglob('*'):
+        if not path.is_file() or path.name == si.SUMS or path.suffix.lower() in si.BINARY:
+            continue
+        try:
+            text = path.read_text(encoding='utf-8')
+        except UnicodeDecodeError:
+            continue
+        for name, token in re.findall(r'(downloads/[A-Za-z0-9_.-]+)\?v=([0-9a-f]{12})', text):
+            if not (root / site / name).exists():
+                found.setdefault(name, set()).add(token)
+    return found
 
 class SiteIdentity(unittest.TestCase):
     def copy(self):
@@ -151,6 +176,11 @@ class SiteIdentity(unittest.TestCase):
             listed = {line.split('  ', 1)[1] for line in (root / site / si.SUMS).read_text(encoding='utf-8').splitlines()}
             present = {p.relative_to(root / site).as_posix() for p in (root / site).rglob('*') if p.is_file()} - {si.SUMS}
             self.assertEqual(present - listed, set(), site)
+            # A link to a kept-out download (listed, not on disk) carries the content version of the digest its line
+            # lists; a link to a download no line lists (a retired package's page link) is not versioned by the tool.
+            for name, tokens in kept_out_links(root, site).items():
+                if name in missing:
+                    self.assertEqual(tokens, {kept_digest(root, site, name)[:12]}, (site, name))
 
     # ---------------- the tree ----------------
     def test_the_tree_carries_the_declared_identity(self):
@@ -858,6 +888,97 @@ class SiteIdentity(unittest.TestCase):
         root = self.copy()
         self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base, '--expect-chain-id', str(TEST_CHAIN + 1)), 2)
         self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base, '--expect-chain-id', str(TEST_CHAIN)), 0, self.last_errors)
+
+    def test_a_kept_out_download_link_carries_the_content_version_of_its_listed_digest(self):
+        # The 0.5.0 links kept the 0.4.1 archive's ?v= (85e6ebb6a0e3): a kept-out archive is not in the snapshot, so its
+        # content version is taken from the digest its SHA256SUMS.txt line lists (a --download digest, else that line).
+        name = f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip'
+        links = kept_out_links(ROOT, si.MAIN)
+        self.assertIn(name, links, 'pocol.net links the kept-out extension package')
+        self.assertEqual(links[name], {kept_digest(ROOT, si.MAIN, name)[:12]})
+        root = self.copy()
+        page = root / si.MAIN / 'index.html'
+        good = page.read_text(encoding='utf-8')
+        token = kept_digest(root, si.MAIN, name)[:12]
+        page.write_text(good.replace(f'{name}?v={token}', f'{name}?v=85e6ebb6a0e3'), encoding='utf-8')
+        self.assertNotEqual(page.read_text(encoding='utf-8'), good)
+        self.assertEqual(self.run_tool(root, '--check'), 2, 'a stale content version on a kept-out download')
+        self.assertIn(f'{si.MAIN}/index.html: does not carry', self.last_errors)
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        self.assertEqual(page.read_text(encoding='utf-8'), good, 'a run restores the listed content version')
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        # A --download digest moves every link to it, on every site that lists the file.
+        new = '7' * 64
+        args = [a for site in (si.MAIN, si.IDE) for a in ('--download', f'{site}/{name}={new}')]
+        self.assertEqual(self.run_tool(root, *args), 0, self.last_errors)
+        self.assertEqual(kept_out_links(root, si.MAIN)[name], {new[:12]})
+        self.assertEqual(kept_digest(root, si.MAIN, name), new)
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        self.assert_consistent(root)
+        # A link to a download file that no line lists keeps its token (nothing is known about it).
+        stray = 'downloads/PoCol-Unlisted-1.0.0.zip?v=0123456789ab'
+        page.write_text(page.read_text(encoding='utf-8').replace('</body>', f'<a href="{stray}">x</a></body>', 1), encoding='utf-8')
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        self.assertIn(stray, page.read_text(encoding='utf-8'))
+
+    def test_the_public_network_chains_are_read_from_the_root_tree(self):
+        # ID-03 checks a --to invitation against the published values on a public network chain; which chains are
+        # public is the --root tree's PUBLIC_NETWORK_CHAINS, as set_network_identity.py reads it.
+        base = ['--gateway-host', '192.0.2.10', '--rpc-url', TEST_RPC]
+        root = self.copy()
+        self.assertNotIn(TEST_CHAIN, ni.public_chains(ROOT))
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base, '--check'), 2, 'the copy is not switched yet')
+        profile = root / ni.PUBLIC_CHAINS
+        text = profile.read_text(encoding='utf-8')
+        decl = re.search(re.escape(ni.PUBLIC_CHAINS_DECL) + r'([0-9, ]*)\];', text)
+        profile.write_text(text.replace(decl.group(0), f'{ni.PUBLIC_CHAINS_DECL}{decl.group(1)}, {TEST_CHAIN}];'), encoding='utf-8')
+        self.assertIn(TEST_CHAIN, ni.public_chains(root))
+        before = snapshot(root)
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base), 2)
+        self.assertIn('needs the published values', self.last_errors)
+        self.assertEqual(snapshot(root), before)
+        good = ['--expect-sha256', hashlib.sha256((root / 'test.json').read_bytes()).hexdigest(),
+                '--expect-chain-id', str(TEST_CHAIN), '--expect-genesis', TEST_GENESIS]
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base, *good), 0, self.last_errors)
+        # A --root tree without the profile code is refused: the check never falls back to another tree's list.
+        root = self.copy()
+        (root / ni.PUBLIC_CHAINS).unlink()
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base), 2)
+        self.assertIn(ni.PUBLIC_CHAINS, self.last_errors)
+
+    # The extension package the sites offer is built from prototypes/pocol-extension (its tests excepted): the zip is
+    # reproducible (W14), so its source is that directory's tree.
+    EXTENSION_SOURCE = ['prototypes/pocol-extension', ':(exclude)prototypes/pocol-extension/tests']
+
+    def test_the_source_links_name_a_commit_that_builds_the_served_extension_package(self):
+        # The links once named b3594eb5, whose extension package.json was still 0.4.1: its source built the 0.4.1 zip,
+        # not the 0.5.0 one the same pages offer. The linked commit's extension source must be the tree's, which
+        # builds the zip whose digest the sites list (CI's extension job checks that digest against this tree).
+        commits = {re.search(r'/(?:tree|blob)/([0-9a-f]{40})(?:/|$)', url).group(1) for url in DECLARED['links'].values()}
+        self.assertEqual(len(commits), 1, f'every source link names one commit: {sorted(commits)}')
+        commit = commits.pop()
+        git = lambda *args: subprocess.run(['git', '-C', str(ROOT), *args], capture_output=True)
+        try:
+            inside = git('rev-parse', '--is-inside-work-tree')
+        except OSError:
+            self.skipTest('git is not available')
+        if inside.returncode != 0:
+            self.skipTest('not a git checkout')
+        self.assertEqual(git('cat-file', '-e', f'{commit}^{{commit}}').returncode, 0,
+                         f'the source links name {commit}, which this checkout does not have (CI fetches the whole history)')
+        shown = git('show', f'{commit}:{si.EXTENSION_PACKAGE}')
+        self.assertEqual(shown.returncode, 0, shown.stderr)
+        self.assertEqual(json.loads(shown.stdout)['version'], EXT_VERSION,
+                         f'{commit} builds another extension version than the {EXT_VERSION} package the sites link')
+        diff = git('diff', '--stat', commit, '--', *self.EXTENSION_SOURCE)
+        self.assertEqual((diff.returncode, diff.stdout.decode('utf-8', 'replace')), (0, ''),
+                         f'the extension source differs from the linked commit {commit}: rebuild the package, then run '
+                         'site_identity.py --download ... --commit <a commit with this source>')
+        # The detector works: the commit the links named before builds 0.4.1.
+        old = git('show', f'b3594eb5fa10cf97d629c2f9e5031cbf5595469e:{si.EXTENSION_PACKAGE}')
+        if old.returncode == 0:
+            self.assertNotEqual(json.loads(old.stdout)['version'], EXT_VERSION)
+            self.assertNotEqual(git('diff', '--stat', 'b3594eb5fa10cf97d629c2f9e5031cbf5595469e', '--', *self.EXTENSION_SOURCE).stdout, b'')
 
 if __name__ == '__main__':
     unittest.main()

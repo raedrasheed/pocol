@@ -15,15 +15,16 @@ This repository holds the specification and the implementation used by PoCol:
 - native Windows, Linux and Android wallets;
 - a Chrome MV3 extension for Studio publishing, IDE contract transactions and verified on-chain sites.
 
-PoCol is launching a brand-new public network, **PoCol Mainnet**, with currency symbol **PCOL**, from a fresh
-genesis; nothing of the retired network is kept
-([decisions, 2026-11-13](development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)). The clients in this
-repository pin chain ID `2656089850` and genesis hash
-`0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e`. Until the new genesis exists, that pin is the
-retired network's; the clients are switched to the new identity in one reviewed step (see
-[deploy/mainnet](deploy/mainnet/README.md)). The release rule set is the v3 rule set: consensus rules 2, and nodes
-and clients decode a version-2 `GenesisSpec` (CP schema v2) by default; a release of rules 1, or a network
-invitation for them, is refused at import.
+PoCol's public network is **PoCol Mainnet**, with currency symbol **PCOL**, started from a fresh genesis; nothing of
+the retired network is kept
+([decisions, 2026-11-13](development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)). PoCol Mainnet has been
+live since its genesis time, 2026-11-21 20:20:56 UTC (`genesisTime` 1795292456 of its invitation). Since step 7 of the launch runbook ([deploy/mainnet](deploy/mainnet/README.md)),
+the clients in this repository pin PoCol Mainnet: chain ID `2656089850` and genesis hash
+`0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e`. Outside the project history
+(`development/`), the retired network's identity is kept only in
+`deploy/mainnet/retired-networks.json`, which the identity checks use to refuse it in every client. The release rule
+set is the v3 rule set: consensus rules 2, and nodes and clients decode a version-2 `GenesisSpec` (CP schema v2) by
+default; a release of rules 1, or a network invitation for them, is refused at import.
 
 PoCol Mainnet is the public network, launched from its ceremony without a separate rehearsal
 ([owner decisions, 2026-11-20](development/decisions/OWNER-DECISIONS-2026-11-20.md) D1). The engine reports what it

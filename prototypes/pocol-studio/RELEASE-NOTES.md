@@ -1,4 +1,28 @@
-# PoCol Studio 0.1.1 — validation
+# PoCol Studio 0.5.0 — PoCol Mainnet
+
+This release targets `studio.pocol.net` with the matching PoCol Studio & Viewer extension 0.5.0 and the
+`explorer.pocol.net/studio/rpc` relay. It is the release of the step-7 identity switch: the Studio web app
+(`dist/app.js`) names PoCol Mainnet (the identity in the repository's root README), live since its genesis time
+2026-11-21 20:20:56 UTC, in its network details and links the 0.5.0 extension package; the extension checks the
+network identity against its built-in profile before it signs. Its version follows the extension's (0.5.0) instead of
+the earlier 0.1.x numbering.
+
+## Verified locally
+
+- Editor: `npm test` (30 tests) and `npm run check` (static package links and JavaScript syntax) passed on the
+  switched tree.
+- No live blockchain transaction was sent; the live paths below are not verified.
+
+## Deployment checks still required
+
+- Upload the static package to the `studio.pocol.net` document root and verify DNS/HTTPS.
+- Install the matching signed 0.5.0 extension in Chrome, check that the extension ID Chrome shows is the one published
+  on pocol.net, and verify a funded PoCol Mainnet account's first live publication and update.
+- Chrome Web Store submission/review is not completed. The extension package uses Chrome's developer installation flow.
+
+RN is a trusted remote-node connection, not local full-chain verification.
+
+# Earlier: PoCol Studio 0.1.1 — validation
 
 This release targets `studio.pocol.net` with a matching Chrome extension and the `explorer.pocol.net/studio/rpc` relay
 (owner decision 9, 2026-11-16: the relay moved from the retired gateway host to explorer.pocol.net).
