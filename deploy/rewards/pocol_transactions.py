@@ -45,6 +45,8 @@ POLL_SECONDS = 2.0
 PACE_SECONDS = 0.005
 BACKOFF_MAX = 30.0
 STALE_SECONDS = 30.0           # no node answer for this long: state "reconnecting"
+PAGE_SECONDS = 2.0             # a page query running longer is interrupted (sqlite3 OperationalError: the relay's 503)
+PROGRESS_STEPS = 10000         # SQLite virtual machine steps between two checks of that limit
 IDENTITY_SECONDS = 60.0        # how often the follower checks the node's chain ID and genesis hash
 KINDS = ('Transfer', 'Contract call', 'Contract creation', 'Undecoded')
 HASH = re.compile(r'0x[0-9a-fA-F]{64}')
@@ -429,6 +431,8 @@ class TransactionIndex:
         conn = sqlite3.connect(f'file:{self.path}?mode=ro', uri=True, timeout=0.5, isolation_level=None)
         try:
             conn.execute('PRAGMA query_only=1')
+            deadline = time.monotonic() + PAGE_SECONDS
+            conn.set_progress_handler(lambda: 1 if time.monotonic() > deadline else 0, PROGRESS_STEPS)
             conn.execute('BEGIN')  # one read snapshot for every query below
             tip = self.tip(conn)
             first = int(self._meta(conn, 'from', '0'))

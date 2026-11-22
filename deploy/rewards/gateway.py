@@ -61,8 +61,12 @@ DRAW_PAGES_MAX = -(-MAX_MEMBERS_V3 // ACTIVE_PAGE)
 DRAW_RECORDS_MAX = 32
 DRAW_READS_MAX = 3 + DRAW_PAGES_MAX + DRAW_RECORDS_MAX
 DRAW_CACHE_MAX = 2
-# Token cost per method (others cost 1): a reward snapshot and one member record (four calls and a fresh-block check).
-COSTS = {'pocol_getBlockReward': 20, 'pocol_getMember': 20, 'pocol_getMembers': 5, 'pocol_getRemovable': 10}
+# Token cost per method (others cost 1): a reward snapshot, one member record (four calls and a fresh-block check), a
+# transaction history page.
+COSTS = {'pocol_getBlockReward': 20, 'pocol_getMember': 20, 'pocol_getMembers': 5, 'pocol_getRemovable': 10,
+         # A transaction history page: a count and a sorted read over the index (up to about 0.8 s at 500,000 rows
+         # for a one-digit prefix in value order; pocol_transactions.PAGE_SECONDS stops it at 2 s).
+         'pocol_getTransactions': 5}
 # MinerRegistry record word w0 (REGISTRY-LAYOUT.md): status 0..7, tomb 8..15, bondState 16..23, recPos 24..55,
 # actPos 56..87, lastShare 88..151, registeredAt 152..215 (earn-in). Every value the v3 programs write is labelled.
 STATUS_LABELS = {0: 'NONE', 1: 'ACTIVE', 2: 'EXITED'}

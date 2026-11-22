@@ -12,6 +12,7 @@ import tempfile
 import threading
 import time
 import unittest
+import unittest.mock
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -475,6 +476,15 @@ class FailureTests(Base):
         finally:
             writer.execute('ROLLBACK')
             writer.close()
+
+    def test_a_page_query_past_its_time_limit_is_interrupted(self):
+        chain = FakeChain(30, {n: [transfer(n), transfer(n + 1, A2, A3)] for n in range(1, 31)})
+        index = self.index(chain)
+        index.step()
+        with unittest.mock.patch.object(T, 'PAGE_SECONDS', -1.0), unittest.mock.patch.object(T, 'PROGRESS_STEPS', 1):
+            with self.assertRaises(sqlite3.OperationalError):
+                index.page(options(order='value_desc', q='0x0'))
+        self.assertEqual(index.page(options())['total'], 60, 'the next page is answered')
 
     def test_page_refuses_options_the_relay_would_not_send(self):
         index = self.index(FakeChain(1))
