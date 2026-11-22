@@ -52,7 +52,9 @@
       label.textContent = phrase(label.dataset.i18n);
       link.setAttribute('aria-label', `${label.textContent} — ${phrase(link.dataset.platformLabel)}`);
       const metadata = document.querySelector(`[data-download-meta="${link.dataset.walletPlatform}"]`);
-      if (metadata) metadata.textContent = url ? (release?.size || '') : '';
+      // Filled only by tools/release_page.py from a verified signed release: size and SHA-256, as text.
+      if (metadata) metadata.textContent = url ? [release?.size, /^[0-9a-f]{64}$/.test(release?.sha256 || '') ? 'SHA-256 ' + release.sha256 : '']
+        .filter(Boolean).join(' · ') : '';
       if (url) {
         link.href = url;
         link.removeAttribute('aria-disabled');
@@ -63,6 +65,20 @@
         link.setAttribute('tabindex', '-1');
       }
     });
+  }
+  // The signed release's SHA256SUMS and its signature (tools/release_page.py); hidden while no release is published.
+  function renderRelease() {
+    const info = document.querySelector('#apps-release');
+    if (!info) return;
+    const release = window.POCOL_DOWNLOADS?.release;
+    const https = value => { try { const u = new URL(value); return u.protocol === 'https:' ? u.href : null; } catch { return null; } };
+    const sums = https(release?.sums), sig = https(release?.sumsSig);
+    const ok = sums && sig && typeof release?.version === 'string' && /^[0-9]+\.[0-9]+\.[0-9]+$/.test(release.version);
+    info.hidden = !ok;
+    if (!ok) return;
+    document.querySelector('#apps-release-version').textContent = release.version;
+    document.querySelector('#apps-release-sums').href = sums;
+    document.querySelector('#apps-release-sums-sig').href = sig;
   }
   const languagePicker = window.createPoColLanguagePicker?.({
     language,
@@ -98,6 +114,7 @@
     document.querySelector('meta[name="description"]').content = text.metaDescription;
     save('pocol-language', lang);
     renderDownloads();
+    renderRelease();
     renderModal();
     window.dispatchEvent(new CustomEvent('pocol:language', {detail:{language:lang}}));
   }

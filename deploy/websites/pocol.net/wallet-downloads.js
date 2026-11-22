@@ -3,5 +3,6 @@ window.POCOL_DOWNLOADS = {
   "linux": "",
   "android": "",
   "ios": "",
-  "macos": ""
+  "macos": "",
+  "release": ""
 };

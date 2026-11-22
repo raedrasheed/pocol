@@ -72,7 +72,9 @@ class DownloadLinks(unittest.TestCase):
         prefix = 'window.POCOL_DOWNLOADS = '
         self.assertTrue(text.startswith(prefix))
         downloads = json.loads(text[len(prefix):].rstrip().rstrip(';'))
-        self.assertEqual(set(downloads), {'windows', 'linux', 'android', 'ios', 'macos'})
+        # The five platforms and the release record (tools/release_page.py fills them from a verified signed release).
+        self.assertEqual(set(downloads), {'windows', 'linux', 'android', 'ios', 'macos', 'release'})
+        self.assertEqual(downloads.pop('release'), '', 'no signed release is recorded before W16')
         for platform, value in downloads.items():
             url = value if isinstance(value, str) else value.get('url', '')
             # Until W16 no native package is offered; the retired 0.4.0 packages never are.
@@ -177,6 +179,13 @@ class ExtensionPackage(unittest.TestCase):
         page = html.unescape((MAIN / 'chrome-extension.html').read_text(encoding='utf-8'))
         self.assertIn(f'Extension ID: {ext_id}', page)
         self.assertIn(fingerprint, page)
+        # The home page's "Verify a download" names the same fingerprint, in both languages.
+        about = (MAIN / 'about-locales.js').read_text(encoding='utf-8')
+        start = about.index('const extra = ') + len('const extra = ')
+        extra, _ = json.JSONDecoder().raw_decode(about, start)
+        for lang in ('en', 'ar'):
+            self.assertIn(fingerprint, extra[lang]['appsVerifyBody'], lang)
+        self.assertIn(html.escape(extra['en']['appsVerifyBody'], quote=False), (MAIN / 'index.html').read_text(encoding='utf-8'))
         # The page says what is true today: no signed release is offered yet.
         self.assertIn('until then pocol.net offers no extension package', section['paragraphs'][0]['en'])
 

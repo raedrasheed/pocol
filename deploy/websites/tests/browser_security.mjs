@@ -154,6 +154,50 @@ try{
             check('reward panel has no page errors',viewErrors.length===0);
           }finally{await rewards.close();}
         }
+        // The download structure (2026-11-22): empty before the signed release; filled by tools/release_page.py, the
+        // buttons link the files and show size and SHA-256, and the release's SHA256SUMS and signature are linked.
+        {
+          const sha='ab'.repeat(32),filled={windows:{url:'https://pocol.net/downloads/W.zip',size:'12.0 MB',sha256:sha,sig:'https://pocol.net/downloads/W.zip.sig'},
+            linux:'',android:'',ios:'',macos:'',release:{version:'9.9.9',sums:'https://pocol.net/downloads/SHA256SUMS',sumsSig:'https://pocol.net/downloads/SHA256SUMS.sig'}};
+          let script=null;
+          const shop=await browser.newContext();
+          try{
+            await shop.route('**/*',route=>{
+              const url=new URL(route.request().url());
+              if(url.origin===server.origin&&url.pathname==='/wallet-downloads.js'&&script)return route.fulfill({status:200,
+                contentType:'text/javascript',body:script});
+              if(url.origin===server.origin)return route.continue();
+              blocked++;return route.abort('blockedbyclient');
+            });
+            const view=await shop.newPage(),viewErrors=[];
+            view.on('pageerror',error=>viewErrors.push(String(error)));
+            const state=()=>view.evaluate(()=>{const w=document.querySelector('[data-wallet-platform="windows"]');return{href:w.getAttribute('href'),
+              disabled:w.getAttribute('aria-disabled'),meta:document.querySelector('[data-download-meta="windows"]').textContent,
+              release:document.querySelector('#apps-release').hidden,sums:document.querySelector('#apps-release-sums').getAttribute('href'),
+              version:document.querySelector('#apps-release-version').textContent,
+              verify:document.querySelector('a[href="chrome-extension.html#verify-release"] [data-i18n="appsVerifyLink"]')?.textContent,
+              wide:document.documentElement.scrollWidth>window.innerWidth};});
+            await view.goto(server.origin+'/?lang=en',{waitUntil:'networkidle'});
+            let s=await state();
+            check('downloads offer nothing and hide the release record before the signed release',s.href===null&&s.disabled==='true'
+              &&s.meta===''&&s.release===true&&s.verify==='Verification steps ↗');
+            script='window.POCOL_DOWNLOADS = '+JSON.stringify(filled)+';';
+            for(const [lang,width] of [['en',1366],['ar',390]]){
+              await view.setViewportSize({width,height:width===390?844:900});
+              await view.goto(server.origin+'/?lang='+lang,{waitUntil:'networkidle'});
+              s=await state();
+              check('filled downloads link the file with its size and SHA-256 and the signed SHA256SUMS ('+lang+', '+width+' px)',
+                s.href==='https://pocol.net/downloads/W.zip'&&s.disabled===null&&s.meta==='12.0 MB · SHA-256 '+sha&&s.release===false
+                &&s.sums==='https://pocol.net/downloads/SHA256SUMS'&&s.version==='9.9.9'&&!s.wide);
+            }
+            script='window.POCOL_DOWNLOADS = '+JSON.stringify({...filled,windows:{...filled.windows,url:'http://pocol.net/W.zip'},
+              release:{...filled.release,sums:'javascript:alert(1)'}})+';';
+            await view.goto(server.origin+'/?lang=en',{waitUntil:'networkidle'});
+            s=await state();
+            check('downloads refuse a non-https file or release link',s.href===null&&s.release===true);
+            check('download pages have no page errors',viewErrors.length===0);
+          }finally{await shop.close();}
+        }
         await page.goto(server.origin+'/faucet.html?lang=ar',{waitUntil:'networkidle'});
         check('faucet page Arabic language, direction and title',await page.evaluate(()=>document.documentElement.lang==='ar'
           &&document.documentElement.dir==='rtl'&&document.title==='احصل على رسومك الأولى · PoCol'));

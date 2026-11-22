@@ -32,7 +32,7 @@ Derived files move with their sources:
   present on disk (an archive restored under downloads/) is listed by its bytes and stays declared.
 
 --download PATH=SHA256 (repeatable; PATH is `<site>/downloads/<name>`, a .zip, .tar.gz or .apk archive or its .sig or
-.sha256) writes the SHA256SUMS.txt line of a release file that is kept out of Git and adds its name to keptOut. It
+.sha256, or the signed release's SHA256SUMS or network.pocol.json or their .sig) writes the SHA256SUMS.txt line of a release file that is kept out of Git and adds its name to keptOut. It
 drops the lines it supersedes (and their keptOut names): the
 kept-out lines of another version of the same archive family (the name before `-X.Y.Z`, for example
 `PoCol-Studio-IDE-Viewer` or `PoCol-Mainnet`) and any other kept-out line with the bytes of one of those (an unversioned
@@ -89,9 +89,10 @@ EXTRA = ['deploy/websites/tests/api_security.php', 'deploy/websites/tests/browse
 SUMS = 'SHA256SUMS.txt'
 # A download file that may be listed in SHA256SUMS.txt but kept out of Git (deploy/websites/README.md): an archive, its
 # signature or its .sha256. Which ones are kept out is DECLARED's keptOut: a tracked .sha256 has this form too.
-KEPT_OUT = re.compile(r'downloads/[^/]+\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?')
+KEPT_OUT = re.compile(r'downloads/(?:[^/]+\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?|(?:SHA256SUMS|network\.pocol\.json)(?:\.sig)?)')
 # A --download name: a kept-out file name of plain characters.
-DOWNLOAD_NAME = re.compile(r'downloads/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?')
+# The signed release's SHA256SUMS and the invitation, with their .sig, are release files too (tools/release_page.py).
+DOWNLOAD_NAME = re.compile(r'downloads/(?:[A-Za-z0-9][A-Za-z0-9._-]*\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?|(?:SHA256SUMS|network\.pocol\.json)(?:\.sig)?)')
 # An archive family and its version: `downloads/<family>-X.Y.Z<rest>`.
 ARCHIVE_VERSION = re.compile(r'downloads/(.+?)-([0-9]+\.[0-9]+\.[0-9]+)(?=[-.])(.*)')
 # Hashed bundles: key -> (site, prefix). The file is `<site>/assets/<prefix>-<12 hex>.js`, exactly one per key.
