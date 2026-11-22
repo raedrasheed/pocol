@@ -132,6 +132,10 @@ rejection. A longer review is expected. The facts the answer rests on:
 - All of the extension's own JavaScript is in the package (vendored libraries included, byte-identical to their npm
   releases); extension pages have no `eval`, `new Function` or remotely loaded script, and their CSP is
   `script-src 'self'`.
+- `vendor/ethers.js` is ethers 6.17.0's `dist/ethers.min.js` unchanged (SHA-256
+  `b016b0c3898c78fd8156466eb1ff1f42c9df951c2f0d64c9bdf799fe745b0a6c`, from https://registry.npmjs.org/ethers/-/ethers-6.17.0.tgz;
+  `tests/wallet_pages_test.mjs` checks it). The extension uses its ABI, transaction, address, hashing and BIP-39
+  helpers; it makes no request on import, and no extension code uses its network providers.
 - The viewer DOES run JavaScript that is not in the package: the code of a website published on PoCol, which the user
   opens. It runs only inside the manifest's sandboxed page (`sandbox.html`, CSP `connect-src 'none'`, script only from
   the loader's hash and `blob:` URLs of files verified against their on-chain hashes), which has no extension API

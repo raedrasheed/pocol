@@ -62,3 +62,14 @@ test('the Send page signs only after its consent box and the user\'s own click, 
   assert.match(js, /if \(!e\.isTrusted \|\| !review \|\| !\$\('consent'\)\.checked\) return;/);
   assert.ok(js.indexOf("type: 'send.confirm'") > js.indexOf('e.isTrusted'), 'send.confirm only after the trusted-click check');
 });
+
+// EXT-07 (2026-11-22): the vendored ethers is shipped whole, byte-identical to ethers 6.17.0's dist/ethers.min.js from
+// the npm registry (package-lock.json pins the tarball's integrity); store/listing.md states the hash for the reviewer.
+test('EXT-07: vendor/ethers.js is the unmodified ethers 6.17.0 dist/ethers.min.js, with the hash the listing states', async () => {
+  const { createHash } = await import('node:crypto');
+  const ETHERS_MIN_SHA256 = 'b016b0c3898c78fd8156466eb1ff1f42c9df951c2f0d64c9bdf799fe745b0a6c';
+  const lock = JSON.parse(readFileSync(join(EXT, 'package-lock.json'), 'utf8')).packages['node_modules/ethers'];
+  assert.equal(lock.version, '6.17.0'); assert.equal(lock.resolved, 'https://registry.npmjs.org/ethers/-/ethers-6.17.0.tgz');
+  assert.equal(createHash('sha256').update(readFileSync(join(dist, 'vendor', 'ethers.js'))).digest('hex'), ETHERS_MIN_SHA256);
+  assert.ok(readFileSync(join(EXT, 'store', 'listing.md'), 'utf8').includes(ETHERS_MIN_SHA256), 'store/listing.md names the hash');
+});
