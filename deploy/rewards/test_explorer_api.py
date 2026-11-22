@@ -310,7 +310,15 @@ class ExplorerRelayTests(GatewayServerCase):
         self.assertEqual(first[0]['result']['head'], {'height': 16, 'hash': F.HASH})
         self.assertEqual(first[2]['result'], {'height': 16, 'blockHash': F.HASH, 'active': 0, 'live': 0, 'eligible': 0, 'tomb': 0,
                                               'bondStates': {'NONE': 0, 'HELD': 0, 'BURNED': 0, 'PAID': 0, 'ACCRUING': 0}})
-        status, _, blocks = self.post([call('eth_getBlockByNumber', ['0x%x' % (100 - i), False], 4 + i) for i in range(20)])
+        # The whole check runs on a controlled clock: on the real one, a host that booted less than 1000 s ago (a fresh
+        # CI runner) sees time go back to before 1000.0 and refills nothing. Sent at once, the block batch exceeds the
+        # client's burst (22 + 20 > CLIENT_BURST 40) and is refused busy; network.php resends it after Retry-After.
+        blocks_batch = [call('eth_getBlockByNumber', ['0x%x' % (100 - i), False], 4 + i) for i in range(20)]
+        with patch.object(gateway.time, 'monotonic', return_value=1000.0):
+            status, headers, busy = self.post(blocks_batch)
+        self.assertEqual((status, headers.get('Retry-After')), (429, '3'), busy)
+        with patch.object(gateway.time, 'monotonic', return_value=1003.0):
+            status, _, blocks = self.post(blocks_batch)
         self.assertEqual((status, [b['id'] for b in blocks]), (200, list(range(4, 24))))
         self.assertTrue(all(b['result']['hash'] == F.HASH for b in blocks))
 
