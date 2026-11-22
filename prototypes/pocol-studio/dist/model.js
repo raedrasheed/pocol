@@ -148,14 +148,41 @@ export function capsVerdict(caps,least,most){
   }
   return{checked:true,refuse,tight,alarms};
 }
-/// pocol_getCaps through the Studio gateway (`post(body)` resolves to {ok, json()}), then the verdict. A node or gateway
-/// without the method (-32601, or an HTTP refusal) or no answer gives {checked:false}: the pre-check is skipped with a
-/// warning, and the extension's own checks still run before signing.
-export async function capsPrecheck(post,files,{newSite}){
-  let v;
-  try{const r=await post(JSON.stringify({jsonrpc:'2.0',id:1,method:'pocol_getCaps',params:[]}));if(!r.ok)return{checked:false,reason:'http'};v=await r.json();}
-  catch{return{checked:false,reason:'unreachable'};}
-  if(v?.error)return{checked:false,reason:v.error.code===-32601?'method':'error',code:v.error.code};
+/// The gateway's transient refusals (deploy/studio/pocol_studio_gateway.py): HTTP 429 (a request budget is empty) or 503,
+/// and the JSON-RPC errors -32005 (request budget exceeded) and -32021 (gateway busy). They say "retry shortly".
+export const CAPS_RETRY_HTTP=new Set([429,503]),CAPS_RETRY_RPC=new Set([-32005,-32021]);
+/// The pre-check's retry schedule: at most CAPS_ATTEMPTS requests, waiting CAPS_BACKOFF_MS[i] (or the gateway's
+/// Retry-After, at most CAPS_RETRY_AFTER_MAX_MS) before retry i, all within CAPS_BUDGET_MS of waiting.
+export const CAPS_ATTEMPTS=4,CAPS_BACKOFF_MS=[500,1000,2000],CAPS_RETRY_AFTER_MAX_MS=3000,CAPS_BUDGET_MS=6000;
+const capsWait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+/// pocol_getCaps through the Studio gateway (`post(body)` resolves to {ok, status, headers, json()}), then the verdict.
+/// A transient refusal (above) is retried with backoff; when it persists the pre-check is skipped with reason 'busy'.
+/// A node or gateway without the method (-32601), another HTTP refusal ('http', with its status), another RPC error
+/// ('error', with its code) or no answer ('unreachable') also gives {checked:false}: the pre-check is skipped with a
+/// warning that names the reason (capsSkipReason), and the extension's own checks still run before signing.
+export async function capsPrecheck(post,files,{newSite},{wait=capsWait}={}){
+  let v,waited=0;
+  for(let attempt=1;;attempt++){
+    let retry=null;
+    try{
+      const r=await post(JSON.stringify({jsonrpc:'2.0',id:1,method:'pocol_getCaps',params:[]}));
+      if(!r.ok){
+        if(!CAPS_RETRY_HTTP.has(r.status))return{checked:false,reason:'http',...(r.status!==undefined?{status:r.status}:{})};
+        const after=Number(r.headers?.get?.('Retry-After'));
+        retry={reason:'busy',status:r.status,after:Number.isFinite(after)&&after>0?Math.min(after*1000,CAPS_RETRY_AFTER_MAX_MS):null};
+      }else v=await r.json();
+    }catch{return{checked:false,reason:'unreachable'};}
+    if(!retry&&v?.error){
+      if(!CAPS_RETRY_RPC.has(v.error.code))return{checked:false,reason:v.error.code===-32601?'method':'error',code:v.error.code};
+      retry={reason:'busy',code:v.error.code,after:null};
+    }
+    if(!retry)break;
+    const delay=retry.after??CAPS_BACKOFF_MS[Math.min(attempt-1,CAPS_BACKOFF_MS.length-1)];
+    if(attempt>=CAPS_ATTEMPTS||waited+delay>CAPS_BUDGET_MS){const{after,...why}=retry;return{checked:false,...why,attempts:attempt};}
+    await wait(delay);waited+=delay;
+  }
   return capsVerdict(v?.result,siteNeedsAtLeast(files,{newSite}),siteNeedsAtMost(files,{newSite}));
 }
+/// The strings key that says why the pre-check was skipped (each in both languages in app.js).
+export function capsSkipReason(pre){return{busy:'capsSkippedBusy',http:'capsSkippedHttp',unreachable:'capsSkippedOffline',method:'capsSkippedMethod',error:'capsSkippedError'}[pre?.reason]||'capsSkipped';}
 export function capsDetails(rows){return rows.map(r=>`${r.label}: ${r.need} / ${r.remaining}`).join(' · ');}
