@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Transactional installer of the explorer gateway host (Sites W8, owner decision 9): the read-only gateway service
-(deploy/rewards/gateway.py with pocol_rewards.py and explorer_api.py) on 127.0.0.1:8088, the explorer snapshot's static
+(deploy/rewards/gateway.py with pocol_rewards.py, explorer_api.py and the transaction index pocol_transactions.py) on
+127.0.0.1:8088, the explorer snapshot's static
 copy, and the explorer.pocol.net Caddy site that serves both (explorer_site.py). No node data, key or DNS record is
 touched.
 
@@ -52,7 +53,7 @@ ROOT = HERE.parents[1]
 SNAPSHOT = 'deploy/websites/explorer.pocol.net'
 INCLUDE = ROOT / 'deploy/websites/tools/explorer-s1-include.txt'
 BASE = Path('/opt/pocol-explorer-gateway')
-SOURCES = ('gateway.py', 'pocol_rewards.py', 'explorer_api.py')
+SOURCES = ('gateway.py', 'pocol_rewards.py', 'explorer_api.py', 'pocol_transactions.py')
 MARKER = 'managed-by-explorer-v1'
 SERVICE = 'pocol-explorer-gateway.service'
 UNIT = Path('/etc/systemd/system') / SERVICE
@@ -70,13 +71,19 @@ ROOT_UID = 0
 HTTPS_WAIT, HTTPS_WAIT_RANGE = 600, (60, 3600)
 ORIGIN = 'https://' + explorer_site.HOST
 ARGUMENTS = (f'--bind 127.0.0.1 --port {PORT} --rpc-port 8545 --v3-network {NETWORK} --site-origin {ORIGIN}')
+# The transaction index (pocol_transactions.py) in the service's own state directory (DynamicUser: /var/lib/private,
+# reachable only by the service): its SQLite file, bounded by pocol_transactions.DEFAULT_MAX_ROWS.
+TX_DB = '/var/lib/pocol-explorer-gateway/transactions.sqlite3'
 UNIT_TEXT = f'''[Unit]
-Description=PoCol explorer gateway (read-only /rpc and the explorer's /api reads)
-After=network.target pocol-standalone.service
+Description=PoCol explorer gateway (read-only /rpc, the explorer's /api reads and the transaction index)
+After=network.target pocol-standalone.service pocol-observer.service
 
 [Service]
 Type=simple
 DynamicUser=yes
+StateDirectory=pocol-explorer-gateway
+StateDirectoryMode=0700
+Environment=POCOL_TX_DB={TX_DB}
 ExecStart=/usr/bin/python3 {BASE}/gateway.py {ARGUMENTS}
 WorkingDirectory={BASE}
 Restart=on-failure
@@ -103,13 +110,24 @@ WantedBy=multi-user.target
 
 
 NETWORK_ARGUMENT, FORKS_ARGUMENT = f'--v3-network {NETWORK} ', f'--fork-schedule {FORKS} '
+# The unit the previous release wrote (no transaction index): an update replaces it; any other text is a custom edit.
+PREVIOUS_UNIT_TEXT = (UNIT_TEXT
+                      .replace("(read-only /rpc, the explorer's /api reads and the transaction index)", "(read-only /rpc and the explorer's /api reads)")
+                      .replace('After=network.target pocol-standalone.service pocol-observer.service', 'After=network.target pocol-standalone.service')
+                      .replace(f'StateDirectory=pocol-explorer-gateway\nStateDirectoryMode=0700\nEnvironment=POCOL_TX_DB={TX_DB}\n', ''))
 
 
-def unit_text(forks):
+def unit_text(forks, text=None):
     """The unit, with --fork-schedule when the operator's forks.json exists (a scheduled cap raise)."""
+    text = UNIT_TEXT if text is None else text
     if not forks:
-        return UNIT_TEXT
-    return UNIT_TEXT.replace(NETWORK_ARGUMENT, NETWORK_ARGUMENT + FORKS_ARGUMENT, 1)
+        return text
+    return text.replace(NETWORK_ARGUMENT, NETWORK_ARGUMENT + FORKS_ARGUMENT, 1)
+
+
+def known_units():
+    """The unit texts an update may replace: this release's and the previous release's, with and without forks.json."""
+    return {unit_text(f, t) for f in (False, True) for t in (UNIT_TEXT, PREVIOUS_UNIT_TEXT)}
 
 
 def check_forced_loopback():
@@ -399,7 +417,7 @@ def main(argv=None):
         raise RuntimeError(f'Unrecognized {BASE}; no changes made')
     forks = FORKS.is_file()
     unit = unit_text(forks)
-    if UNIT.exists() and UNIT.read_text() not in (unit_text(False), unit_text(True)):
+    if UNIT.exists() and UNIT.read_text() not in known_units():
         raise RuntimeError('The explorer gateway service has custom edits; review before updating')
     import gateway
     network = gateway.load_v3_network(NETWORK)

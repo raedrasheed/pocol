@@ -31,10 +31,16 @@ rpc.php did, 413 `{"error":"Request size limit exceeded."}` as JSON.
   and refusal rules,
   the copy's checks on the committed snapshot, and the install, `--check` and rollback paths on temporary paths with
   every system command faked.
+- `install_observer_node.py`: the installer of the host's own node, a non-mining `pocold run` (no key) on
+  `127.0.0.1:8545` (Observer node below); `test_observer_node.py` tests it with every system command faked.
+- `e2e_explorer_devnet.py`: the observer's command line, the gateway and its transaction index on a local v3 devnet,
+  with a reorganization (Transaction index below).
 
 ```sh
 python3 -B -m unittest discover -s deploy/explorer -v
 python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v
+python3 -B -m unittest discover -s deploy/rewards -p test_pocol_transactions.py -v
+POCOLD=/path/to/pocold python3 -B deploy/explorer/e2e_explorer_devnet.py   # devnet ports 30300-30302, 8540-8542, 8549, 8662
 ```
 
 ## Install on the gateway server
@@ -98,6 +104,89 @@ Studio route and its body size, and the faucet route; an edited, damaged or dupl
 Install this before the Studio gateway (`deploy/studio`) and the faucet route (`deploy/faucet/faucet_route.py`), which
 add their routes to this block (Studio after the host line, the faucet right before `@rpc path /rpc`); either order of
 those installs and of later updates gives the same file.
+
+## Observer node
+
+The gateway reads only `127.0.0.1:8545`, and the founders' RPC is loopback-only, so the gateway host runs its own
+node. `install_observer_node.py` installs one that never mines and holds no key: `pocold run` with no `--miner` or
+`--miner-key-file`, RPC on `127.0.0.1:8545` only, the invitation's seeds (`--seed`), outbound P2P only unless
+`--listen` is given, under `pocol-observer.service` (DynamicUser, StateDirectory, ProtectSystem=strict, the standalone
+node's MemoryMax=7G, so a host with 8 GiB of RAM or more). The installer refuses to write a unit with a miner or another
+RPC address. It checks the pocold binary against the SHA-256 the operator gives (from the verified signed release), the
+invitation against its published SHA-256 when given, and that `/etc/pocol-explorer-gateway/network.json` names the same
+network. It writes the invitation's three network files exactly as `pocol start` would. After the start it waits for
+the node's RPC to name the invitation's chain ID and genesis hash and report no miner; on any failure it rolls back.
+Its unit is ordered before the gateway's (`After=pocol-observer.service`).
+
+## Transaction index
+
+The Transactions tab (`/api/transactions.php`) and `pocol_getTransactions` on `/rpc` come from
+`deploy/rewards/pocol_transactions.py`, installed with the gateway and run in its process. The unit sets
+`POCOL_TX_DB=/var/lib/pocol-explorer-gateway/transactions.sqlite3` in the service's private state directory.
+
+- A daemon thread follows the node over loopback. It reads light blocks one height at a time, and reads a full block
+  (by the light block's hash) only when the block has transactions. It stores every transaction with its block,
+  position, block time, from, to, value and kind (Transfer, Contract call, Contract creation, Undecoded), newest first.
+- Reorganizations: the newest 4096 heights keep their block and parent hashes. Each round compares the stored tip with
+  the node's block at that height and, on a difference, removes everything above the fork point and indexes the new
+  branch. A page pinned to a snapshot that is no longer canonical is 409 with `reset`, and the explorer starts again
+  from page 1.
+- Restarts resume from the file. A file of another network is refused at start.
+- Bound: at most 500,000 transactions (`POCOL_TX_MAX_ROWS`; about 200 MB on disk). Past it the oldest whole blocks
+  are removed, and the page's `index.from` names the first kept block, which the Transactions tab shows.
+- The gateway never waits for it: pages are read on their own read-only WAL connections, and node failures make the
+  index `reconnecting` while the last data is still served.
+
+It was tested against a fake chain (`test_pocol_transactions.py`) and on a local devnet (`e2e_explorer_devnet.py`,
+`explorer_smoke.mjs`), not against PoCol Mainnet.
+
+## Miner map
+
+The network does not record where miners are, and nothing ties a peer's IP address to a miner address. The gateway has
+no GeoIP module (`pocol_getNetworkGeography` and `/api/miner-locations.php` stay 503), and the explorer says "Miner
+locations unavailable: the network has no location data for miners, and peers' IP addresses are not used to place them
+(privacy)." Showing the countries of one node's peers would be an estimate about connections, not miners, and close to
+personal data with few peers. That needs an explicit owner decision (a licensed database such as DB-IP Lite, its
+attribution, and a privacy review); until then the view stays unavailable.
+
+## Production deployment of the gateway host (exact steps)
+
+None of this was run on a real host; the installers were tested with faked system commands and the services on a
+local devnet. Prerequisites the owner provides:
+
+- The website identity PR (step 7: `site_identity.py --to network.pocol.json --commit SHA --gateway-host
+  explorer.pocol.net`) merged. A checkout whose explorer bundle names another network shows "The data source belongs
+  to a different network." for every PoCol Mainnet answer.
+- A host for the gateway, separate from the founders: 8 GiB of RAM or more, disk for the node's chain growth plus about
+  200 MB for the index, systemd, Python 3.10+, Caddy, inbound 80/443, and outbound P2P to the seeds on 30300.
+- The signed release's `pocold` (signature verified per deploy/release) and its SHA-256, and the invitation
+  `network.pocol.json` (PoCol Mainnet: SHA-256 `a74c1cf432e7fbca59aa6bd8250af660f1b1582d693b1b109316686f7241f233`).
+- The DNS change, made by the owner, between steps 5 and 6.
+
+Steps, from a checkout of the release commit:
+
+1. Network file for the gateway, from the invitation's `devnet.json` `chainId` and `genesisHash`:
+   `sudo install -d -m 0755 /etc/pocol-explorer-gateway`, then write `/etc/pocol-explorer-gateway/network.json`
+   (mode 0644) as `{"chainId": 2656089850, "genesisHash": "0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e",
+   "specVersion": 2, "v3": true, "source": "https://explorer.pocol.net"}`.
+2. The observer node: `sudo python3 deploy/explorer/install_observer_node.py --invitation network.pocol.json
+   --invitation-sha256 a74c1cf4... --pocold ./pocold --pocold-sha256 <release digest> --check`, then the same command
+   without `--check`. It prints `INSTALLED` once the node answers for PoCol Mainnet with no miner.
+3. Wait for the sync: `curl -s -X POST -H 'Content-Type: application/json' --data
+   '{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}' http://127.0.0.1:8545`. The head height must grow
+   and the node must have peers. The gateway can be installed while it syncs; its pages show the node's head.
+4. Caddy: `sudo apt-get install caddy` (the stock `:80` Caddyfile is replaced by the explorer block).
+5. Before the DNS move: `D=$(mktemp -d) && python3 deploy/websites/tools/site_snapshot.py --out "$D" && sudo python3
+   deploy/explorer/install_explorer_gateway.py --site "$D" --check` must print `CHECK PASSED` with chain 2656089850
+   and the genesis hash above.
+6. The owner points `explorer.pocol.net` at the host. Wait until `dig +short explorer.pocol.net @1.1.1.1` and
+   `@8.8.8.8` both return it.
+7. `sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D"`: the gateway (with the transaction index)
+   on 127.0.0.1:8088, the static copy and the Caddy block, checked over HTTPS with trusted certificates, rolled back on
+   failure.
+8. From another machine: `curl --fail --max-time 20 https://explorer.pocol.net/api/health.php` answers `"result":"PASS"`;
+   `curl -s https://explorer.pocol.net/api/transactions.php` answers `"state":"syncing"` and then `"ready"`.
+9. Then the Studio relay (`deploy/studio`) and the fee faucet route (`deploy/faucet/faucet_route.py`).
 
 ## Behaviour that differs from the PHP relays
 

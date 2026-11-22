@@ -204,8 +204,10 @@ at launch; nothing here touches DNS or servers. The same site serves the explore
 same-origin `/api/*.php` reads (Explorer reads, above); `deploy/explorer/install_explorer_gateway.py` installs this
 gateway, the static copy and the Caddy site (`deploy/explorer/README.md`).
 
-`gateway.py` is the explorer gateway with this adapter integrated (a required import, installed beside it; the GeoIP
-and transaction index modules stay optional). The public `pocol_getBlockReward` method still accepts exactly
+`gateway.py` is the explorer gateway with this adapter integrated (a required import, installed beside it). The transaction index
+`pocol_transactions.py` is installed beside it too and runs when `POCOL_TX_DB` names its file (the installer's unit
+sets it; `deploy/explorer/README.md`, Transaction index). There is no GeoIP module: the network gives no truthful
+miner location (`deploy/explorer/README.md`, Miner map). The public `pocol_getBlockReward` method still accepts exactly
 `params: []`; clients cannot supply a network or a schedule. The gateway passes its immutable, locally validated
 configuration to the adapter on every reward read. No HTTP/RPC input can replace it.
 

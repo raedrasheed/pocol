@@ -71,5 +71,16 @@ sudo systemctl status pocol-explorer-gateway.service --no-pager
 sudo journalctl -u pocol-explorer-gateway.service -n 40 --no-pager
 sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
-بدون وحدتَي GeoIP وفهرس المعاملات الاختياريتين تجيب /api/miner-locations.php و /api/transactions.php بالرمز 503
-مع رسالتيهما، كما كانت ملفات PHP تجيب بدونهما.
+فهرس المعاملات (deploy/rewards/pocol_transactions.py) يُثبَّت مع البوابة ويعمل داخلها، وملفه في
+/var/lib/pocol-explorer-gateway/transactions.sqlite3 (مجلد الحالة الخاص بالخدمة). يتبع العقدة المحلية، ويعيد الفهرسة
+من نقطة التفرّع عند إعادة التنظيم، ويحتفظ بخمسمئة ألف معاملة على الأكثر.
+لا توجد وحدة GeoIP: الشبكة لا تسجّل أماكن المعدّنين، ولا تُستنتج الأماكن من عناوين IP للأقران (الخصوصية). لذلك تجيب
+/api/miner-locations.php بالرمز 503، ويقول Explorer إن أماكن المعدّنين غير متاحة. تغيير ذلك يحتاج قرارًا صريحًا من المالك.
+
+5. عقدة المراقبة (Observer)
+
+البوابة تقرأ 127.0.0.1:8545 فقط، وواجهة RPC لدى المؤسسين محلية فقط، لذلك يحتاج خادم البوابة عقدته الخاصة.
+deploy/explorer/install_observer_node.py يثبّت عقدة لا تعدّن ولا تحمل مفتاحًا (pocold run بلا --miner)، وواجهة RPC
+على 127.0.0.1:8545 فقط، وتتصل ببذور الدعوة. يتحقق المثبّت من بصمة SHA-256 لملف pocold ومن بصمة الدعوة، ثم ينتظر أن
+تجيب العقدة باسم الشبكة الصحيحة دون معدِّن، وإلا يسترجع الحالة السابقة. خطوات النشر الكاملة بالترتيب في README.md
+(Production deployment of the gateway host). لم يُجرَّب أي من ذلك على خادم حقيقي.
