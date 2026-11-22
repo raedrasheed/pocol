@@ -122,7 +122,8 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
 
 ## Tools
 
-- `set_network_identity.py --from OLD.json --to NEW.json [--check]`: switches every client's pinned chain ID,
+- `set_network_identity.py --from OLD.json --to NEW.json [--expect-sha256 HEX --expect-chain-id N --expect-genesis 0xHEX] [--check]`:
+  switches every client's pinned chain ID,
   genesis hash and GenesisSpec (`FILES` lists them) from one network's invitation to another's, with the
   derived content versions and the Studio gateway installer. It names no network itself: both identities come
   from the invitations, proven by their GenesisSpec. The invitation of the identity the tree pins today, which
@@ -130,13 +131,18 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
 
   ```sh
   git show <commit>:deploy/mainnet/h15000/network.pocol.json > /tmp/OLD.json
-  python3 deploy/mainnet/set_network_identity.py --from /tmp/OLD.json --to NEW_DIR/network.pocol.json
-  python3 deploy/mainnet/set_network_identity.py --from /tmp/OLD.json --to NEW_DIR/network.pocol.json --check
+  python3 deploy/mainnet/set_network_identity.py --from /tmp/OLD.json --to NEW_DIR/network.pocol.json --expect-...
+  python3 deploy/mainnet/set_network_identity.py --from /tmp/OLD.json --to NEW_DIR/network.pocol.json --expect-... --check
   ```
 
   `<commit>` is any commit before that file was deleted (`git log --diff-filter=D -- deploy/mainnet/h15000`
   names the deleting commit; use its parent). The tool prints the identity it switches from and to before it
-  writes anything. It also writes the release's pinned launch network, `NETWORK_PROFILES` in
+  writes anything. On a public network chain (`PUBLIC_NETWORK_CHAINS`, the chain of `v3-profile.json`,
+  2656089850) `--to` needs the three published values, `--expect-sha256` (the invitation file's announced
+  SHA-256), `--expect-chain-id` and `--expect-genesis`, and refuses, writing nothing, a file that does not match
+  all three (a value given on another chain must match too); `--check` needs them as well, and
+  `deploy/websites/tools/site_identity.py --to` takes the same three. A spec-2 genesis must have CP nonceMode 1,
+  which the release node and the extension require. It also writes the release's pinned launch network, `NETWORK_PROFILES` in
   `prototypes/pocold/src/readiness.rs` (V3-28 H2): the `--to` entry replaces the `--from` one, unless `--to` is a
   retired network or the rehearsal network (the chain ID of `v3-rehearsal-profile.json`), which get no entry, and
   `--check` refuses a missing or extra entry, or an entry of the other chain's form. Each entry is written on the
@@ -172,7 +178,11 @@ outside `development/` and `deploy/websites/` may hold a retired identity (`FILE
 release texts that are true only on the retired network (`STEP3`: the 0.4.x versions and "chain ID and genesis
 unchanged" notes) must be gone by then. The native 0.5.0 bump (owner decision 2026-11-16) landed before the switch;
 what `STEP3` still lists (the extension and Studio versions and the 0.4.x extension download names) moves with the
-signed 0.5.0 extension release and its download links. `deploy/release/assemble_release.py` refuses a release whose
+signed 0.5.0 extension release and its download links. Files outside `FILES` that name the public network's chain ID
+on purpose (its profile code, the ceremony, the faucet, the release build check, their tests and this runbook) are
+listed in `MAINNET_NAMED` of the test with a reason; a test requires exactly those, so a new mention is reviewed there,
+and once the tree pins that chain their mentions are not taken for unlisted client pins (a retired identity in them is
+still refused). `deploy/release/assemble_release.py` refuses a release whose
 extension `package.json` version is not the native version, so no release is assembled before the switch sets it to
 0.5.0: the ceremony runs on unsigned CI artifacts (step 1), and the first signed release follows the switch (step 7).
 
@@ -204,8 +214,8 @@ python3 deploy/mainnet/set_network_identity.py --placeholder deploy/mainnet/plac
 
 `--placeholder` writes a spec-2 placeholder (never a retired network or the tree's own) into `PLACEHOLDER_FILES` only.
 The identity switch (`--from`/`--to`) replaces the placeholder there with the `--to` identity and removes the mark, so
-the switch stays one run. The extension pages (`publisher.html`, `contract.html`) and READMEs keep the tree's identity
-until that switch.
+the switch stays one run. The extension pages (`publisher.html`, `contract.html`) name no network: their chain ID chip
+is filled from the built-in profile at run time. The extension READMEs keep the tree's identity until the switch.
 
 ## Local checks
 

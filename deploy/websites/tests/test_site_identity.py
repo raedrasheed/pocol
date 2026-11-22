@@ -789,5 +789,38 @@ class SiteIdentity(unittest.TestCase):
         self.assertIsNotNone(si.identity_regex(chain, old_genesis, keep_chain=TEST_CHAIN).search(f'id {chain};'))
         self.assertIsNone(si.identity_regex(chain, old_genesis, keep_chain=chain).search(f'id {chain};'))
 
+    def test_a_switch_to_the_public_network_is_checked_against_the_published_values(self):
+        # ID-03: --to on a public network chain (PUBLIC_NETWORK_CHAINS: the mainnet profile's chain) needs the published
+        # file SHA-256, chain ID and genesis hash, and refuses a file that does not match them; nothing is written.
+        root = self.copy()
+        chain = json.loads((ROOT / ni.MAINNET_PROFILE).read_text(encoding='utf-8'))['chainId']
+        self.assertIn(chain, ni.public_chains(ROOT))
+        spec = with_chain(_V3_BASE, chain)
+        (root / 'public.json').write_text(invitation(spec, TEST_SEEDS), encoding='utf-8')
+        (root / 'reformatted.json').write_text(json.dumps(json.loads((root / 'public.json').read_text(encoding='utf-8')), indent=1), encoding='utf-8')
+        good = ['--expect-sha256', hashlib.sha256((root / 'public.json').read_bytes()).hexdigest(), '--expect-chain-id', str(chain),
+                '--expect-genesis', '0x' + ni.keccak256(spec).hex()]
+        base = ['--gateway-host', '192.0.2.10', '--rpc-url', TEST_RPC]
+        before = snapshot(root)
+        for target, args in (('public.json', []), ('public.json', good[:4]), ('public.json', good[2:]),
+                             ('public.json', good[:2] + good[4:]), ('public.json', good[:5] + ['0x' + 'ab' * 32]),
+                             ('public.json', good[:3] + [str(chain + 1)] + good[4:]), ('public.json', ['--expect-sha256', '00' * 32] + good[2:]),
+                             ('reformatted.json', good)):
+            for extra in ((), ('--check',)):
+                with self.subTest(target=target, args=args, extra=extra):
+                    self.assertEqual(self.run_tool(root, '--to', str(root / target), *base, *args, *extra), 2)
+                    if args:
+                        self.assertRegex(self.last_errors, 'not the expected|needs the published values')
+        self.assertEqual(before, snapshot(root), 'a refused switch writes nothing')
+        # Expectations check a --to invitation only.
+        self.assertEqual(self.run_tool(root, '--check', *good), 2)
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'public.json'), *base, *good), 0, self.last_errors)
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'public.json'), *base, *good, '--check'), 0, self.last_errors)
+        self.assertEqual(json.loads((root / si.DECLARED).read_text(encoding='utf-8'))['chainId'], chain)
+        # Off a public chain the values are optional, but checked when given.
+        root = self.copy()
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base, '--expect-chain-id', str(TEST_CHAIN + 1)), 2)
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), *base, '--expect-chain-id', str(TEST_CHAIN)), 0, self.last_errors)
+
 if __name__ == '__main__':
     unittest.main()

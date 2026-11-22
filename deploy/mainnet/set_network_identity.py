@@ -89,6 +89,8 @@ import pocol_identity  # noqa: E402  (the GenesisSpec reference decoder, checked
 
 # The CP item count of each GenesisSpec version's CP schema (genesis_spec.rs CP_LEN, CP_V2_LEN).
 CP_ITEMS = {1: 52, 2: 59}
+# The CP index of nonceMode (the same in CP schema v1 and v2).
+NONCE_MODE = [field[0] for field in pocol_identity.CP_SCHEMA].index('nonceMode')
 # The node's GenesisSpec codec: its SPEC_VERSION is the highest version a release node decodes.
 NODE_SPEC = 'prototypes/lp1-node/src/genesis_spec.rs'
 # The identities the clients were switched away from (append-only): {"retired": [{"chainId", "genesisHash"}]}.
@@ -122,15 +124,13 @@ REHEARSAL_PROFILE = 'deploy/mainnet/v3-rehearsal-profile.json'
 FILES = {
     'prototypes/pocold/src/network_display.rs': (1, 1, 1),
     'prototypes/pocol-extension/src/lib/studio-network.js': (1, 1, 1),
-    'prototypes/pocol-extension/src/contract.html': (1, 0, 0),
-    'prototypes/pocol-extension/src/publisher.html': (1, 0, 0),
     'prototypes/pocol-extension/tests/publisher_test.mjs': (6, 0, 0),
     'prototypes/pocol-extension/tests/publisher_ui_test.mjs': (1, 0, 0),
     'prototypes/pocol-extension/tests/contract_ui_test.mjs': (5, 0, 0),
     'prototypes/pocol-extension/README-AR.md': (1, 0, 0),
     'prototypes/pocol-extension/README-IDE.md': (1, 1, 0),
     'prototypes/pocol-extension/README-STUDIO.md': (1, 1, 0),
-    'prototypes/pocol-studio/dist/app.js': (3, 1, 0),
+    'prototypes/pocol-studio/dist/app.js': (1, 1, 0),
     'prototypes/pocol-studio/README.md': (1, 1, 0),
     'prototypes/pocol-windows/WalletUiTests.cs': (1, 0, 0),
     'deploy/studio/install_studio_gateway.py': (3, 2, 0),
@@ -269,6 +269,13 @@ def spec_identity(b, versions=tuple(CP_ITEMS)):
             raise ValueError(f'not a valid spec-2 (v3) GenesisSpec ({error.code}: {error.detail})') from None
         if decoded['sysCodeHash'].hex() != pocol_identity.V3_SYS_CODE_HASH:
             raise ValueError('a spec-2 (v3) GenesisSpec must name the v3 program set (sysCodeHash)')
+        # The node admits a spec-2 genesis only with nonceMode 1 (pocol_identity.public_spec, admission.rs), and the
+        # extension's profile check refuses any other (rp.js fullRange, validateProfile): a client is never switched to a
+        # genesis its own node or extension refuses.
+        nonce_mode = decoded['cp'][NONCE_MODE]
+        if nonce_mode != 1:
+            raise ValueError(f'nonceMode {nonce_mode}: a spec-2 (v3) GenesisSpec has nonceMode 1 (the full 64-bit nonce '
+                             'domain), which the release node and the extension require')
     return version, int.from_bytes(b[s:e], 'big')
 
 def node_spec_version(root):
@@ -310,6 +317,55 @@ def invitation_identity(path, versions=tuple(CP_ITEMS)):
         if 'genesisHash' in info and str(info['genesisHash']).lower() != '0x' + genesis:
             raise ValueError(f"devnet.json genesisHash is not keccak256 of the GenesisSpec (0x{genesis})")
     return chain_id, genesis, spec, version
+
+def add_expect_arguments(p):
+    """The published values a --to invitation is checked against (ID-03): required for a public network chain."""
+    p.add_argument('--expect-sha256', metavar='HEX', type=expected_sha256,
+                   help='the published SHA-256 of the --to file (64 hex digits); required on a public network chain')
+    p.add_argument('--expect-chain-id', metavar='N', type=expected_chain,
+                   help='the published chain ID of the --to network; required on a public network chain')
+    p.add_argument('--expect-genesis', metavar='0xHEX', type=expected_genesis,
+                   help='the published genesis hash of the --to network; required on a public network chain')
+
+def expected_sha256(value):
+    if not re.fullmatch(r'[0-9a-fA-F]{64}', value):
+        raise argparse.ArgumentTypeError('a SHA-256 is 64 hex digits')
+    return value.lower()
+
+def expected_chain(value):
+    if not re.fullmatch(r'[1-9][0-9]*', value):
+        raise argparse.ArgumentTypeError('a chain ID is a decimal integer without digit groups')
+    return int(value)
+
+def expected_genesis(value):
+    if not re.fullmatch(r'0x[0-9a-fA-F]{64}', value):
+        raise argparse.ArgumentTypeError('a genesis hash is 0x and 64 hex digits')
+    return value[2:].lower()
+
+def expectation_problems(path, chain_id, genesis, a, public):
+    """The reasons the --to invitation at `path` (proven chain ID, genesis hash hex) is not the published network that
+    a.expect_sha256, a.expect_chain_id and a.expect_genesis name. Any value given must match. On a public network chain
+    (`public`, PUBLIC_NETWORK_CHAINS) all three are required, so a wrong or tampered invitation never re-pins the clients
+    of the public network: its file SHA-256 is the value the owner announced (deploy/mainnet/README.md, step 5)."""
+    out = []
+    given = {'--expect-sha256': a.expect_sha256, '--expect-chain-id': a.expect_chain_id, '--expect-genesis': a.expect_genesis}
+    missing = [flag for flag, value in given.items() if value is None]
+    if chain_id in public and missing:
+        out.append(f'chain {chain_id} is a public network chain (PUBLIC_NETWORK_CHAINS): a switch to it, or its check, needs '
+                   f'the published values {", ".join(missing)} (the invitation\'s announced file SHA-256, chain ID and '
+                   'genesis hash)')
+    if a.expect_sha256 is not None:
+        try:
+            digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        except OSError as e:
+            digest = f'unreadable ({e.strerror or e})'
+        if digest != a.expect_sha256:
+            out.append(f'the file SHA-256 is {digest}, not the expected {a.expect_sha256}: not the published invitation')
+    if a.expect_chain_id is not None and chain_id != a.expect_chain_id:
+        out.append(f'its GenesisSpec proves chain {chain_id}, not the expected {a.expect_chain_id}')
+    if a.expect_genesis is not None and genesis != a.expect_genesis:
+        out.append(f'its GenesisSpec proves genesis 0x{genesis}, not the expected 0x{a.expect_genesis}')
+    return out
 
 def placeholder_identity(rel, text):
     """(chain ID, genesis hash hex, GenesisSpec) of the placeholder a PLACEHOLDER_FILES file holds, or None if it
@@ -457,10 +513,12 @@ def main(argv=None):
     p.add_argument('--check', action='store_true', help='verify that the tree carries exactly the --to identity')
     p.add_argument('--allow-revert', action='store_true',
                    help=f'allow a --to identity listed in {RETIRED} (switch back to a retired network on purpose)')
+    add_expect_arguments(p)
     p.add_argument('--root', type=Path, default=ROOT)
     a = p.parse_args(argv)
     if a.placeholder is not None:
-        if a.source is not None or a.target is not None or a.allow_revert:
+        if a.source is not None or a.target is not None or a.allow_revert or \
+                (a.expect_sha256, a.expect_chain_id, a.expect_genesis) != (None, None, None):
             p.error('--placeholder is used alone (with --check or --root)')
         return place(a, p)
     if a.source is None or a.target is None:
@@ -479,6 +537,9 @@ def main(argv=None):
         p.error('--from and --to name the same network')
     if chain_id in (0, 777001) or not 0 < chain_id < 2**53:
         p.error(f'--to: chain ID {chain_id} is reserved or outside the JavaScript safe-integer range')
+    expected = expectation_problems(a.target, chain_id, genesis, a, public_chains(a.root))
+    if expected:
+        p.error('--to: ' + '; '.join(expected))
     try:
         retired_data = (a.root / RETIRED).read_bytes()
         retired = read_retired(retired_data)

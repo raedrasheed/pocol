@@ -7,6 +7,7 @@ copy of an identity value may sit outside the anchors.
     python3 deploy/websites/tools/site_identity.py --check                     # CI: the tree matches DECLARED
     python3 deploy/websites/tools/site_identity.py                             # finish the derived files only
     python3 deploy/websites/tools/site_identity.py --to NEW.json [--gateway-host HOST] [--commit SHA] [--rpc-url URL]
+        [--expect-sha256 HEX --expect-chain-id N --expect-genesis 0xHEX]   # required on a public network chain
     python3 deploy/websites/tools/site_identity.py --edits EDITS.json           # anchored bundle edits (W7, W14)
     python3 deploy/websites/tools/site_identity.py --download SITE/downloads/NAME=SHA256 ...   # kept-out archive lines
 
@@ -15,8 +16,12 @@ GenesisSpec that proves both, the display name, the IDE's RPC URL, the explorer'
 takes a network invitation (network.pocol.json, as `pocol network` writes it), proven by its GenesisSpec through
 deploy/mainnet/set_network_identity.py's decoder; its `seeds` become the explorer's seed list. The explorer also names
 its gateway host (gatewayHost): --gateway-host sets it, and a --to run without it is refused unless the current host is
-one of the new seeds, so a switch never leaves an old server named. --commit points every source link at that commit;
---rpc-url changes the IDE's RPC endpoint (default: unchanged), so a test can point a copy at a local gateway. The
+one of the new seeds, so a switch never leaves an old server named. On a public network chain (PUBLIC_NETWORK_CHAINS of
+the profile code: PoCol Mainnet's) --to also needs the published values: --expect-sha256 (the invitation file's
+announced SHA-256), --expect-chain-id and --expect-genesis, and refuses a file that does not match all three (one given
+on another chain must match too), so a wrong or tampered invitation never re-pins the websites. --commit points every
+source link at that commit; --rpc-url changes the IDE's RPC endpoint (default: unchanged), so a test can point a copy at
+a local gateway. The
 repository's own snapshots (--root is the repository) always name an https RPC endpoint; a loopback one is refused
 there, --check included, and is only for a test copy. The display name is not switched (owner question Q6 keeps
 "PoCol Mainnet").
@@ -619,8 +624,12 @@ def parse_downloads(values):
         out[path] = digest
     return out
 
-def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=False, gateway_host=None, downloads=None):
-    """(problems, {path: new bytes or None}, new declared doc) of a run."""
+NO_EXPECT = argparse.Namespace(expect_sha256=None, expect_chain_id=None, expect_genesis=None)
+
+def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=False, gateway_host=None, downloads=None,
+         expect=NO_EXPECT):
+    """(problems, {path: new bytes or None}, new declared doc) of a run. `expect` holds the published values a --to
+    invitation must match (expect_sha256, expect_chain_id, expect_genesis), required on a public network chain."""
     tree = Tree(root)
     try:
         cur = validate(json.loads((root / DECLARED).read_text(encoding='utf-8')))
@@ -637,6 +646,14 @@ def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=
             raise Refused(f'--to: {e}') from None
         if chain in (0, 777001) or not 0 < chain < 2**53:
             raise Refused(f'--to: chain ID {chain} is reserved or outside the JavaScript safe-integer range')
+        # ID-03: on a public network chain the invitation must be the published one (file SHA-256, chain ID, genesis).
+        try:
+            public = ni.public_chains(ROOT)
+        except SystemExit as e:
+            raise Refused(str(e)) from None
+        expected = ni.expectation_problems(target, chain, genesis, expect, public)
+        if expected:
+            raise Refused('--to: ' + '; '.join(expected))
         if (chain, genesis) in retired and (chain, genesis) != (cur['chainId'], cur['genesisHash'][2:]) and not allow_revert:
             raise Refused(f'--to: chain {chain} genesis 0x{genesis} is a retired network ({RETIRED}); pass --allow-revert '
                           'only to switch back to it on purpose')
@@ -711,6 +728,7 @@ def main(argv=None):
     p.add_argument('--download', action='append', metavar='PATH=SHA256',
                    help=f'the {SUMS} line of a release file kept out of Git, PATH <site>/downloads/<name> (repeatable)')
     p.add_argument('--allow-revert', action='store_true', help=f'allow a --to identity listed in {RETIRED}')
+    ni.add_expect_arguments(p)
     p.add_argument('--check', action='store_true', help='verify only; fails if the run would change any file')
     p.add_argument('--root', type=Path, default=ROOT)
     a = p.parse_args(argv)
@@ -726,7 +744,9 @@ def main(argv=None):
             if not isinstance(edits, list) or not edits:
                 raise Refused('--edits: a non-empty JSON list')
         downloads = parse_downloads(a.download)
-        problems, changed, new = plan(a.root, a.to, a.commit, a.rpc_url, edits, a.allow_revert, a.gateway_host, downloads)
+        if a.to is None and (a.expect_sha256, a.expect_chain_id, a.expect_genesis) != (None, None, None):
+            raise Refused('--expect-sha256, --expect-chain-id and --expect-genesis check a --to invitation')
+        problems, changed, new = plan(a.root, a.to, a.commit, a.rpc_url, edits, a.allow_revert, a.gateway_host, downloads, a)
     except Refused as e:
         print('FAIL', e, file=sys.stderr)
         return 2

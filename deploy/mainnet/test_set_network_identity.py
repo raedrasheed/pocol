@@ -84,10 +84,11 @@ _version, _cur_chain, _rest = parts(CUR_SPEC)
 _cp_is_list, _cp_start, _cp_end = ni.rlp_item(_rest, 0)   # CP, the list after chainId
 assert _cp_is_list
 # The CP items of version 1: the current CP's first 52 (the v2 schema is the v1 schema plus seven fields).
-_cp_v1 = b''
+_cp_v1_items = []
 _j = _cp_start
 for _ in range(ni.CP_ITEMS[1]):
-    _e = ni.rlp_item(_rest, _j)[2]; _cp_v1 += _rest[_j:_e]; _j = _e
+    _e = ni.rlp_item(_rest, _j)[2]; _cp_v1_items.append(_rest[_j:_e]); _j = _e
+_cp_v1 = b''.join(_cp_v1_items)
 _tail = _rest[_cp_end:]
 # The seven CP v2 fields (the lp4 devnet defaults, as pocol-extension/tests/decoder_corpus.mjs uses; FN-2a deleted F0_*,
 # FN-2b P_MAX, T_PROB, E_epoch, theta_bp and k_sigma).
@@ -99,10 +100,11 @@ _alloc, _members, _sys = _tail[:33], _tail[33:-33], _tail[-33:]
 assert _alloc[0] == _sys[0] == 0xa0
 V3_SYS = bytes.fromhex(ni.pocol_identity.V3_SYS_CODE_HASH)
 
-def make_spec(chain=NEW_CHAIN, version=1, flip=0, extra=None, sys=None, items=None):
+def make_spec(chain=NEW_CHAIN, version=1, flip=0, extra=None, sys=None, items=None, nonce_mode=1):
     """A GenesisSpec of `version` for `chain` built from the current one's items, with one byte changed by `flip`: the
     last byte (sysCodeHash) of a version-1 spec, the last byte of allocRoot of a version-2 one, which names the v3
-    program set (or `sys`). `items` replaces the encoded CP v2 fields."""
+    program set (or `sys`) and has CP nonceMode `nonce_mode` (1, the only one a release node and the extension admit on
+    spec 2). `items` replaces the encoded CP v2 fields."""
     if version != 2:
         cp = _cp_v1
         spec = bytearray(rlp_list(int_item(version) + int_item(chain) + rlp_list(cp) + _tail))
@@ -110,7 +112,8 @@ def make_spec(chain=NEW_CHAIN, version=1, flip=0, extra=None, sys=None, items=No
         return bytes(spec)
     extras = items if items is not None else b''.join(int_item(v) for v in (CP_V2_EXTRA if extra is None else extra))
     alloc = _alloc[:-1] + bytes([_alloc[-1] ^ flip])
-    return rlp_list(int_item(version) + int_item(chain) + rlp_list(_cp_v1 + extras) + alloc + _members
+    cp = b''.join(int_item(nonce_mode) if i == ni.NONCE_MODE else item for i, item in enumerate(_cp_v1_items))
+    return rlp_list(int_item(version) + int_item(chain) + rlp_list(cp + extras) + alloc + _members
                     + b'\xa0' + (V3_SYS if sys is None else sys))
 
 SPEC_A, SPEC_B = make_spec(flip=1), make_spec(flip=2)
@@ -145,6 +148,15 @@ def invitation(spec, info='derived'):
         files['devnet.json'] = json.dumps(info)
     return json.dumps({'schema': 'pocol-network-v2', 'consensusRulesVersion': 2, 'seeds': ['127.0.0.1:30300'], 'files': files})
 
+def expects(path):
+    """The --expect-* arguments of an invitation, computed here (not by the tool): its file SHA-256 and the identity its
+    GenesisSpec proves."""
+    doc = json.loads(Path(path).read_text(encoding='utf-8'))
+    spec = bytes.fromhex(doc['files']['genesis.spec.hex'].removeprefix('0x'))
+    chain = json.loads(doc['files']['devnet.json'])['chainId']
+    return ['--expect-sha256', hashlib.sha256(Path(path).read_bytes()).hexdigest(), '--expect-chain-id', str(chain),
+            '--expect-genesis', '0x' + ni.keccak256(spec).hex()]
+
 def held(text, chain_id, genesis, spec_hex):
     """(chain ID tokens, hash copies, GenesisSpec copies), counted independently of the tool."""
     spellings = '|'.join(re.escape(s) for s in (str(chain_id), f'{chain_id:_}', hex(chain_id)))
@@ -160,6 +172,43 @@ KEPT_PREFIXES = {
 }
 KEPT = {
     ni.RETIRED: 'the retired identities the switch tool and this guard look for',
+}
+# Files outside FILES that name the public network's chain ID (PoCol Mainnet's, the chain of the mainnet profile and of
+# PUBLIC_NETWORK_CHAINS) on purpose: they declare, build, test or check the public network itself, or name it to refuse
+# it, and are not client pins the identity switch rewrites. Before the switch this guard requires that exactly these
+# files name that chain (test_every_tracked_file_that_names_the_public_network_chain_is_listed), so a new mention is
+# reviewed here; once the tree pins a network on that chain their mentions are not taken for unlisted client pins
+# (ID-04: the switch rehearsal found these 27 files, and the runbook, flagged). A retired identity is still refused in
+# them like anywhere else.
+MAINNET_NAMED = {
+    '.github/workflows/public-mainnet-e2e.yml': 'CI of the ceremony-filled mainnet profile on its own chain (throwaway keys)',
+    'deploy/faucet/README.md': 'documents the faucet configuration of the mainnet chain',
+    'deploy/faucet/config.mainnet.example.json': "the faucet's mainnet configuration example (its chain ID)",
+    'deploy/faucet/pocol_faucet.py': "the faucet's mainnet chain ceiling (MAINNET_CHAIN_IDS)",
+    'deploy/mainnet/README.md': 'the step-7 runbook names the published identity the switch checks',
+    'deploy/mainnet/test_v3_profiles.py': "checks the committed profiles' chain IDs",
+    'deploy/mainnet/v3-profile.json': 'the mainnet profile: its chain ID is the public network chain',
+    'deploy/public-testnet/node_operator.py': "the release tools' public network chains (PUBLIC_NETWORK_CHAINS)",
+    'deploy/rehearsal/registration_fill.py': 'refuses the mainnet chain unless asked',
+    'deploy/rehearsal/test_collect_measures.py': 'tests the refusal of an unexpected chain ID',
+    'deploy/rehearsal/test_registration_fill.py': 'tests the refusal of the mainnet chain',
+    'deploy/release/README.md': "documents the cross-platform build check's throwaway genesis on the mainnet chain",
+    'deploy/release/compare_build_identity.py': 'builds a throwaway genesis on the mainnet chain to compare builds',
+    'deploy/standalone/Initialize-PoColNetwork.ps1': "the ceremony's profile table and public network chains",
+    'deploy/standalone/README.md': "documents the ceremony's mainnet profile",
+    'deploy/standalone/test_initialize_network.ps1': "tests the ceremony's profile table",
+    'deploy/standalone/test_initialize_network.py': "tests the ceremony's profile table",
+    'prototypes/lp1-node/src/profile.rs': 'PUBLIC_NETWORK_CHAINS of the profile code (R22, OWNER-DECISIONS-2026-11-20 D5)',
+    'prototypes/lp1-node/tests/gate.rs': 'tests the public-network scope gate on the mainnet chain',
+    'prototypes/lp1-node/tests/profile.rs': 'tests PUBLIC_NETWORK_CHAINS',
+    'prototypes/lp4-execution/src/admission/tests.rs': 'tests the admission of the mainnet chain',
+    'prototypes/lp4-execution/src/p1_profile.rs': 'PUBLIC_NETWORK_CHAINS of the profile code (a copy of profile.rs)',
+    'prototypes/pocold/src/mobile.rs': "the mobile engine's throwaway genesis on the mainnet chain (temp dir only)",
+    'prototypes/pocold/src/readiness.rs': "readiness tests of the public chain's entry form (WRITTEN, PUBLIC)",
+    'prototypes/pocold/tests/e2e_admission_interop.py': 'single-host interop test on the mainnet chain (throwaway keys)',
+    'prototypes/pocold/tests/e2e_public_genesis.py': 'single-host public-network genesis test (throwaway keys)',
+    'prototypes/pocold/tests/fn4_profiles.rs': 'builds and admits the committed mainnet profile',
+    'prototypes/pocold/tests/launch_delay_asert.rs': 'the late-start check of the fresh-network profiles',
 }
 # Shipped with the packages, so the identity-switch release replaces or bumps them: while the tree pins a retired
 # network each holds its pattern (the old release's version, or text that is true only on the retired network); once
@@ -185,6 +234,13 @@ REHEARSAL_CHAIN = json.loads((ni.ROOT / ni.REHEARSAL_PROFILE).read_text(encoding
 PUBLIC = frozenset(int(c) for c in re.search(r'(?m)^pub const PUBLIC_NETWORK_CHAINS: &\[u64\] = &\[([0-9, ]*)\];',
                    (ni.ROOT / 'prototypes/lp4-execution/src/p1_profile.rs').read_text(encoding='utf-8')).group(1).split(', ') if c)
 MAINNET_CHAIN = json.loads((ni.ROOT / 'deploy/mainnet/v3-profile.json').read_text(encoding='utf-8'))['chainId']
+def chain_anywhere(chain):
+    """The chain ID alone, in the spellings anywhere() detects (decimal, digit groups, hex digits), in any case."""
+    return re.compile('(?i)' + '|'.join((re.escape(f'{chain}'), re.escape(f'{chain:_}'), f'{chain:x}')))
+MAINNET_ANYWHERE = chain_anywhere(MAINNET_CHAIN)
+# The files whose mentions of the current network are not unlisted pins: MAINNET_NAMED, once the tree pins a network on
+# the public network chain.
+NAMED = set(MAINNET_NAMED) if CUR_CHAIN == MAINNET_CHAIN else set()
 # One NETWORK_PROFILES entry as readiness.rs compiles it (read independently of the tool): a NetworkProfile with the
 # chain ID, the decoded genesis hash and, on a public network chain, the public network's admission with the owner's
 # approval reference, on any other chain the experimental admission without one.
@@ -206,12 +262,14 @@ def profiles(root):
     line = next(l for l in text.splitlines() if l.startswith('pub const NETWORK_PROFILES:'))
     return entries_of(line)
 
-def unaccounted(files, current=CUR_ANYWHERE, gone=GONE_ANYWHERE):
-    """Paths among (path, text) pairs outside the kept ones that pin the current identity without being listed, or
-    pin a retired identity the tree no longer pins (listed or not)."""
+def unaccounted(files, current=CUR_ANYWHERE, gone=GONE_ANYWHERE, named=None):
+    """Paths among (path, text) pairs outside the kept ones that pin the current identity without being listed (a file
+    in `named`, MAINNET_NAMED once the tree pins the public network chain, names it on purpose), or pin a retired
+    identity the tree no longer pins (listed, named or not)."""
+    named = NAMED if named is None else named
     return [rel for rel, text in files
             if not rel.startswith(tuple(KEPT_PREFIXES)) and rel not in KEPT
-            and ((rel not in ni.FILES and current.search(without_profiles(rel, text)))
+            and ((rel not in ni.FILES and rel not in named and current.search(without_profiles(rel, text)))
                  or (gone is not None and gone.search(text)))]
 
 def without_profiles(rel, text):
@@ -396,8 +454,12 @@ class SetNetworkIdentity(unittest.TestCase):
         # The switch replaces the built-in profile placeholder (D1) too, and its mark goes.
         self.assertNotIn('NETWORK_PLACEHOLDER', network)
         self.assertEqual(held(network, PH_CHAIN, PH_GENESIS, PH_SPEC.hex()), (0, 0, 0))
-        self.assertIn(f'<span class="network-id">{NEW_CHAIN}</span>', (root / 'prototypes/pocol-extension/src/contract.html').read_text())
-        self.assertIn(f'>{NEW_CHAIN}</span>', (root / 'prototypes/pocol-extension/src/publisher.html').read_text())
+        # The extension pages name no network: their chain ID chip is filled from the built-in profile at run time.
+        for page in ('contract.html', 'publisher.html'):
+            text = (ni.ROOT / 'prototypes/pocol-extension/src' / page).read_text(encoding='utf-8')
+            self.assertNotIn(page, [Path(rel).name for rel in ni.FILES])
+            self.assertIn(' id="networkChain" title="Chain ID"></span>', text, page)
+            self.assertEqual(held(text, CUR_CHAIN, CUR_GENESIS, CUR_SPEC.hex()), (0, 0, 0), page)
         self.assertEqual(self.run_tool(root, '--check'), 0)
         self.assertEqual(list(root.rglob('*.network-identity.tmp')), [], 'every new file replaced its original')
         before = self.snapshot(root)
@@ -724,7 +786,7 @@ class SetNetworkIdentity(unittest.TestCase):
         # rho_bp as 82 00 05, a canonical RLP string holding a leading-zero integer, so it reaches gsInt. (A wrapped
         # single byte, 81 05, is refused earlier as non-canonical RLP: see 'a wrapped single byte inside CP'.)
         leading_zero = b''.join(int_item(v) for v in CP_V2_EXTRA[:-1]) + b'\x82\x00\x05'
-        for bad, reason in ((make_spec(version=2, sys=_sys[1:]), 'v3 program set'), (make_spec(version=2, sys=b'\x00' * 32), 'v3 program set'),
+        for bad, reason in ((make_spec(version=2, sys=bytes(b ^ 0xff for b in V3_SYS)), 'v3 program set'), (make_spec(version=2, sys=b'\x00' * 32), 'v3 program set'),
                             (with_extra('rho_bp', 10001), 'gsRange: rho_bp'), (with_extra('H_half', 0), 'gsRange: H_half'),
                             (with_extra('gamma_tip_bp', 10001), 'gsRange: gamma_tip_bp'), (with_extra('R_react', 256), 'gsRange: R_react'),
                             (with_extra('C_react', 1 << 32), 'gsRange: C_react'), (with_extra('S_tail', 1 << 256), 'gsRange: S_tail'),
@@ -850,19 +912,24 @@ class SetNetworkIdentity(unittest.TestCase):
         (root / 'mainnet.json').write_text(invitation(spec), encoding='utf-8')
         genesis = ni.keccak256(spec).hex()
         original = (root / ni.PROFILES).read_bytes()
-        self.assertEqual(self.run_tool(root, target='mainnet.json'), 0)
+        published = expects(root / 'mainnet.json')
+        with self.assertRaises(SystemExit, msg='a public network chain needs the published values'):
+            self.run_tool(root, target='mainnet.json')
+        self.assertEqual(self.run_tool(root, *published, target='mainnet.json'), 0)
         self.assertEqual(profiles(root), [(MAINNET_CHAIN, genesis)])
         line = next(l for l in (root / ni.PROFILES).read_text(encoding='utf-8').splitlines() if l.startswith(ni.PROFILES_DECL))
         self.assertEqual(line, ni.PROFILES_DECL + f'NetworkProfile{{chain_id:{MAINNET_CHAIN},genesis_hash:genesis_hash("{genesis}"),'
                          'admission:ExpectedAdmission::PUBLIC_MAINNET,approval:Some("OWNER-DECISIONS-2026-11-20 D1")}];')
-        self.assertEqual(self.run_tool(root, '--check', target='mainnet.json'), 0)
+        self.assertEqual(self.run_tool(root, '--check', *published, target='mainnet.json'), 0)
+        with self.assertRaises(SystemExit, msg='its check needs them too'):
+            self.run_tool(root, '--check', target='mainnet.json')
         text = (root / ni.PROFILES).read_text(encoding='utf-8')
         fresh = line.replace('admission:ExpectedAdmission::PUBLIC_MAINNET,approval:Some("OWNER-DECISIONS-2026-11-20 D1")',
                              'admission:ExpectedAdmission::FRESH_NETWORK,approval:None')
         for bad in (fresh, line.replace('approval:Some("OWNER-DECISIONS-2026-11-20 D1")', 'approval:None')):
             with self.subTest(bad=bad):
                 (root / ni.PROFILES).write_text(text.replace(line, bad), encoding='utf-8')
-                self.assertEqual(self.run_tool(root, '--check', target='mainnet.json'), 2)
+                self.assertEqual(self.run_tool(root, '--check', *published, target='mainnet.json'), 2)
         (root / ni.PROFILES).write_text(text, encoding='utf-8')
         # Switching on to another network replaces the entry with that network's own form.
         self.assertEqual(self.run_tool(root, source='mainnet.json', target='a.json'), 0)
@@ -1000,6 +1067,36 @@ class SetNetworkIdentity(unittest.TestCase):
         for rel in KEPT:
             self.assertTrue((ni.ROOT / rel).is_file(), rel)
 
+    def test_every_tracked_file_that_names_the_public_network_chain_is_listed(self):
+        # ID-04: the files outside FILES that name the public network's chain ID are exactly MAINNET_NAMED, whatever the
+        # tree pins, so the guard above passes after a switch to that chain without a hand edit, and a new mention (a
+        # client pin the switch would miss included) fails here first.
+        try:
+            listed = subprocess.run(['git', '-C', str(ni.ROOT), 'ls-files', '-z'], capture_output=True, check=True).stdout
+        except (OSError, subprocess.CalledProcessError):
+            self.skipTest('not a git checkout')
+        self.assertIn(MAINNET_CHAIN, PUBLIC)
+        found = set()
+        for rel in filter(None, listed.decode('utf-8').split('\0')):
+            if rel.startswith(tuple(KEPT_PREFIXES)) or rel in KEPT or rel in ni.FILES:
+                continue
+            try:
+                text = (ni.ROOT / rel).read_text(encoding='utf-8')
+            except (UnicodeDecodeError, OSError):
+                continue
+            if MAINNET_ANYWHERE.search(without_profiles(rel, text)):
+                found.add(rel)
+        self.assertEqual(sorted(found - set(MAINNET_NAMED)), [], 'names the public network chain: add it to FILES (a client pin) '
+                         'or to MAINNET_NAMED with a reason')
+        self.assertEqual(sorted(set(MAINNET_NAMED) - found), [], 'no longer names the public network chain: remove it from MAINNET_NAMED')
+        self.assertFalse(set(MAINNET_NAMED) & (set(ni.FILES) | set(KEPT)))
+        # The exemption covers only the current network on the public chain: a retired identity in a named file, and a
+        # copy of the current identity in a named file while the tree pins another chain, are still flagged.
+        rel = sorted(MAINNET_NAMED)[0]
+        self.assertEqual(unaccounted([(rel, f'chain {MAINNET_CHAIN}')], current=chain_anywhere(MAINNET_CHAIN), named=set(MAINNET_NAMED)), [])
+        self.assertEqual(unaccounted([(rel, f'chain {MAINNET_CHAIN}')], current=chain_anywhere(MAINNET_CHAIN), named=set()), [rel])
+        self.assertEqual(unaccounted([(rel, f'chain {NEW_CHAIN}')], gone=anywhere([(NEW_CHAIN, HASH_A[2:])]), named=set(MAINNET_NAMED)), [rel])
+
     def test_the_retired_release_texts_go_with_the_switch(self):
         held = [rel for rel, old in STEP3.items() if old.search((ni.ROOT / rel).read_text(encoding='utf-8'))]
         if SWITCHED:
@@ -1008,6 +1105,74 @@ class SetNetworkIdentity(unittest.TestCase):
             self.assertEqual(held, list(STEP3), 'update STEP3 to what the files hold today')
         # The detector works: each pattern finds the text it names on the retired release's tree.
         self.assertIsNotNone(STEP3['prototypes/pocol-studio/dist/app.js'].search('PoCol-Studio-IDE-Viewer-0.4.1.zip'))
+
+    def test_a_spec2_genesis_without_the_full_nonce_domain_is_refused(self):
+        # ID-03: the release node admits a spec-2 genesis only with nonceMode 1 and the extension's profile check refuses
+        # any other, so the tool refuses it before writing anything (it accepted one before this check).
+        bounded = make_spec(version=2, flip=6, nonce_mode=0)
+        self.assertEqual(ni.pocol_identity.decode_genesis_spec(bounded)['cp'][ni.NONCE_MODE], 0, 'the reference decoder alone accepts it')
+        for allowed in ((2,), (1, 2)):
+            with self.subTest(allowed=allowed), self.assertRaisesRegex(ValueError, 'nonceMode 0'):
+                ni.spec_identity(bounded, allowed)
+        self.assertEqual(ni.spec_identity(make_spec(version=2, flip=6)), (2, NEW_CHAIN), 'nonceMode 1 is accepted')
+        root = self.copy()
+        for name, chain, spec in (('bounded.json', NEW_CHAIN, bounded),
+                                  ('bounded-mainnet.json', MAINNET_CHAIN, make_spec(chain=MAINNET_CHAIN, version=2, flip=6, nonce_mode=0))):
+            (root / name).write_text(invitation(spec, {'chainId': chain, 'genesisHash': '0x' + ni.keccak256(spec).hex()}), encoding='utf-8')
+            before = self.snapshot(root)
+            for extra in ((), ('--check',)):
+                with self.subTest(name=name, extra=extra), self.assertRaises(SystemExit):
+                    self.run_tool(root, *extra, *expects(root / name), target=name)
+            self.assertEqual(before, self.snapshot(root))
+
+    def test_a_switch_is_checked_against_the_published_values(self):
+        # ID-03: --expect-sha256, --expect-chain-id and --expect-genesis are required on a public network chain and must
+        # match whenever they are given, so a wrong or tampered invitation never re-pins the clients.
+        root = self.copy()
+        spec = make_spec(chain=MAINNET_CHAIN, version=2, flip=7)
+        (root / 'mainnet.json').write_text(invitation(spec), encoding='utf-8')
+        good = expects(root / 'mainnet.json')
+        other = make_spec(chain=MAINNET_CHAIN, version=2, flip=8)
+        # The same network re-serialised (another file SHA-256, the same proven identity) and another genesis of the chain.
+        doc = json.loads((root / 'mainnet.json').read_text(encoding='utf-8'))
+        (root / 'reformatted.json').write_text(json.dumps(doc, indent=2), encoding='utf-8')
+        (root / 'other.json').write_text(invitation(other), encoding='utf-8')
+        def without(flag):
+            i = good.index(flag)
+            return good[:i] + good[i + 2:]
+        def replaced(flag, value):
+            i = good.index(flag)
+            return good[:i + 1] + [value] + good[i + 2:]
+        before = self.snapshot(root)
+        bad = [(target, args) for target, args in (
+            ('mainnet.json', []), ('mainnet.json', without('--expect-sha256')), ('mainnet.json', without('--expect-chain-id')),
+            ('mainnet.json', without('--expect-genesis')), ('mainnet.json', replaced('--expect-sha256', 'ab' * 32)),
+            ('mainnet.json', replaced('--expect-sha256', good[1].upper()[:-1] + 'G')),
+            ('mainnet.json', replaced('--expect-chain-id', str(MAINNET_CHAIN + 1))),
+            ('mainnet.json', replaced('--expect-chain-id', f'{MAINNET_CHAIN:_}')),
+            ('mainnet.json', replaced('--expect-genesis', '0x' + ni.keccak256(other).hex())),
+            ('mainnet.json', replaced('--expect-genesis', good[5][2:])),
+            ('reformatted.json', good), ('other.json', good))]
+        for target, args in bad:
+            for extra in ((), ('--check',)):
+                with self.subTest(target=target, args=args, extra=extra), self.assertRaises(SystemExit):
+                    self.run_tool(root, *extra, *args, target=target)
+        self.assertEqual(before, self.snapshot(root), 'a refused switch writes nothing')
+        # Upper-case values are the same values; the switch runs and its check passes.
+        upper = replaced('--expect-sha256', good[1].upper())
+        upper = upper[:5] + ['0x' + good[5][2:].upper()]
+        self.assertEqual(self.run_tool(root, *upper, target='mainnet.json'), 0)
+        self.assertEqual(self.run_tool(root, '--check', *good, target='mainnet.json'), 0)
+        # Off a public chain the values are optional, and checked when given.
+        root = self.copy()
+        with self.assertRaises(SystemExit):
+            self.run_tool(root, '--expect-chain-id', str(NEW_CHAIN + 1))
+        with self.assertRaises(SystemExit):
+            self.run_tool(root, '--expect-genesis', HASH_B)
+        self.assertEqual(self.run_tool(root, '--expect-chain-id', str(NEW_CHAIN), '--expect-genesis', HASH_A), 0)
+        # --placeholder takes no expectation.
+        with self.assertRaises(SystemExit):
+            ni.main(['--placeholder', str(root / 'ph.json'), '--root', str(root), *good])
 
 if __name__ == '__main__':
     unittest.main()
