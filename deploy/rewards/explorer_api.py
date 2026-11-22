@@ -68,7 +68,9 @@ BUSY = 'The data service is busy. Please retry shortly.'
 REFUSED = 'Only supported, bounded explorer reads are accepted.'
 FAILED = 'The PoCol gateway request failed. Check the explorer gateway service and its node.'
 INVALID = 'The PoCol gateway returned an invalid response.'
-GEOIP_UNAVAILABLE = 'Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node.'
+# miner-locations.php named a GeoIP gateway update that does not exist (deploy/explorer/README.md, Miner map); the
+# gateway says what is true whether or not a geography module is installed (a documented difference from PHP).
+GEOIP_UNAVAILABLE = 'Miner locations are unavailable: the PoCol network does not record where miners are.'
 TRANSACTIONS_UNAVAILABLE = ('Transaction history is unavailable. Install or check the Transactions gateway update on '
                             'the Linux node.')
 GEOGRAPHY_KEYS = ('schema', 'chainId', 'genesisHash', 'generatedAt', 'source', 'scope', 'peerConnections',
@@ -324,8 +326,9 @@ class Relay:
         self.transaction_options_valid = transaction_options_valid
         self.slots = threading.BoundedSemaphore(RELAY_SLOTS)
 
-    def handle(self, method, target, headers, rfile):
-        """The Response to `method target` for an /api path (404 for one not in ROUTES)."""
+    def handle(self, method, target, headers, rfile, client=None):
+        """The Response to `method target` for an /api path (404 for one not in ROUTES). `client` is the key the
+        gateway charges the request to (gateway.client_key)."""
         parts = urlsplit(target)
         path = parts.path
         if path not in ROUTES:
@@ -334,21 +337,21 @@ class Relay:
         if method not in methods:
             return json_response(405, {'error': message}, [('Allow', ', '.join(methods))])
         if path == '/api/rpc.php':
-            return self.rpc(headers, rfile)
+            return self.rpc(headers, rfile, client)
         if path == '/api/health.php':
-            return self.health()
+            return self.health(client)
         if path == '/api/miner-locations.php':
-            return self.miner_locations(method)
-        return self.transactions(method, parts.query)
+            return self.miner_locations(method, client)
+        return self.transactions(method, parts.query, client)
 
-    def forward(self, payload):
+    def forward(self, payload, client=None):
         """lib.php pocol_forward, in process: (status, answer, error). A free relay slot, the gateway's token budget,
         then each call through Gateway.call (its cache, upstream slots, sanitizer and error mapping)."""
         calls = payload if isinstance(payload, list) else [payload]
         if not self.slots.acquire(blocking=False):
             return 429, None, BUSY
         try:
-            if not self.gateway.charge(sum(self.cost(call) for call in calls)):
+            if not self.gateway.charge(sum(self.cost(call) for call in calls), client):
                 return 429, None, BUSY
             # lib.php's CURLOPT_TIMEOUT was a total deadline: every node read of every call keeps to it (Gateway.query
             # refuses a read once it has passed and bounds each socket wait by the time left), and a request that
@@ -382,7 +385,7 @@ class Relay:
         finally:
             self.slots.release()
 
-    def rpc(self, headers, rfile):
+    def rpc(self, headers, rfile, client=None):
         origins = headers.get_all('Origin') or []
         if len(origins) > 1 or (origins and origins[0] != self.site_origin):
             return json_response(403, {'error': 'Cross-origin requests are not enabled.'})
@@ -404,13 +407,13 @@ class Relay:
                 raise ValueError('not an explorer read')
         except (ValueError, OSError, RecursionError):
             return json_response(400, {'error': REFUSED})
-        status, answer, error = self.forward(value)
+        status, answer, error = self.forward(value, client)
         if status != 200:
             return json_response(status, {'error': error}, [('Retry-After', '3')] if status == 429 else [])
         return Response(200, [('Content-Type', JSON_TYPE), ('Cache-Control', 'no-store'), *SECURITY_HEADERS], answer[1])
 
-    def health(self):
-        status, answer, error = self.forward({'jsonrpc': '2.0', 'id': 1, 'method': 'pocol_getParams', 'params': []})
+    def health(self, client=None):
+        status, answer, error = self.forward({'jsonrpc': '2.0', 'id': 1, 'method': 'pocol_getParams', 'params': []}, client)
         params = answer[0].get('result') if status == 200 else None
         network = self.gateway.network
         match = (isinstance(params, dict) and type(params.get('chainId')) is int and params['chainId'] == network.chain_id
@@ -424,9 +427,9 @@ class Relay:
                         else error or 'The gateway does not report the expected PoCol network.'),
         })
 
-    def miner_locations(self, method):
+    def miner_locations(self, method, client=None):
         call = {'jsonrpc': '2.0', 'id': 1, 'method': 'pocol_getNetworkGeography', 'params': []}
-        status, answer, _ = self.forward(call)
+        status, answer, _ = self.forward(call, client)
         public = public_geography(answer[0].get('result'), self.gateway.network) if status == 200 else None
         if public is None:
             if method == 'HEAD':
@@ -436,7 +439,7 @@ class Relay:
             return Response(200, [('Content-Type', JSON_TYPE), ('Cache-Control', 'no-store'), *SECURITY_HEADERS])
         return json_response(200, {'data': public})
 
-    def transactions(self, method, query):
+    def transactions(self, method, query, client=None):
         options = transaction_options(query)
         if options is None:
             return json_response(400, {'error': 'Invalid transaction query.'})
@@ -445,7 +448,7 @@ class Relay:
         if not self.transaction_options_valid(options):
             return unavailable
         status, answer, _ = self.forward({'jsonrpc': '2.0', 'id': 1, 'method': 'pocol_getTransactions',
-                                          'params': [options]})
+                                          'params': [options]}, client)
         reply = answer[0] if status == 200 else {}
         error = reply.get('error')
         if isinstance(error, dict) and type(error.get('code')) is int and error['code'] == -32022:

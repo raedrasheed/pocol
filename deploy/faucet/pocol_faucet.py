@@ -111,6 +111,11 @@ class Faucet:
         for k in ('chainId', 'keyFile', 'ledger'):
             if k not in self.cfg: raise ValueError(f'config needs {k}')
         self.chain_id = int(self.cfg['chainId']); self.amount = int(self.cfg['amountWei'])
+        # Optional (recommended): the network's genesis hash (its invitation's devnet.json genesisHash). With it, a claim
+        # also needs the node's pocol_getParams to name it: a chain ID alone does not tell two networks apart.
+        self.genesis = self.cfg.get('genesisHash')
+        if self.genesis is not None and not (isinstance(self.genesis, str) and re.fullmatch(r'0x[0-9a-f]{64}', self.genesis)):
+            raise ValueError('genesisHash must be 0x and 64 lower-case hex digits')
         if self.amount <= 0 or self.amount > 10**18: raise ValueError('amountWei must be positive and at most 1 PCOL')
         self.max_float = None if self.cfg.get('maxFloatWei') is None else int(self.cfg['maxFloatWei'])
         if self.max_float is not None and self.max_float <= 0: raise ValueError('maxFloatWei must be positive')
@@ -170,6 +175,11 @@ class Faucet:
             used = self.clients.get((day, client), 0)
             if used >= int(self.cfg['perClientDaily']): raise Refused(429, 'This connection has reached its daily faucet limit', 'client_limit')
             if int(self.rpc('eth_chainId', []), 16) != self.chain_id: raise Refused(503, 'The node is on a different network; the faucet is stopped', 'wrong_network')
+            if self.genesis is not None:
+                params = self.rpc('pocol_getParams', [])
+                found = params.get('genesisHash') if isinstance(params, dict) else None
+                if not isinstance(found, str) or found.lower() != self.genesis:
+                    raise Refused(503, 'The node is on a different network; the faucet is stopped', 'wrong_network')
             if int(self.rpc('eth_getTransactionCount', [address, 'pending']), 16) != 0: raise Refused(409, 'The faucet funds only new accounts that have not sent a transaction', 'not_new_account')
             if self.rpc('eth_getCode', [address, 'latest']) not in ('0x', '0x0', ''): raise Refused(400, 'The faucet funds only ordinary accounts', 'contract_account')
             if int(self.rpc('eth_getBalance', [address, 'pending']), 16) >= self.amount: raise Refused(409, 'This account already holds enough PCOL for its first fee', 'already_funded')

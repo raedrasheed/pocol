@@ -83,7 +83,7 @@ class StubGateway:
     """Gateway.charge and Gateway.call as the relay uses them, answering each call from `answer(method, params)`."""
     def __init__(self, answer):
         self.answer = answer
-    def charge(self, cost):
+    def charge(self, cost, client=None, reserve=0.0):
         return True
     def call(self, request, deadline=None):
         return {'jsonrpc': '2.0', 'id': request['id'], 'result': self.answer(request['method'], request['params'])}

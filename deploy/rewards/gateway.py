@@ -5,6 +5,7 @@ standard library only."""
 import argparse
 import collections
 import http.client
+import ipaddress
 import json
 import re
 import socket
@@ -25,8 +26,10 @@ except ImportError:
     TransactionIndex = None
     class SnapshotChanged(RuntimeError): pass
     def valid_options(_): return False
-# The reward and membership reader is part of the gateway (installed beside it); the GeoIP and transaction index modules
-# are optional server-installed pieces.
+# The reward and membership reader is part of the gateway (installed beside it), and so is the transaction index
+# (pocol_transactions.py, used when POCOL_TX_DB names its file). GeoIP has no module in the repository: the network
+# gives no truthful miner location (deploy/explorer/README.md, Miner map), so pocol_getNetworkGeography and
+# /api/miner-locations.php stay unavailable unless the owner decides otherwise.
 from pocol_rewards import (snapshot_v3 as reward_snapshot, validated_fork_schedule, validated_network, DEFAULT_FORK_SCHEDULE,
                            MAX_CALLS_V3, MAX_SECONDS_V3, keccak256, _abi_two_arrays, hex_bytes, REGISTRY, CAPS, CALL_GAS,
                            ACTIVE_SLICE_GAS, MAX_MEMBERS_V3, ACTIVE_PAGE)
@@ -58,8 +61,17 @@ DRAW_PAGES_MAX = -(-MAX_MEMBERS_V3 // ACTIVE_PAGE)
 DRAW_RECORDS_MAX = 32
 DRAW_READS_MAX = 3 + DRAW_PAGES_MAX + DRAW_RECORDS_MAX
 DRAW_CACHE_MAX = 2
-# Token cost per method (others cost 1): a reward snapshot and one member record (four calls and a fresh-block check).
-COSTS = {'pocol_getBlockReward': 20, 'pocol_getMember': 20, 'pocol_getMembers': 5, 'pocol_getRemovable': 10}
+# Token cost per method (others cost 1): a reward snapshot, one member record (four calls and a fresh-block check), a
+# transaction history page.
+COSTS = {'pocol_getBlockReward': 20, 'pocol_getMember': 20, 'pocol_getMembers': 5, 'pocol_getRemovable': 10,
+         # A transaction history page: a count and an indexed read over the index file, no node read. Measured at
+         # 500,000 rows: under 0.15 s in every order at any depth, about 0.9 s for a one-digit search prefix (the
+         # slowest); pocol_transactions.PAGE_SECONDS interrupts a page at 2 s. Pages run behind TX_SLOTS.
+         'pocol_getTransactions': 5}
+# Node reads (every method but pocol_getTransactions) take one of RPC_SLOTS, transaction pages one of TX_SLOTS, both
+# without waiting (busy: -32021). Pages never take a node read's slot, so transaction pages (however many clients send
+# them) can make only the Transactions tab busy, never the explorer's other reads.
+RPC_SLOTS, TX_SLOTS = 4, 2
 # MinerRegistry record word w0 (REGISTRY-LAYOUT.md): status 0..7, tomb 8..15, bondState 16..23, recPos 24..55,
 # actPos 56..87, lastShare 88..151, registeredAt 152..215 (earn-in). Every value the v3 programs write is labelled.
 STATUS_LABELS = {0: 'NONE', 1: 'ACTIVE', 2: 'EXITED'}
@@ -71,6 +83,38 @@ CP_B_REG = 16
 U32, U64, U160 = (1 << 32) - 1, (1 << 64) - 1, (1 << 160) - 1
 HASH_METHODS = {'eth_getTransactionByHash', 'eth_getTransactionReceipt'}
 ACCOUNT_METHODS = {'eth_getBalance', 'eth_getTransactionCount', 'eth_getCode'}
+# The request budget: one bucket for the node (GLOBAL_BURST tokens, GLOBAL_RATE per second) shared by every caller, and
+# within it a bucket per client (CLIENT_BURST, CLIENT_RATE; at most CLIENTS_MAX clients remembered, least recently seen
+# first out), so one client cannot take the whole budget. A client is one IPv4 address or one IPv6 /64 (client_key):
+# browsers behind one shared address (carrier-grade NAT, an office) share one budget; one open explorer tab refreshing
+# its overview spends about 2.5 tokens a second. Requests to /rpc may not take the node's bucket below API_RESERVE
+# tokens; requests to /api/* may. That only stops a flood sent to /rpc: /api/rpc.php is just as public (a request
+# without an Origin header is accepted, as pocol.net's server-side summary sends none, and an Origin header is easy to
+# forge outside a browser), so a flood of /api reads from many addresses can still spend the whole node bucket, and
+# every caller then gets 429 until it refills (GLOBAL_RATE a second). Each address is still limited to its own bucket.
+GLOBAL_BURST, GLOBAL_RATE = 80.0, 20.0
+CLIENT_BURST, CLIENT_RATE, CLIENTS_MAX = 40.0, 10.0, 4096
+API_RESERVE = 30.0
+
+
+def client_key(peer, headers):
+    """The client a request is charged to. Behind Caddy (a loopback peer) it is the last X-Forwarded-For hop: the
+    address Caddy itself appends (Caddy 2.5 and later replace a client's own X-Forwarded-For unless trusted_proxies is
+    set, which the explorer block never sets). Otherwise the peer address. An IPv6 client counts by its /64."""
+    try:
+        address = ipaddress.ip_address(peer)
+    except ValueError:
+        return 'unknown'
+    if address.is_loopback:
+        values = headers.get_all('X-Forwarded-For') or [] if headers is not None else []
+        if values:
+            try:
+                address = ipaddress.ip_address(values[-1].split(',')[-1].strip())
+            except ValueError:
+                return 'unknown'
+    if address.version == 6 and not address.is_loopback:
+        return str(ipaddress.ip_network(f'{address}/64', strict=False))
+    return str(address)
 
 def load_fork_schedule(filename=None):
     """Read operator configuration once at startup; never derive it from RPC. Without a file: [[1, 0]] (the v3 profiles
@@ -223,19 +267,31 @@ class Gateway:
         self.cache = collections.OrderedDict()
         self.cache_size = 0
         self.lock = threading.Lock()
-        self.rpc_slots = threading.BoundedSemaphore(4)
+        self.rpc_slots = threading.BoundedSemaphore(RPC_SLOTS)
+        self.tx_slots = threading.BoundedSemaphore(TX_SLOTS)
         self.reward_slot = threading.Lock()
         self.reward_failed_at = -float('inf')
-        self.tokens, self.token_time = 80.0, time.monotonic()
+        self.tokens, self.token_time = GLOBAL_BURST, time.monotonic()
+        self.clients = collections.OrderedDict()
         self.member_cache = collections.OrderedDict()
         self.draw_cache = collections.OrderedDict()
-    def charge(self, cost):
+    def charge(self, cost, client=None, reserve=0.0):
+        """Take `cost` tokens from the node's bucket (not below `reserve`) and from `client`'s bucket (when given);
+        False, and nothing taken, when either has too few."""
         with self.lock:
             now = time.monotonic()
-            self.tokens = min(80, self.tokens + (now-self.token_time)*20)
+            self.tokens = min(GLOBAL_BURST, self.tokens + (now-self.token_time)*GLOBAL_RATE)
             self.token_time = now
-            if self.tokens < cost: return False
+            own = None
+            if client is not None:
+                own, seen = self.clients.pop(client, (CLIENT_BURST, now))
+                own = min(CLIENT_BURST, own + max(0.0, now - seen) * CLIENT_RATE)
+                self.clients[client] = (own, now)
+                while len(self.clients) > CLIENTS_MAX: self.clients.popitem(last=False)
+                if own < cost: return False
+            if self.tokens - cost < reserve: return False
             self.tokens -= cost
+            if client is not None: self.clients[client] = (own - cost, now)
             return True
     def query(self, method, params, deadline=None):
         """One node read. With `deadline` (a time.monotonic() value) the read is refused once it has passed and its
@@ -370,7 +426,8 @@ class Gateway:
             if item and item[0] > now:
                 self.cache.move_to_end(key)
                 answer = json.loads(item[1]); answer['id'] = request['id']; return answer
-        if not self.rpc_slots.acquire(blocking=False):
+        slots = self.tx_slots if method == 'pocol_getTransactions' else self.rpc_slots
+        if not slots.acquire(blocking=False):
             return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32021,'message':'Explorer busy; retry shortly'}}
         reward_locked = False
         try:
@@ -407,7 +464,7 @@ class Gateway:
             elif method in MEMBERS:
                 answer = {'jsonrpc':'2.0','id':request['id'],'result':self.membership(method, params, deadline)}
             elif method == 'pocol_getNetworkGeography':
-                if self.geography is None: raise RuntimeError('Automatic GeoIP is not installed')
+                if self.geography is None: raise RuntimeError('No geography module is installed')
                 raw_status = self.read('pocol_status', [], deadline).get('result')
                 answer = {'jsonrpc':'2.0','id':request['id'],'result':self.geography.snapshot(raw_status)}
             else:
@@ -432,7 +489,7 @@ class Gateway:
             return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32000,'message':'Node data temporarily unavailable'}}
         finally:
             if reward_locked: self.reward_slot.release()
-            self.rpc_slots.release()
+            slots.release()
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
@@ -479,8 +536,10 @@ class Handler(BaseHTTPRequestHandler):
         # Any other method token (BaseHTTPRequestHandler would answer 501): 405 on an /api path, 404 elsewhere.
         if re.fullmatch(r'do_[A-Z]{1,16}', name): return lambda: self.dispatch(name[3:])
         raise AttributeError(name)
+    def client(self):
+        return client_key(self.client_address[0], self.headers)
     def explorer(self, method):
-        response = self.server.explorer.handle(method, self.path, self.headers, self.rfile)
+        response = self.server.explorer.handle(method, self.path, self.headers, self.rfile, client=self.client())
         self.send_response(response.status)
         for name, value in response.headers: self.send_header(name, value)
         body = b'' if method == 'HEAD' or response.body is None else response.body
@@ -506,7 +565,8 @@ class Handler(BaseHTTPRequestHandler):
         # RecursionError: a deeply nested body (within 16 KiB) is a bad request, not a dropped connection.
         except (ValueError, OSError, RecursionError): self.reply(400, {'error':'Unsupported explorer read'}); return
         items = value if isinstance(value, list) else [value]
-        if not self.server.gateway.charge(sum(COSTS.get(item['method'], 1) for item in items)): self.reply(429, {'error':'Explorer request budget exceeded; retry shortly'}); return
+        if not self.server.gateway.charge(sum(COSTS.get(item['method'], 1) for item in items), self.client(), API_RESERVE):
+            self.reply(429, {'error':'Explorer request budget exceeded; retry shortly'}); return
         answers, size = [], 2
         for item in items:
             answer = self.server.gateway.call(item)
@@ -595,8 +655,13 @@ if __name__ == '__main__':
     gateway = Gateway(args.rpc_port, geography, fork_schedule=fork_schedule, network=network)
     gateway.verify_network()
     if os.environ.get('POCOL_TX_DB'):
+        # The transaction index (pocol_transactions.py): a follower thread on this host's node, its SQLite file at
+        # POCOL_TX_DB (bound by POCOL_TX_MAX_ROWS, default pocol_transactions.DEFAULT_MAX_ROWS) and the configured network.
         if TransactionIndex is None: raise RuntimeError('Transaction index module is missing')
-        gateway.transactions = TransactionIndex(os.environ['POCOL_TX_DB'], gateway.query)
+        import pocol_transactions
+        rows = os.environ.get('POCOL_TX_MAX_ROWS', str(pocol_transactions.DEFAULT_MAX_ROWS))
+        if not re.fullmatch(r'[1-9][0-9]{0,9}', rows): parser.error('POCOL_TX_MAX_ROWS: a positive integer')
+        gateway.transactions = TransactionIndex(os.environ['POCOL_TX_DB'], gateway.query, gateway.network, max_rows=int(rows))
         gateway.transactions.start()
     server = Server((args.bind, args.port), gateway, args.site_origin)
     print('PoCol explorer read-only gateway ready', flush=True)

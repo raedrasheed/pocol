@@ -16,6 +16,8 @@ on:
       - 'deploy/rewards/explorer_*.py'
       - 'deploy/rewards/test_explorer_api.py'
       - 'deploy/rewards/testdata/*explorer*'
+      - 'deploy/rewards/pocol_transactions.py'
+      - 'deploy/rewards/test_pocol_transactions.py'
       - 'deploy/explorer/**'
       # The fee faucet and its /faucet/* route in the explorer block (the explorer installer and its tests import it).
       - 'deploy/faucet/**'
@@ -67,6 +69,8 @@ on:
       - 'deploy/rewards/explorer_*.py'
       - 'deploy/rewards/test_explorer_api.py'
       - 'deploy/rewards/testdata/*explorer*'
+      - 'deploy/rewards/pocol_transactions.py'
+      - 'deploy/rewards/test_pocol_transactions.py'
       - 'deploy/explorer/**'
       - 'deploy/faucet/**'
       - 'deploy/mainnet/**'
@@ -124,8 +128,12 @@ jobs:
         run: python3 -B -m unittest discover -s deploy/websites/tests -p 'test_*.py' -v
       - name: Explorer v3 membership edits (W7) and their helpers in node:vm
         run: node --test deploy/websites/tests/explorer_w7.test.mjs
+      - name: Explorer production-readiness edits (relay retries, transaction index and geography texts) in node:vm
+        run: node --test deploy/websites/tests/explorer_prod.test.mjs
       - name: Explorer gateway /api reads (the retired PHP relays' checks, every handler, the recorded PHP vectors)
         run: python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v
+      - name: Explorer transaction index (follow, reorganizations, restarts, bounds, the /api/transactions.php page)
+        run: python3 -B -m unittest discover -s deploy/rewards -p test_pocol_transactions.py -v
       - name: Explorer gateway host (Caddy site with the Studio and faucet routes, static copy, installer and rollback)
         run: python3 -B -m unittest discover -s deploy/explorer -v
       - name: Fee faucet (error codes, CORS, client key) and its /faucet/* Caddy route

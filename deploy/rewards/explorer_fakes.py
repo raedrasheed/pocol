@@ -205,7 +205,7 @@ def apply_scenario(gateway_module, gateway, node, geo, tx, scenario):
     with gateway.lock:
         gateway.cache.clear(); gateway.cache_size = 0
         gateway.tokens = float(scenario.get('tokens', 80)); gateway.token_time = time.monotonic()
-        gateway.member_cache.clear(); gateway.draw_cache.clear()
+        gateway.member_cache.clear(); gateway.draw_cache.clear(); gateway.clients.clear()
 
 
 def request_body(request):

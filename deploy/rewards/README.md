@@ -143,7 +143,7 @@ relays' behaviour:
 Every answer is `application/json; charset=utf-8` with `Cache-Control: no-store`, nosniff and the explorer's security
 headers; errors are `{"error": "..."}` with PHP's messages. The four paths share four relay slots (PHP's lock slots;
 busy is 429, with `Retry-After: 3` on `/api/rpc.php` only as rpc.php sent it, and 503 for transactions, as in PHP)
-and the gateway's global token bucket (the `/rpc` costs). Behind Caddy each request is one connection to the gateway: a connection beyond its 16 request slots is
+and the gateway's token buckets (the `/rpc` costs; the node's bucket, a bucket per client, and a share of the node's bucket that `/rpc` cannot take: `deploy/explorer/README.md`). Behind Caddy each request is one connection to the gateway: a connection beyond its 16 request slots is
 answered `{"error":"The data service is busy. Please retry shortly."}` with 429 and `Retry-After: 3` on any path (the
 PHP relays' lock slots answered so before a request reached the gateway), not closed unanswered. Where PHP cannot be matched, the safer answer is kept (`deploy/explorer/README.md`, Behaviour that differs): a
 spent budget is answered as busy, so 429 with `Retry-After: 3` on `/api/rpc.php`, 429 without it on health and
@@ -204,8 +204,10 @@ at launch; nothing here touches DNS or servers. The same site serves the explore
 same-origin `/api/*.php` reads (Explorer reads, above); `deploy/explorer/install_explorer_gateway.py` installs this
 gateway, the static copy and the Caddy site (`deploy/explorer/README.md`).
 
-`gateway.py` is the explorer gateway with this adapter integrated (a required import, installed beside it; the GeoIP
-and transaction index modules stay optional). The public `pocol_getBlockReward` method still accepts exactly
+`gateway.py` is the explorer gateway with this adapter integrated (a required import, installed beside it). The transaction index
+`pocol_transactions.py` is installed beside it too and runs when `POCOL_TX_DB` names its file (the installer's unit
+sets it; `deploy/explorer/README.md`, Transaction index). There is no GeoIP module: the network gives no truthful
+miner location (`deploy/explorer/README.md`, Miner map). The public `pocol_getBlockReward` method still accepts exactly
 `params: []`; clients cannot supply a network or a schedule. The gateway passes its immutable, locally validated
 configuration to the adapter on every reward read. No HTTP/RPC input can replace it.
 
