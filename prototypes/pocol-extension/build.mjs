@@ -64,6 +64,12 @@ export function inlineModscan(loader, modscan) {
   const body = modscan.replace(/^export (?=const |function |class )/gm, '');
   return loader.replace('/*@modscan*/null', () => `(() => {\n${body}\nreturn Object.freeze({ ${names.join(', ')} });\n})()`);
 }
+// The extension pages' CSP; scripts/package-release.py requires exactly this string. EXT-06 (2026-11-22): no extension
+// page starts a Web Worker (tests/wallet_pages_test.mjs), but `worker-src 'none'` is not added: in Chrome for Testing
+// 153.0.8010.12 it does not stop a worker in an extension page (neither a blob: nor a packaged worker script started;
+// tests/wallet_ui_browser.mjs records it), so it would only claim a protection Chrome does not give. Extension pages run
+// only the extension's own scripts (script-src 'self'), so no other code can start one.
+export const EXTENSION_PAGES_CSP = "script-src 'self'; object-src 'self'";
 export const SANDBOX_CSP = (hash, open) => open
   ? `sandbox allow-scripts allow-forms; script-src 'sha256-${hash}' blob:; style-src * blob: 'unsafe-inline'; img-src * blob: data:; font-src * blob:; media-src * blob:; connect-src *; frame-src *`
   : `sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-${hash}' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
@@ -83,7 +89,7 @@ export function build({ fault = null, out, testNetwork, lockMs, manifestKeyFile 
   const src = join(HERE, 'src');
   const emit = (rel, text) => { const p = join(dist, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); };
   for (const f of readdirSync(join(src, 'lib'))) emit(join('lib', f), fill(applyFaults(readFileSync(join(src, 'lib', f), 'utf8'), fault)));
-  for (const f of ['sw.js', 'viewer.html', 'viewer.js', 'viewer.css', 'options.html', 'options.js', 'studio-content.js', 'publisher.html', 'publisher-ui.js', 'publisher.css', 'ide-content.js', 'contract.html', 'contract-ui.js', 'contract.css']) emit(f, applyFaults(readFileSync(join(src, f), 'utf8'), fault));
+  for (const f of ['sw.js', 'viewer.html', 'viewer.js', 'viewer.css', 'options.html', 'options.js', 'studio-content.js', 'publisher.html', 'publisher-ui.js', 'publisher.css', 'ide-content.js', 'contract.html', 'contract-ui.js', 'contract.css', 'popup.html', 'popup.js', 'send.html', 'send.js', 'wallet.css']) emit(f, applyFaults(readFileSync(join(src, f), 'utf8'), fault));
   // Ship the supplied PoCol artwork at Chrome's native icon sizes.
   const icons = Object.fromEntries([16, 32, 48, 128].map(size => [size, `icons/pocol-${size}.png`]));
   for (const path of Object.values(icons)) emit(path, readFileSync(join(src, path)));
@@ -109,7 +115,7 @@ export function build({ fault = null, out, testNetwork, lockMs, manifestKeyFile 
     manifest_version: 3,
     name: 'PoCol Studio, IDE & Viewer' + (fault ? ` [TEST FAULT ${fault}]` : ''),
     version: JSON.parse(readFileSync(join(HERE, 'package.json'), 'utf8')).version,
-    description: 'Publish websites and smart contracts with your PoCol wallet. Local approval, verified files and isolated viewing.',
+    description: 'PoCol wallet: hold and send PCOL, publish websites and contracts from PoCol Studio and IDE. Keys stay on your device; you approve.',
     minimum_chrome_version: '130', // chrome.storage.local.getKeys (D103 recovery)
     background: { service_worker: 'sw.js', type: 'module' },
     permissions: ['storage', 'unlimitedStorage', 'declarativeNetRequest'],
@@ -118,9 +124,10 @@ export function build({ fault = null, out, testNetwork, lockMs, manifestKeyFile 
     omnibox: { keyword: 'pocol' },
     options_page: 'options.html',
     icons,
-    action: { default_title: 'PoCol', default_icon: icons },
+    // The toolbar button opens the wallet popup (EXT-02: network and connection status, lock state, address, balance).
+    action: { default_title: 'PoCol wallet', default_icon: icons, default_popup: 'popup.html' },
     sandbox: { pages: ['sandbox.html'] },
-    content_security_policy: { extension_pages: "script-src 'self'; object-src 'self'", sandbox: SANDBOX_CSP(hash, fault === 'cspOpen' || fault === 'cspOpenNoDnr') },
+    content_security_policy: { extension_pages: EXTENSION_PAGES_CSP, sandbox: SANDBOX_CSP(hash, fault === 'cspOpen' || fault === 'cspOpenNoDnr') },
   };
   emit('manifest.json', JSON.stringify(manifest, null, 2) + '\n');
   // Release hygiene: no fault markers or bare module specifiers survive.

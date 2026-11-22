@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/pocol-32.png"><title>Send PCOL · PoCol wallet</title>
+<link rel="stylesheet" href="wallet.css">
+</head>
+<body>
+<main>
+  <header><img src="icons/pocol-48.png" width="32" height="32" alt=""><h1>Send PCOL</h1><span id="lockState" class="badge">Locked</span></header>
+  <div id="fatal" class="notice error" role="alert" hidden></div>
+  <section id="networkBox">
+    <h2>Network</h2>
+    <p><span id="netDot" class="dot"></span><span id="netText">Checking…</span></p>
+    <p id="netDetail" class="mono muted"></p>
+  </section>
+  <section id="unlockBox" hidden>
+    <h2>Unlock your PoCol wallet</h2>
+    <label for="password">Password</label><input id="password" type="password" autocomplete="current-password">
+    <div class="row" style="margin-top:8px"><button id="unlock" type="button" class="primary">Unlock</button></div>
+  </section>
+  <section id="formBox">
+    <h2>Transfer</h2>
+    <p class="muted">From <span id="from" class="mono"></span></p>
+    <label for="to">Recipient address</label><input id="to" dir="ltr" autocomplete="off" spellcheck="false" placeholder="0x…">
+    <label for="amount">Amount (PCOL)</label><input id="amount" dir="ltr" inputmode="decimal" autocomplete="off" placeholder="1.5">
+    <div class="row" style="margin-top:10px"><button id="review" type="button" class="primary">Review</button></div>
+    <p id="formNote" class="error" role="status"></p>
+  </section>
+  <section id="reviewBox" hidden>
+    <h2>Review and approve</h2>
+    <dl class="review">
+      <dt>Network</dt><dd id="rNetwork"></dd>
+      <dt>Chain ID</dt><dd id="rChain" class="mono"></dd>
+      <dt>Genesis</dt><dd id="rGenesis" class="mono"></dd>
+      <dt>Endpoint</dt><dd id="rEndpoint" class="mono"></dd>
+      <dt>From</dt><dd id="rFrom" class="mono"></dd>
+      <dt>To</dt><dd id="rTo" class="mono"></dd>
+      <dt>Amount</dt><dd id="rAmount"></dd>
+      <dt>Network fee</dt><dd id="rFee"></dd>
+      <dt>Total, at most</dt><dd id="rTotal" class="total"></dd>
+      <dt>Balance</dt><dd id="rBalance"></dd>
+      <dt>Nonce · gas</dt><dd id="rNonce" class="mono"></dd>
+      <dt>Signing hash</dt><dd id="rHash" class="mono"></dd>
+    </dl>
+    <p class="hint">The transaction is an EIP-1559 transfer signed for this chain ID only. A transfer on a public blockchain is public and cannot be reversed. This review expires in two minutes.</p>
+    <label class="consent"><input type="checkbox" id="consent"><span>I checked the recipient, the amount and the network, and I approve signing and sending this transfer.</span></label>
+    <div class="row"><button id="confirm" type="button" class="primary" disabled>Confirm and send</button><button id="cancel" type="button">Cancel</button></div>
+  </section>
+  <section id="resultBox" hidden>
+    <h2>Transfer</h2>
+    <p id="resultText" role="status" aria-live="polite"></p>
+    <p id="resultHash" class="mono"></p>
+    <p class="hint"><a id="explorer" href="#" target="_blank" rel="noopener noreferrer" hidden>Look up the address on explorer.pocol.net</a></p>
+    <div class="row"><button id="again" type="button">Send another</button><button id="close" type="button">Close</button></div>
+  </section>
+</main>
+<script type="module" src="send.js"></script>
+</body>
+</html>

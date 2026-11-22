@@ -175,11 +175,12 @@ await test('W14: RPC metadata advertising an activation cannot change the built-
   const fx=await siteFixture(dist);
   const log=installFetchMock({...fx.handlers,eth_chainId:()=> '0x'+N.NETWORK.chainId.toString(16),pocol_status:()=>({chainId:N.NETWORK.chainId,genesisHash:N.NETWORK.genesisHash,forkSchedule:[[1,'0'],[2,'1']],activeVersion:2})});
   await mock.send({type:'wallet.create',password:'studio-test-pw',seedHex:'0x'+'42'.repeat(32)});
-  const address=(await mock.send({type:'wallet.address',name:N.NETWORK.name})).address;
+  // EXT-01: the viewer seed wallet has no address on the built-in public profile, before and after a site opens there.
+  const refused=await mock.send({type:'wallet.address',name:N.NETWORK.name});assert.equal(refused.ok,false);assert.match(refused.error,/local networks only/);
   const opened=await mock.send({type:'open',name:N.NETWORK.name,site:fx.site,path:'/'});assert.equal(opened.ok,true,JSON.stringify(opened));
   assert.deepEqual((await getPublic()).forkSchedule,[[1,'0']]);
   assert.deepEqual((await call('studio.status')).result.network.forkSchedule,[[1,'0']]);
-  assert.equal((await mock.send({type:'wallet.address',name:N.NETWORK.name})).address,address);
+  assert.equal((await mock.send({type:'wallet.address',name:N.NETWORK.name})).ok,false);
   assert.equal(log.some(entry=>entry.method==='eth_sendRawTransaction'),false);
 });
 await test('W14: a custom profile of the built-in chain with a cap-raise schedule conflicts with the pinned one and is read-only',async()=>{
@@ -209,9 +210,10 @@ await test('W13: a spec-1 or nonceMode-0 GenesisSpec is refused as a profile wit
   const listed=(await mock.send({type:'profiles.list'})).profiles.find(p=>p.name==='spec1-stored');assert.match(listed.invalid,/spec-1 rule set is retired/);
   for(const name of ['v3-devnet','spec1-stored'])await mock.send({type:'profiles.remove',name});
 });
-// Every profile keys its wallet with its own netKey (D14), the built-in one included: a wallet's address belongs to
-// one network, so an extension pinned to another network gives the built-in profile that network's address, and
-// no extension update moves a custom profile's address.
+// Every profile keys its wallet with its own netKey (D14): a wallet's address belongs to one network, and no extension
+// update moves a custom profile's address. EXT-01 (2026-11-22): the seed wallet cannot be exported, so it serves local
+// networks only; the built-in public profile, and any custom profile of the public network's identity (its netKey),
+// get no seed-wallet address, dialog or signature.
 const W=await import('../dist/lib/wallet.js'),C=await import('../dist/lib/crypto.js'),{Transaction}=await import('ethers');
 const viewerSeed='0x'+'42'.repeat(32);
 const fixtureSpec=(from,to)=>{let pre='0x'+devnetSpecV3Hex();if(from){assert.ok(pre.includes(from));pre=pre.replace(from,to);}const spec=RP.decodeSpec(H.fromHex(pre));return {pre,chainId:Number(spec.chainId),hash:H.toHex(C.keccak(H.fromHex(pre)))};};
@@ -222,22 +224,23 @@ const addressFor=async(netKey)=>W.addressOf(await W.networkKey(H.fromHex(viewerS
 // The network the copy below is switched to; a custom profile of it is added here, before the "update".
 const nextNetwork=fixtureSpec();let nextBefore;
 let viewerAddress;
-await test('the built-in profile and every custom profile key their wallets with their own netKey',async()=>{
+await test('custom local profiles key the seed wallet with their own netKey; the public network gets no seed-wallet address',async()=>{
   await mock.send({type:'wallet.create',password:'studio-test-pw',replace:true,seedHex:viewerSeed});
   const builtinKey=await keyOf(mock,N.NETWORK.name);assert.equal(builtinKey,(await getPublic()).netKey);
-  viewerAddress=await walletOf(mock,N.NETWORK.name);
-  assert.equal(viewerAddress,await addressFor(builtinKey));
+  // EXT-01: refused for the built-in profile (this would be an unexportable key on the public network).
+  const refused=await mock.send({type:'wallet.address',name:N.NETWORK.name});assert.equal(refused.ok,false);assert.match(refused.error,/local networks only/);
+  viewerAddress=await addressFor(builtinKey);
   assert.equal(W.PUBLIC_WALLET_SALT,undefined,'no fixed built-in salt');
-  // A custom profile with the pinned identity has the same netKey, so it shares the address.
+  // A custom profile with the pinned identity has the same netKey: it is the public network, so it is refused too.
   assert.equal((await mock.send({type:'profiles.add',profile:{...N.NETWORK,name:'operator-local',trustLevel:'RP',endpoint:'http://127.0.0.1:8540',forkSchedule:(await getPublic()).forkSchedule}})).ok,true);
   const localKey=await keyOf(mock,'operator-local');assert.equal(localKey,builtinKey);
-  assert.equal(await walletOf(mock,'operator-local'),viewerAddress);
+  assert.equal(await walletOf(mock,'operator-local'),undefined);
   assert.equal((await mock.send({type:'profiles.add',profile:localProfile('next-net',nextNetwork)})).ok,true);
   nextBefore=await walletOf(mock,'next-net');
   assert.equal(nextBefore,await addressFor(await keyOf(mock,'next-net')));assert.notEqual(nextBefore,viewerAddress);
   for(const name of ['operator-local','next-net'])await mock.send({type:'profiles.remove',name});
 });
-await test('after the pinned identity changes, the built-in profile keys its wallet with the new netKey, also for a site, and custom profiles keep theirs',async()=>{
+await test('after the pinned identity changes, the seed wallet still serves no profile of the public network (built-in, custom or a site), and other custom profiles key it by their netKey',async()=>{
   // A copy of the built extension pinned to nextNetwork, as the identity-switch PR switches it.
   const switched=mkdtempSync(join(tmpdir(),'pocol-switched-'));
   try{
@@ -250,13 +253,12 @@ await test('after the pinned identity changes, the built-in profile keys its wal
     const pub=(await m.send({type:'profiles.list'})).profiles.find(p=>p.name===N.NETWORK.name);
     assert.equal(pub.invalid,undefined);assert.equal(pub.chainId,nextNetwork.chainId);assert.equal(pub.genesisHash,nextNetwork.hash);
     await m.send({type:'wallet.create',password:'studio-test-pw',seedHex:viewerSeed});
-    // The built-in profile now has the new network's netKey, so its wallet is that network's address, the one a
-    // custom profile of that network had before the update; the old built-in address is not reused.
-    const switchedAddress=await walletOf(m,N.NETWORK.name);
-    assert.equal(switchedAddress,await addressFor(pub.netKey));assert.equal(switchedAddress,nextBefore);assert.notEqual(switchedAddress,viewerAddress);
-    // The custom profile of nextNetwork keeps the address the extension gave it before the update.
+    // The built-in profile now has the new network's netKey; it is the public network, so the seed wallet has no
+    // address there (EXT-01), and a custom profile of that identity is refused as well.
+    assert.equal(await walletOf(m,N.NETWORK.name),undefined);
+    const switchedAddress=await addressFor(pub.netKey);assert.equal(switchedAddress,nextBefore);assert.notEqual(switchedAddress,viewerAddress);
     assert.equal((await m.send({type:'profiles.add',profile:localProfile('next-net',nextNetwork,pub.forkSchedule)})).ok,true);
-    assert.equal(await walletOf(m,'next-net'),nextBefore);
+    assert.equal(await walletOf(m,'next-net'),undefined);
     // Profiles of another chain ID, or of the same chain ID with another genesis, key their wallets by their netKey.
     const other=fixtureSpec('830bdee8','830bdee9'),twin=fixtureSpec('846553f100','846553f101');
     assert.notEqual(other.chainId,nextNetwork.chainId);assert.equal(twin.chainId,nextNetwork.chainId);assert.notEqual(twin.hash,nextNetwork.hash);
@@ -265,22 +267,22 @@ await test('after the pinned identity changes, the built-in profile keys its wal
       assert.equal(await walletOf(m,name),await addressFor(await keyOf(m,name)));assert.notEqual(await walletOf(m,name),switchedAddress);
     }
     for(const name of ['next-net','other-net','same-chain'])await m.send({type:'profiles.remove',name});
-    // A site opened on the built-in profile is offered, and granted, the same address.
+    // A site opened on the built-in profile gets no seed-wallet account and cannot have a transaction signed (EXT-01).
     const fx=await siteFixture(switched);
     const log=installFetchMock({...fx.handlers,eth_chainId:()=>'0x'+nextNetwork.chainId.toString(16),pocol_status:()=>({chainId:nextNetwork.chainId,genesisHash:nextNetwork.hash,forkSchedule:[[1,'0']]}),
       eth_getTransactionCount:()=>'0x0',eth_getBlockByNumber:()=>({number:'0x5',baseFeePerGas:'0x3b9aca00'}),eth_estimateGas:()=>'0x5208',eth_sendRawTransaction:([raw])=>H.toHex(C.keccak(H.fromHex(raw)))});
     const opened=await m.send({type:'open',name:N.NETWORK.name,site:fx.site,path:'/'});assert.equal(opened.ok,true,JSON.stringify(opened));
     const port=m.connect('bridge:'+opened.sessionId);
     port.post({seq:1,frame:1,text:JSON.stringify({id:1,kind:'wallet_req',payload:{method:'eth_requestAccounts',params:[]}})});
-    const ask=await port.next(x=>x.ask!==undefined && x.q.type==='confirmAccounts');assert.equal(ask.q.address,switchedAddress);
-    port.post({answer:ask.ask,ok:true});
-    assert.deepEqual((await port.next(x=>x.seq===1)).reply.result,[switchedAddress]);
-    // A transaction it signs there comes from that address, for the new chain ID.
-    port.post({seq:2,frame:1,text:JSON.stringify({id:2,kind:'wallet_req',payload:{method:'eth_sendTransaction',params:[{to:'0x'+'22'.repeat(20),value:'0x1'}]}})});
-    port.post({answer:(await port.next(x=>x.ask!==undefined && x.q.type==='confirmTx')).ask,ok:true});
-    const sent=(await port.next(x=>x.seq===2)).reply;assert.equal(sent.error,undefined,JSON.stringify(sent));
-    const raws=log.filter(entry=>entry.method==='eth_sendRawTransaction');assert.equal(raws.length,1);
-    const signed=Transaction.from(raws[0].params[0]);assert.equal(signed.from.toLowerCase(),switchedAddress);assert.equal(Number(signed.chainId),nextNetwork.chainId);assert.equal(sent.result,signed.hash);
+    const granted=(await port.next(x=>x.seq===1)).reply;assert.equal(granted.error?.code,4100,JSON.stringify(granted));assert.match(granted.error.message,/local networks only/);
+    port.post({seq:2,frame:1,text:JSON.stringify({id:2,kind:'wallet_req',payload:{method:'eth_accounts',params:[]}})});
+    assert.deepEqual((await port.next(x=>x.seq===2)).reply.result,[]);
+    port.post({seq:3,frame:1,text:JSON.stringify({id:3,kind:'wallet_req',payload:{method:'eth_sendTransaction',params:[{to:'0x'+'22'.repeat(20),value:'0x1'}]}})});
+    const sent=(await port.next(x=>x.seq===3)).reply;assert.equal(sent.error?.code,4100,JSON.stringify(sent));
+    port.post({seq:4,frame:1,text:JSON.stringify({id:4,kind:'wallet_req',payload:{method:'eth_chainId',params:[]}})});
+    assert.equal((await port.next(x=>x.seq===4)).reply.result,'0x'+nextNetwork.chainId.toString(16));
+    assert.equal(port.inbox.some(x=>x.ask!==undefined),false,'no dialog was shown');
+    assert.equal(log.some(entry=>entry.method==='eth_sendRawTransaction'),false,'nothing was sent');assert.equal(typeof Transaction.from,'function');
   }finally{rmSync(switched,{recursive:true,force:true});}
 });
 console.log(JSON.stringify({result:'PASS',passed:count}));

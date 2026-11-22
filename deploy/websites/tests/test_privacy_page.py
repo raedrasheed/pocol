@@ -89,6 +89,59 @@ class PolicyMatchesTheCode(unittest.TestCase):
         self.assertIn('...(await encryptSeed(secret, password))', keyfile)
         self.assertIn('PBKDF2-SHA256 with 600,000 iterations and AES-256-GCM', json.dumps(translations()['en']))
 
+    def test_the_wallet_statements_are_what_the_worker_does(self):
+        # 2026-11-22 (EXT-02/04): import from a private key or a BIP-39 phrase (only the derived key is kept), a backup at
+        # any time, the list of sent transfers kept on the device, receipts read by hash, and the first-run agreement.
+        policy = json.dumps(translations()['en'])
+        sw = (EXT / 'src' / 'sw.js').read_text(encoding='utf-8')
+        account = (EXT / 'src' / 'lib' / 'account.js').read_text(encoding='utf-8')
+        self.assertIn("else if (msg.kind === 'phrase') secret = acct.phraseToSecret(msg.phrase);", sw)
+        self.assertIn('Only the derived key is kept; the phrase itself is never stored.', account)
+        self.assertIn('Of a recovery phrase only the derived key of its first account is kept; the phrase itself is not stored.', policy)
+        self.assertIn("case 'account.export': {", sw)
+        self.assertIn('when you create your wallet or ask for a backup', policy)
+        self.assertIn("HISTORY_KEY = 'wallet:history'", sw)
+        self.assertIn("rpc('eth_getTransactionReceipt', [t.hash])", sw)
+        self.assertIn('a list of the transfers you sent from it (hash, recipient, amount and status)', policy)
+        self.assertIn('the hashes of the transfers you sent (to read their receipts)', policy)
+        self.assertIn('async function requireDisclosure()', sw)
+        self.assertIn('Before the toolbar wallet makes its first such request (network status, balance, Send or transfer status), it shows what it sends and asks you to agree.', policy)
+
+    def test_the_disclosure_statement_covers_exactly_the_requests_it_gates(self):
+        # The agreement gates the toolbar wallet's four network operations (tests/account_test.mjs drives each one);
+        # Studio and IDE operations are not behind it, and the policy says what they send before their own start.
+        policy = json.dumps(translations()['en'])
+        sw = (EXT / 'src' / 'sw.js').read_text(encoding='utf-8')
+        gated = []
+        for m in re.finditer(r'\nasync function (\w+)\([^)]*\) \{\n(.*?)\n\}', sw, re.S):
+            if 'await requireDisclosure();' in m.group(2): gated.append(m.group(1))
+        self.assertEqual(sorted(gated), ['accountBalance', 'netStatus', 'prepareTransfer', 'refreshHistory'])
+        for page in ('publisher-ui.js', 'contract-ui.js', 'viewer.js', 'lib/publisher.js', 'lib/contracts.js'):
+            self.assertNotIn('disclosure', (EXT / 'src' / page).read_text(encoding='utf-8'), page)
+        self.assertIn('A Studio publication or an IDE contract operation sends your address and its files only after you unlock the wallet in the extension\'s own confirmation window and start the operation there; until then that window reads only the network\'s identity and fees.', policy)
+        # Those windows read only identity and fees before the user's start (publisher-ui refreshQuote, contract-ui Prepare).
+        ui = (EXT / 'src' / 'publisher-ui.js').read_text(encoding='utf-8')
+        quote = re.search(r'async function refreshQuote\(.*?\n\}', ui, re.S).group(0)
+        self.assertEqual(sorted(set(re.findall(r"rpc\('(\w+)'", quote))), ['eth_chainId', 'pocol_status'])
+        self.assertIn('const fees = await readNetworkFees(rpc)', quote)
+        self.assertNotRegex(quote, r'addressOf|eth_getBalance|eth_getTransactionCount')
+        self.assertIn("$('prepare').onclick = async () => {", (EXT / 'src' / 'contract-ui.js').read_text(encoding='utf-8'))
+
+    def test_viewer_sites_get_no_account_on_mainnet_as_the_policy_says(self):
+        policy = json.dumps(translations()['en'])
+        sw = (EXT / 'src' / 'sw.js').read_text(encoding='utf-8')
+        self.assertIn("export const seedWalletAllowed = (p) => !!p && p.trustLevel !== 'RN' && p.netKey !== PUBLIC_NET_KEY;", sw)
+        self.assertIn("if (!seedWalletAllowed(sess.profile)) return m.method === 'eth_accounts' ? { result: [] } : E(4100, SEED_LOCAL_ONLY);", sw)
+        self.assertIn('On PoCol Mainnet this version gives such sites no account and no signature: their requests are refused without a dialog.', policy)
+        self.assertNotIn('When such a site asks for your account or a signature, the extension asks you first', policy)
+
+    def test_the_limited_use_statement_is_in_the_policy(self):
+        # Chrome Web Store User Data Policy, Limited Use: an affirmative statement on the extension's website.
+        en, ar = translations()['en'], translations()['ar']
+        section = next(s for s in en['sections'] if s['heading'] == 'Chrome Web Store User Data Policy')
+        self.assertIn('complies with the Chrome Web Store User Data Policy, including the Limited Use requirements', section['items'][0])
+        self.assertIn('Limited Use', ' '.join(i for s in ar['sections'] for i in s['items']))
+
     def test_the_servers_write_no_request_log_and_the_faucet_keeps_no_ip_on_disk(self):
         for rel in ('deploy/rewards/gateway.py', 'deploy/studio/pocol_studio_gateway.py', 'deploy/faucet/pocol_faucet.py'):
             self.assertRegex((ROOT / rel).read_text(encoding='utf-8'), r'def log_message\(self[^)]*\): pass', rel)
