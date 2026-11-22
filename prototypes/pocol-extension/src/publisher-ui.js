@@ -9,6 +9,9 @@ import { request, Pool, TRUST_POOL, RESERVE_WAIT_MS } from './lib/transport.js';
 import { withRetry } from './lib/retry.js';
 
 const $ = (id) => document.getElementById(id);
+// The chain ID chip shows the built-in profile's chain ID (lib/studio-network.js), the one this page checks the node
+// against, so the page never names a network of its own.
+$('networkChain').textContent = String(NETWORK.chainId);
 const vaultKey = 'studio:wallet';
 // Sites W4: the key lease (lease.js) replaces the fixed 15-minute unlock for an approved publication.
 const lease = new KeyLease({lockMs:LOCK_MS});

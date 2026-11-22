@@ -159,3 +159,10 @@ export async function capsPrecheck(post,files,{newSite}){
   return capsVerdict(v?.result,siteNeedsAtLeast(files,{newSite}),siteNeedsAtMost(files,{newSite}));
 }
 export function capsDetails(rows){return rows.map(r=>`${r.label}: ${r.need} / ${r.remaining}`).join(' · ');}
+// The network identity a Studio gateway's /studio/health reports, compared with the identity Studio pins (app.js NETWORK):
+// ok only for the same chain ID and genesis hash. `actual` holds what the gateway reported, or null for a value that is
+// not a chain ID (a positive safe integer, as a number or a numeric string) or a genesis hash (0x and 64 hex digits).
+export function networkIdentity(expected,health){const cid=health?.chainId??health?.network?.chainId,gen=health?.genesisHash??health?.network?.genesisHash;const n=(typeof cid==='number'||(typeof cid==='string'&&cid.trim()!==''))?Number(cid):NaN;const chainId=Number.isSafeInteger(n)&&n>0?n:null;const genesisHash=typeof gen==='string'&&/^0x[0-9a-fA-F]{64}$/.test(gen)?gen.toLowerCase():null;const e={chainId:expected.chainId,genesisHash:String(expected.genesisHash).toLowerCase()};return{ok:chainId===e.chainId&&genesisHash===e.genesisHash,expected:e,actual:{chainId,genesisHash}};}
+// The status text of a mismatch: the expected and the reported chain ID and genesis hash, so a user (or an operator) sees
+// which network the gateway serves. Every value comes from networkIdentity, so nothing the gateway sent is shown raw.
+export function networkMismatchText(id,w){const v=(x)=>x===null||x===undefined?w.none:String(x);return `${w.mismatch} ${w.expected}: chain ID ${v(id.expected.chainId)}, genesis ${v(id.expected.genesisHash)}. ${w.actual}: chain ID ${v(id.actual.chainId)}, genesis ${v(id.actual.genesisHash)}.`;}

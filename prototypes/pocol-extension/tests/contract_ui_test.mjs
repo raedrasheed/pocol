@@ -46,6 +46,12 @@ async function fixture(options = {}) {
   return {elements,storage,state,context,click,unlock,consent,review:baseReview,tick:()=>tick(),setNow:value=>{now=value},dispatch:name=>listeners.get(name)?.()};
 }
 
+test('the chain ID chip shows the built-in profile\'s chain ID; the page names no network of its own', async()=>{
+  const f=await fixture();
+  assert.equal(f.elements.get('networkChain').textContent, String(f.context.NETWORK.chainId));
+  assert.match(HTML, /<span class="network-id" id="networkChain" title="Chain ID"><\/span>/);
+  assert.doesNotMatch(HTML, /(?<![0-9A-Za-z])[0-9]{7,}(?![0-9A-Za-z])/, 'no chain ID in the page');
+});
 test('unsigned reload discards a stored review and never signs automatically', async()=>{
   const f=await fixture({job:{review:{expiresAt:999999}}});
   assert.equal(f.elements.get('confirm').disabled,true);

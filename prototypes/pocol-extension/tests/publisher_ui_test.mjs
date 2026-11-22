@@ -47,6 +47,12 @@ async function fixture({job = {}, publish, base = FLOOR, now = 1000} = {}) {
   const consent = () => { elements.get('consent').checked = true; elements.get('consent').onchange(); };
   return {elements, storage, state, context, click, unlock, consent, setNow: (v) => { clock = v; }};
 }
+test('the chain ID chip shows the built-in profile\'s chain ID; the page names no network of its own', async () => {
+  const f = await fixture();
+  assert.equal(f.elements.get('networkChain').textContent, String(NETWORK.chainId));
+  assert.match(HTML, /<span class="chip" id="networkChain" title="Chain ID"><\/span>/);
+  assert.doesNotMatch(HTML, /(?<![0-9A-Za-z])[0-9]{7,}(?![0-9A-Za-z])/, 'no chain ID in the page');
+});
 test('W4 page: the files move once to their own key, and the fees are quoted from the node, not fixed caps', async () => {
   const f = await fixture();
   assert.equal(f.elements.get('fatal').textContent, '', 'the page opened without a fatal error');
