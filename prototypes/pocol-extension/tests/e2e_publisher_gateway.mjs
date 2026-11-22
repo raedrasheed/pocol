@@ -62,7 +62,9 @@ function startRelay(port, clientIp) {
 function studioRoute(info) {
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' };
   const app = readFileSync(join(STUDIO, 'app.js'), 'utf8');
-  const pinned = { chain: (/Number\(cid\)!==(\d+)/.exec(app) || [])[1], genesis: (/toLowerCase\(\)!=='(0x[0-9a-f]{64})'/.exec(app) || [])[1] };
+  // Since step 7 app.js pins the identity once (const NETWORK, checked with networkIdentity), as model.test.mjs requires.
+  const pin = /const NETWORK=Object\.freeze\(\{chainId:(\d+),genesisHash:'(0x[0-9a-f]{64})'\}\);/.exec(app) || [];
+  const pinned = { chain: pin[1], genesis: pin[2] };
   if (!pinned.chain || !pinned.genesis) throw new Error('Studio app.js: the pinned identity was not found');
   const patched = app.replaceAll(pinned.chain, String(info.chainId)).replaceAll(pinned.genesis, info.genesisHash.toLowerCase());
   return async (route) => {
@@ -231,7 +233,9 @@ async function main() {
     {
       const tree = join(work, 'ide-tree');
       for (const top of ['deploy/websites', 'prototypes/pocol-studio/dist']) cpSync(join(REPO, top), join(tree, top), { recursive: true, filter: (s) => !/__pycache__|[\\/]config\.php$/.test(s) });
-      for (const f of ['deploy/mainnet/retired-networks.json', 'prototypes/pocol-extension/package.json', 'deploy/standalone/package.py']) { mkdirSync(dirname(join(tree, f)), { recursive: true }); cpSync(join(REPO, f), join(tree, f)); }
+      // The W9 tool reads the public network chains and the node's GenesisSpec version from the --root tree (step 7).
+      for (const f of ['deploy/mainnet/retired-networks.json', 'prototypes/pocol-extension/package.json', 'deploy/standalone/package.py',
+        'prototypes/lp1-node/src/genesis_spec.rs', 'prototypes/lp4-execution/src/p1_profile.rs']) { mkdirSync(dirname(join(tree, f)), { recursive: true }); cpSync(join(REPO, f), join(tree, f)); }
       const spec = readFileSync(join(work, 'net', 'genesis.spec.hex'), 'utf8').trim();
       writeFileSync(join(work, 'network.pocol.json'), JSON.stringify({ schema: 'pocol-network-v2', consensusRulesVersion: 2, seeds: ['192.0.2.10:30300'],
         files: { 'genesis.spec.hex': spec.startsWith('0x') ? spec : '0x' + spec, 'devnet.json': JSON.stringify({ chainId: info.chainId, genesisHash: info.genesisHash.toLowerCase() }) } }));

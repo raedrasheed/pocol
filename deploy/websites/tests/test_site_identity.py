@@ -993,12 +993,18 @@ class SiteIdentity(unittest.TestCase):
     def test_a_kept_out_download_link_carries_the_content_version_of_its_listed_digest(self):
         # The 0.5.0 links kept the 0.4.1 archive's ?v= (85e6ebb6a0e3): a kept-out archive is not in the snapshot, so its
         # content version is taken from the digest its SHA256SUMS.txt line lists (a --download digest, else that line).
+        # Since SITE-01 the served pages link no extension package before the signed release, so the copy gets the
+        # kept-out package lines (restore_extension_downloads) and one home-page link to it, as the release will have.
         name = f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip'
-        links = kept_out_links(ROOT, si.MAIN)
-        self.assertIn(name, links, 'pocol.net links the kept-out extension package')
-        self.assertEqual(links[name], {kept_digest(ROOT, si.MAIN, name)[:12]})
         root = self.copy()
+        self.restore_extension_downloads(root)
         page = root / si.MAIN / 'index.html'
+        page.write_text(page.read_text(encoding='utf-8').replace('</body>', f'<a href="{name}?v=000000000000">x</a></body>', 1),
+                        encoding='utf-8')
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        links = kept_out_links(root, si.MAIN)
+        self.assertIn(name, links, 'the copy links the kept-out extension package')
+        self.assertEqual(links[name], {kept_digest(root, si.MAIN, name)[:12]})
         good = page.read_text(encoding='utf-8')
         token = kept_digest(root, si.MAIN, name)[:12]
         page.write_text(good.replace(f'{name}?v={token}', f'{name}?v=85e6ebb6a0e3'), encoding='utf-8')

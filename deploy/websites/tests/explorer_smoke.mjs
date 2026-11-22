@@ -109,7 +109,9 @@ async function main() {
     // ---- a temporary copy switched to the devnet with the W9 tool ----
     const tree = join(work, 'tree');
     for (const top of ['deploy/websites', 'prototypes/pocol-studio/dist']) cpSync(join(ROOT, top), join(tree, top), { recursive: true, filter: (s) => !/__pycache__|[\\/]config\.php$/.test(s) });
-    for (const f of ['deploy/mainnet/retired-networks.json', 'prototypes/pocol-extension/package.json', 'deploy/standalone/package.py']) { mkdirSync(dirname(join(tree, f)), { recursive: true }); cpSync(join(ROOT, f), join(tree, f)); }
+    // The W9 tool reads the public network chains and the node's GenesisSpec version from the --root tree (step 7).
+    for (const f of ['deploy/mainnet/retired-networks.json', 'prototypes/pocol-extension/package.json', 'deploy/standalone/package.py',
+      'prototypes/lp1-node/src/genesis_spec.rs', 'prototypes/lp4-execution/src/p1_profile.rs']) { mkdirSync(dirname(join(tree, f)), { recursive: true }); cpSync(join(ROOT, f), join(tree, f)); }
     const genesisHash = info.genesisHash.toLowerCase();
     const invitation = { schema: 'pocol-network-v2', consensusRulesVersion: 2, seeds: ['192.0.2.10:30300', '192.0.2.11:30300', '192.0.2.12:30300'],
       files: { 'genesis.spec.hex': spec.startsWith('0x') ? spec : '0x' + spec, 'devnet.json': JSON.stringify({ chainId: info.chainId, genesisHash }) } };
@@ -161,6 +163,10 @@ async function main() {
     const base = `http://127.0.0.1:${FRONT}`;
     // 2026-11-22 review: pocol.net's summary (api/network.php) sends [pocol_status, pocol_getParams, pocol_getMemberCounts]
     // through /api/rpc.php with no Origin; the counts are the same block's ActList as a full pocol_getMembers page.
+    // The gateway counts this test's reads as one client (EXP-02: 40 tokens burst, 10 a second), and the record wait
+    // above polls pocol_getMember (20 tokens) until it drains that bucket, so the block first waits for a full bucket:
+    // the batch costs 22 tokens and the members page 5.
+    await sleep(4500);
     {
       const r = await fetch(`http://127.0.0.1:${FRONT}/api/rpc.php`, { method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify([1, 2, 3].map((id, i) => ({ jsonrpc: '2.0', id, method: ['pocol_status', 'pocol_getParams', 'pocol_getMemberCounts'][i], params: [] }))) });

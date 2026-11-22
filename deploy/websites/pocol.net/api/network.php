@@ -22,6 +22,17 @@ const POCOL_SUMMARY_BOND_STATES = ['NONE', 'HELD', 'BURNED', 'PAID', 'ACCRUING']
 // The time one refresh may take, every request included (each request's own limit is at most 12 s and never more than
 // what is left of this).
 const POCOL_SUMMARY_DEADLINE = 15;
+// The explorer gateway also budgets each client (deploy/rewards/gateway.py CLIENT_BURST 40 tokens, CLIENT_RATE 10 a
+// second, EXP-02), and pocol.net's server is one client: a refresh's 22 + 20 tokens exceed that burst when its two
+// requests follow each other closely, or follow reward.php's 20-token read. A request the gateway refuses as busy (HTTP
+// 429) is sent again after its Retry-After (at least 1 s, at most 3 s), at most twice, and only within the deadline.
+const POCOL_SUMMARY_BUSY_RETRIES = 2;
+const POCOL_SUMMARY_BUSY_WAIT_MAX = 3.0;
+
+/** The gateway refused a request as busy (HTTP 429): `wait` is its Retry-After in seconds (0 when it sent none). */
+final class PocolSummaryBusy extends RuntimeException {
+    public function __construct(public readonly float $wait) { parent::__construct('Data service busy.'); }
+}
 
 function pocol_summary_integer($value): int {
     if (!is_int($value) || $value < 0 || $value > POCOL_SUMMARY_SAFE_INTEGER) {
@@ -99,8 +110,16 @@ function pocol_summary_rpc(array $requests, float $timeout = 12.0): array {
                 $reply .= $chunk;
                 return strlen($chunk);
             },
+            CURLOPT_HEADERFUNCTION => static function ($unused, string $line) use (&$retryAfter): int {
+                if (preg_match('/^Retry-After:\s*([0-9]{1,3})\s*$/i', $line, $m) === 1) $retryAfter = (float)$m[1];
+                return strlen($line);
+            },
         ]);
-        if (curl_exec($handle) === false || curl_getinfo($handle, CURLINFO_HTTP_CODE) !== 200) {
+        $retryAfter = 0.0;
+        $done = curl_exec($handle);
+        $code = curl_getinfo($handle, CURLINFO_HTTP_CODE);
+        if ($done !== false && $code === 429) throw new PocolSummaryBusy($retryAfter);
+        if ($done === false || $code !== 200) {
             throw new RuntimeException('Data request failed.');
         }
         $decoded = json_decode($reply, false, 64, JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING);
@@ -137,16 +156,30 @@ function pocol_summary_eligible($value): int {
 }
 
 /** A transport whose requests together keep to `$seconds`: each request is given what is left (at most 12 s), and none
- * starts once the time is spent. */
-function pocol_summary_deadline(callable $rpc, float $seconds = POCOL_SUMMARY_DEADLINE, ?callable $clock = null): callable {
+ * starts once the time is spent. A busy refusal (PocolSummaryBusy) is retried after its Retry-After (1 to 3 s), at most
+ * POCOL_SUMMARY_BUSY_RETRIES times per request, and only when the wait still leaves time for the request. */
+function pocol_summary_deadline(callable $rpc, float $seconds = POCOL_SUMMARY_DEADLINE, ?callable $clock = null,
+                                ?callable $sleep = null): callable {
     $clock ??= static fn(): float => microtime(true);
+    $sleep ??= static function (float $s): void { usleep((int)round($s * 1e6)); };
     $end = $clock() + $seconds;
-    return static function (array $requests) use ($rpc, $end, $clock) {
-        $left = $end - $clock();
-        if ($left <= 0) throw new RuntimeException('Summary time limit reached.');
-        $values = $rpc($requests, min(12.0, $left));
-        if ($clock() > $end) throw new RuntimeException('Summary time limit reached.');
-        return $values;
+    return static function (array $requests) use ($rpc, $end, $clock, $sleep) {
+        for ($retry = 0; ; $retry++) {
+            $left = $end - $clock();
+            if ($left <= 0) throw new RuntimeException('Summary time limit reached.');
+            try {
+                $values = $rpc($requests, min(12.0, $left));
+            } catch (PocolSummaryBusy $busy) {
+                $wait = min(POCOL_SUMMARY_BUSY_WAIT_MAX, max(1.0, $busy->wait));
+                if ($retry >= POCOL_SUMMARY_BUSY_RETRIES || $end - $clock() <= $wait + 1.0) {
+                    throw new RuntimeException('Data service busy.');
+                }
+                $sleep($wait);
+                continue;
+            }
+            if ($clock() > $end) throw new RuntimeException('Summary time limit reached.');
+            return $values;
+        }
     };
 }
 

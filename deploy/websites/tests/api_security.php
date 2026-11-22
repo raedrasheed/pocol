@@ -109,6 +109,35 @@ $clock = 0.0; $given = [];
 rejected('no request starts once the deadline has passed', static fn()=>pocol_network_summary(pocol_summary_deadline($slow(15.0), POCOL_SUMMARY_DEADLINE, $tick),$now));
 check('only the first request was sent', $given === [12.0]);
 check('the deadline is 15 s', POCOL_SUMMARY_DEADLINE === 15);
+// Integration (2026-11-22): the explorer gateway's per-client budget (40 tokens burst) refuses the refresh's second
+// request (20 tokens after 22) as busy, HTTP 429 with Retry-After: 3; the refresh sends it again after that wait, at most
+// twice, within the deadline, instead of failing every refresh that follows its first request closely.
+$clock = 0.0; $given = []; $slept = [];
+$busyFirst = static function(int $refusals, float $retryAfter) use ($rpc, &$clock, &$given): callable {
+    $left = [2 => $refusals];
+    return static function(array $requests, float $timeout) use ($rpc, &$left, $retryAfter, &$clock, &$given): array {
+        $given[] = $timeout; $clock += 0.1;
+        if ($requests[0]['method'] === 'eth_getBlockByNumber' && $left[2]-- > 0) throw new PocolSummaryBusy($retryAfter);
+        return $rpc($requests);
+    };
+};
+$nap = static function(float $s) use (&$clock, &$slept): void { $slept[] = $s; $clock += $s; };
+check('summary after one busy refusal of its block read', pocol_network_summary(pocol_summary_deadline($busyFirst(1, 3.0), POCOL_SUMMARY_DEADLINE, $tick, $nap),$now)['metrics']['eligibleMiners']===2
+    && $slept === [3.0] && count($given) === 3);
+$clock = 0.0; $given = []; $slept = [];
+check('the wait follows Retry-After, at least 1 s and at most 3 s', pocol_network_summary(pocol_summary_deadline($busyFirst(2, 60.0), POCOL_SUMMARY_DEADLINE, $tick, $nap),$now)['metrics']['eligibleMiners']===2
+    && $slept === [3.0, 3.0]);
+$clock = 0.0; $given = []; $slept = [];
+pocol_network_summary(pocol_summary_deadline($busyFirst(1, 0.0), POCOL_SUMMARY_DEADLINE, $tick, $nap),$now);
+check('a refusal without Retry-After waits 1 s', $slept === [1.0]);
+$clock = 0.0; $given = []; $slept = [];
+rejected('a request still busy after two retries fails the refresh', static fn()=>pocol_network_summary(pocol_summary_deadline($busyFirst(3, 3.0), POCOL_SUMMARY_DEADLINE, $tick, $nap),$now));
+check('it was sent three times and waited twice', count($given) === 4 && $slept === [3.0, 3.0]);
+// A refresh that started 12 s ago: a 3 s wait would leave no time for the request, so the refusal is final.
+$clock = 0.0; $given = []; $slept = [];
+$late = pocol_summary_deadline($busyFirst(1, 3.0), 15.0, $tick, $nap); $clock = 12.0;
+rejected('no retry that the deadline cannot hold', static fn()=>pocol_network_summary($late,$now));
+check('no wait past the deadline', $slept === []);
 
 // F-74: the gateway answers schema pocol-block-reward-v3 (deploy/rewards/pocol_rewards.py snapshot_v3).
 $miner = '0x'.str_repeat('11',20); $payee = '0x'.str_repeat('22',20);

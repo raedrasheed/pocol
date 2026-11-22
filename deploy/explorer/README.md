@@ -182,8 +182,9 @@ Steps, from a checkout of the release commit:
 
 1. Network file for the gateway, from the invitation's `devnet.json` `chainId` and `genesisHash`:
    `sudo install -d -m 0755 /etc/pocol-explorer-gateway`, then write `/etc/pocol-explorer-gateway/network.json`
-   (mode 0644) as `{"chainId": 2656089850, "genesisHash": "0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e",
-   "specVersion": 2, "v3": true, "source": "https://explorer.pocol.net"}`.
+   (mode 0644) as `{"chainId": CHAIN_ID, "genesisHash": "GENESIS_HASH", "specVersion": 2, "v3": true, "source":
+   "https://explorer.pocol.net"}`, with the invitation's two values; they must equal the `chainId` and `genesisHash`
+   that `deploy/websites/site-identity.json` pins (PoCol Mainnet's, set by the step-7 identity switch).
 2. The observer node: `sudo python3 deploy/explorer/install_observer_node.py --invitation network.pocol.json
    --invitation-sha256 a74c1cf4... --pocold ./pocold --pocold-sha256 <release digest> --check`, then the same command
    without `--check`. It prints `INSTALLED` once the node answers for PoCol Mainnet with no miner.
@@ -192,8 +193,8 @@ Steps, from a checkout of the release commit:
    and the node must have peers. The gateway can be installed while it syncs; its pages show the node's head.
 4. Caddy: `sudo apt-get install caddy` (the stock `:80` Caddyfile is replaced by the explorer block).
 5. Before the DNS move: `D=$(mktemp -d) && python3 deploy/websites/tools/site_snapshot.py --out "$D" && sudo python3
-   deploy/explorer/install_explorer_gateway.py --site "$D" --check` must print `CHECK PASSED` with chain 2656089850
-   and the genesis hash above.
+   deploy/explorer/install_explorer_gateway.py --site "$D" --check` must print `CHECK PASSED` with the chain ID
+   and the genesis hash of step 1.
 6. The owner points `explorer.pocol.net` at the host. Wait until `dig +short explorer.pocol.net @1.1.1.1` and
    `@8.8.8.8` both return it.
 7. `sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D"`: the gateway (with the transaction index)

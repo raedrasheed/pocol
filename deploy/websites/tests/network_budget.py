@@ -7,7 +7,10 @@ cost of each call is gateway.COSTS, as explorer_api.Relay is built with). This s
 at the largest supported membership (10,000 members), records the batches it sends, and replays them through the real
 Gateway.charge on a virtual clock: one refresh every POCOL_SUMMARY_CACHE_TTL seconds (the cache allows no more) while
 explorer visitors read at half the refill rate. Every summary request must be accepted, no visitor read refused, and
-a refresh must cost the same at 10,000 members as at 5.
+a refresh must cost the same at 10,000 members as at 5. The gateway also budgets each client (EXP-02: CLIENT_BURST 40,
+CLIENT_RATE 10 a second) and pocol.net's server is one client, so the replay charges the summary's requests to that
+client too: a request refused there is resent after its Retry-After (3 s), at most twice, as api/network.php's
+pocol_summary_deadline does, and every refresh must complete (integration, 2026-11-22).
 
 Needs php-cli (CI runs it in the PHP step). Exit status 0 only when every check holds."""
 import json, shutil, subprocess, sys, tempfile
@@ -66,31 +69,47 @@ def summary_trace(active):
 def cost(methods):
     return sum(gateway.COSTS.get(m, 1) for m in methods)
 
-def replay(trace, ttl, seconds=300.0, visitor_rate=10.0, round_trip=0.2):
-    """(refused summary requests, refused visitor reads, lowest bucket level) of `seconds` of traffic through one
-    real Gateway's charge(): the summary's batches every `ttl` s, `round_trip` apart, and visitor reads of 1 token at
-    `visitor_rate` a second."""
+SERVER = 'pocol.net server'   # pocol.net's PHP reaches /api/rpc.php from one address: one client of the gateway
+BUSY_WAIT, BUSY_RETRIES = 3.0, 2  # the gateway's Retry-After on a budget refusal; api/network.php's retries
+
+def replay(trace, ttl, seconds=300.0, visitor_rate=10.0, round_trip=0.2, retry=True):
+    """(refused summary requests, refused visitor reads, lowest bucket level, resent summary requests) of `seconds` of
+    traffic through one real Gateway's charge(): the summary's batches every `ttl` s, each `round_trip` after the one
+    before, charged to the SERVER client as well, and visitor reads of 1 token at `visitor_rate` a second (each from its
+    own address). A summary request refused is resent BUSY_WAIT later, at most BUSY_RETRIES times, when `retry`; one
+    still refused then counts as refused."""
     service = gateway.Gateway(network=NET)
     clock = [1000.0]
     events = []
     t = 0.0
     while t < seconds:
         for i, methods in enumerate(trace):
-            events.append((t + i * round_trip, 'summary', cost(methods)))
+            events.append((t + i * round_trip, 'summary', cost(methods), 0))
         t += ttl
     step = 1.0 / visitor_rate
-    events += [(k * step + step / 2, 'visitor', 1) for k in range(int(seconds * visitor_rate))]
-    events.sort()
+    events += [(k * step + step / 2, 'visitor', 1, 0) for k in range(int(seconds * visitor_rate))]
     refused = {'summary': 0, 'visitor': 0}
+    resent = 0
     low = 80.0
     with patch.object(gateway.time, 'monotonic', side_effect=lambda: clock[0]):
         service.tokens, service.token_time = 80.0, clock[0]
-        for at, who, amount in events:
+        visitor = 0
+        while events:
+            events.sort()
+            at, who, amount, tries = events.pop(0)
             clock[0] = 1000.0 + at
-            if not service.charge(amount):
-                refused[who] += 1
+            if who == 'summary':
+                accepted = service.charge(amount, client=SERVER)
+            else:
+                visitor += 1
+                accepted = service.charge(amount, client=f'visitor {visitor % 50}')
+            if not accepted:
+                if who == 'summary' and retry and tries < BUSY_RETRIES:
+                    events.append((at + BUSY_WAIT, who, amount, tries + 1)); resent += 1
+                else:
+                    refused[who] += 1
             low = min(low, service.tokens)
-    return refused['summary'], refused['visitor'], low
+    return refused['summary'], refused['visitor'], low, resent
 
 def main():
     if shutil.which('php') is None:
@@ -109,8 +128,15 @@ def main():
     per_refresh = sum(cost(m) for m in large['trace'])
     check(f'a refresh costs {per_refresh} gateway tokens at 10,000 members, as at 5', per_refresh == sum(cost(m) for m in small['trace']) == 42)
     check('every request of a refresh fits the 80-token burst', all(cost(m) <= 80 for m in large['trace']))
-    summary_refused, visitors_refused, low = replay(large['trace'], large['ttl'])
-    check('every summary request is accepted, refreshed every %d s for 5 minutes' % large['ttl'], summary_refused == 0)
+    summary_refused, visitors_refused, low, resent = replay(large['trace'], large['ttl'])
+    check('every summary request is accepted, refreshed every %d s for 5 minutes (%d resent after a busy answer)'
+          % (large['ttl'], resent), summary_refused == 0)
+    # The detector: on a fast link the second request follows the first too closely for the server's client bucket
+    # (40 - 22 = 18 < 20 tokens), so without the resend every refresh would fail.
+    fast_refused, _, _, _ = replay(large['trace'], large['ttl'], round_trip=0.05, retry=False)
+    check(f'without the resend the per-client budget refuses refreshes ({fast_refused} refused at a 50 ms round trip)', fast_refused > 0)
+    fast_retried, _, _, _ = replay(large['trace'], large['ttl'], round_trip=0.05)
+    check('with the resend every refresh completes at a 50 ms round trip too', fast_retried == 0)
     check('no explorer visitor read (10 a second, half the refill) is refused meanwhile', visitors_refused == 0)
     check(f'the bucket never falls below 30 tokens (lowest {low:.1f})', low >= 30)
     print('PASS' if ok else 'FAIL', 'network summary budget')
