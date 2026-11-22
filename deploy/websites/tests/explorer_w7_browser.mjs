@@ -10,13 +10,18 @@
 // 2. The same read answered: the panel lists the transactions. No transactions in the window: the empty state.
 // 4. An open account view follows the loaded window (accountFollowsWindow).
 // 3. The map's summary counts the loaded members page ("256 members on the loaded page"), not "registered miners",
-//    beside "Active members 300".
+//    beside "Active members 300". The summary is part of the map, shown only with geography data: these Overview runs
+//    serve a one-peer geography answer of the declared network (the gateway itself never serves one; 7 is that case).
 // 5. Production readiness (tools/explorer-prod-edits.json): a refused read is retried twice before it is reported (the
 //    refused transaction read of 1 is sent three times), and the transaction view of a registerReplacing call whose
 //    receipt read the node first answers busy (-32021, as its heavy lane does under load) still shows the decoded
 //    call and the named member: explorer_smoke.mjs's registerReplacing check on a v3 devnet failed that way.
 // 6. The Transactions tab with rows at 390 px has no horizontal page scroll: the wide history table scrolls inside its
 //    own box (its screen-reader "Details" label, absolutely positioned, made the page 727 px wide before the fix).
+// 7. The Miner map without geography data (/api/miner-locations.php 503, as the gateway always answers): the panel, on
+//    its tab and on the Overview, is only the notice that the network records no miner location and that peers are
+//    not placed by IP address. None of the GeoIP texts beside it (the "Automatic GeoIP" tag, "Countries detected from
+//    the observer node's public peer IPs", the IP counts, "Country estimated from IP", the DB-IP attribution).
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -106,6 +111,9 @@ async function serve(state) {
       }
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }); return res.end(JSON.stringify(calls.map((c) => answer(state, c))));
     }
+    if (path === '/api/miner-locations.php' && state.geography) {
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }); return res.end(JSON.stringify({ data: state.geography }));
+    }
     if (path === '/api/transactions.php' && state.txPage) {
       const q = new URL(req.url, 'http://localhost').searchParams;
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
@@ -124,8 +132,12 @@ async function serve(state) {
 }
 
 const browser = await chromium.launch({ executablePath: process.env.POCOL_CHROMIUM || '/usr/bin/chromium', headless: true });
+// A geography answer of the declared network (pocol-network-geography-v1: the observer node alone, one connection).
+const GEOGRAPHY = { schema: 'pocol-network-geography-v1', chainId: DECLARED.chainId, genesisHash: DECLARED.genesisHash, generatedAt: NOW, source: 'observed-peer-ip',
+  scope: 'one-node', peerConnections: 1, excludedConnections: 0, database: { provider: 'DB-IP Lite', release: new Date(NOW * 1000).toISOString().slice(0, 7), updatedAt: NOW },
+  nodes: [{ id: 'ip-' + 'a'.repeat(24), country: 'DE', connections: 1, observer: true, miner: null }] };
 async function overview(txBlocks, busyTxRead) {
-  const state = { chain: chain(txBlocks), busyTxRead, batches: [], head: HEAD, full: [] };
+  const state = { chain: chain(txBlocks), busyTxRead, batches: [], head: HEAD, full: [], geography: GEOGRAPHY };
   const server = await serve(state), context = await browser.newContext();
   try {
     await context.route('**/*', (route) => (new URL(route.request().url()).origin === server.origin ? route.continue() : route.abort()));
@@ -134,7 +146,8 @@ async function overview(txBlocks, busyTxRead) {
     const latest = page.locator('section.panel', { has: page.locator('h2', { hasText: 'Latest transactions' }) });
     // The first refresh is done once its last request (the transaction read, when the window has transactions) is
     // answered and the page shows the head; then one render more.
-    // A refused transaction read is sent three times (two retries, 1.5 s and 3 s later) before it is reported.
+    // A refused transaction read is sent three times (two retries, each after the 429's Retry-After: 3 s) before it
+    // is reported.
     const requests = Object.keys(txBlocks).length ? (busyTxRead ? 5 : 3) : 2, deadline = Date.now() + 30000; let text = '';
     while (Date.now() < deadline) {
       text = await page.evaluate(() => document.body.innerText);
@@ -208,6 +221,23 @@ async function historyAt(width) {
     return { rows, scroll, inner, errors };
   } finally { await context.close(); await server.close(); }
 }
+// 7. The Miner map tab (and the Overview's compact map) without geography data: the panel's text.
+async function minerMap() {
+  const state = { chain: chain({}), busyTxRead: false, batches: [], head: HEAD, full: [] };
+  const server = await serve(state), context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  try {
+    await context.route('**/*', (route) => (new URL(route.request().url()).origin === server.origin ? route.continue() : route.abort()));
+    const page = await context.newPage(), errors = []; page.on('pageerror', (e) => errors.push(e.message));
+    const panel = () => page.evaluate(() => [...document.querySelectorAll('section.miner-map-panel')].map((e) => e.innerText).join(' | '));
+    const settle = async () => { let t = ''; for (const end = Date.now() + 20000; Date.now() < end;) { t = await panel(); if (/Miner locations are unavailable:/.test(t)) break; await new Promise((r) => setTimeout(r, 200)); } return t; };
+    await page.goto(server.origin + '/');
+    const overview = await settle();
+    await page.goto(server.origin + '/#page=Miner%20map'); await page.reload();
+    const tab = await settle();
+    const [scroll, inner] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+    return { overview, tab, scroll, inner, body: await page.evaluate(() => document.body.innerText), errors };
+  } finally { await context.close(); await server.close(); }
+}
 const tx = (n, i) => { const h = hash('c' + i, n); return h.slice(0, 8) + '…' + h.slice(-6); }; // the Overview's short hash
 const atx = (n, i) => { const h = hash('c' + i, n); return h.slice(0, 9) + '…' + h.slice(-7); }; // the account view's
 
@@ -259,6 +289,17 @@ try {
   const phone = await historyAt(390);
   check('the Transactions tab with rows at 390 px has no horizontal page scroll (the table scrolls in its own box), rows newest first',
     phone.rows.length === 2 && phone.rows[0].includes('Position 2') && phone.rows[1].includes('Position 1') && phone.scroll <= phone.inner, `scroll ${phone.scroll} / ${phone.inner}: ${JSON.stringify(phone.rows)}`);
-  check('no uncaught error in the other scenarios', view.errors.length === 0 && stuck.errors.length === 0 && phone.errors.length === 0 && down.errors.length === 0 && answered.errors.length === 0 && empty.errors.length === 0 && acct.errors.length === 0 && stale.errors.length === 0, [...down.errors, ...answered.errors, ...empty.errors, ...acct.errors, ...stale.errors].join(' | '));
+  // 7. The Miner map without geography data.
+  const map = await minerMap();
+  const NOTICE = 'Miner locations are unavailable: the PoCol network does not record where miners are, and this explorer does not place peers by their IP addresses.';
+  const CLAIMS = ['GeoIP', 'Countries detected from', 'estimated from IP', 'Located public IPs', 'Unlocated public IPs', 'country level', 'Detecting countries', 'DB-IP', 'public IP', 'Network around the world'];
+  for (const [where, text] of [['Miner map tab', map.tab], ['Overview', map.overview]]) {
+    check(`the ${where}'s map panel without geography data is only the notice, with none of the GeoIP texts`,
+      text.includes(NOTICE) && CLAIMS.every((c) => !text.includes(c)), text.replace(/\s+/g, ' ').slice(0, 500));
+  }
+  check('the Miner map tab keeps its subtitle and no GeoIP text anywhere on the page, no horizontal scroll at 390 px',
+    map.body.includes('Miner locations are not published: the network does not record them.') && CLAIMS.every((c) => !map.body.includes(c)) && map.scroll <= map.inner,
+    `scroll ${map.scroll} / ${map.inner}: ` + CLAIMS.filter((c) => map.body.includes(c)).join(', '));
+  check('no uncaught error in the other scenarios', map.errors.length === 0 && view.errors.length === 0 && stuck.errors.length === 0 && phone.errors.length === 0 && down.errors.length === 0 && answered.errors.length === 0 && empty.errors.length === 0 && acct.errors.length === 0 && stale.errors.length === 0, [...down.errors, ...answered.errors, ...empty.errors, ...acct.errors, ...stale.errors].join(' | '));
 } finally { await browser.close(); }
 console.log(`explorer W7 browser checks: ${checks} passed`);

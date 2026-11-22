@@ -43,18 +43,23 @@ warning above it that it may be out of date.
 `tools/explorer-prod-edits.json` holds anchored edits applied after W7 and the site-truth edits (same tool, same
 rules), checked by `explorer_prod.test.mjs`: undone in reverse they leave no `PocolP1` name and redone they give the
 served bundle byte for byte. The bundle's relay read (`it`, every `/api/rpc.php` request) retries a transient refusal
-twice, 1.5 s and then 3 s later: the relay's busy or failure answer (HTTP 429, 502, 503) and a read that the node or
-gateway answered busy or temporarily unavailable (-32021, -32000). Any other answer is reported at once, as before. The
-test runs the read in `node:vm` with a scripted fetch. The cause was `explorer_smoke.mjs`'s registerReplacing check,
-which failed in CI (run 44985665129, the dialog never showed the decoded call). The transaction view's receipt read is
-heavy on v3, and a node whose heavy lane is full answers it -32021 busy. The view reported that as final ("Unable to
-load this result: busy"), so the smoke waited its 60 s and failed. `explorer_w7_browser.mjs` scenario 5 reproduces
-this with a fake relay: the receipt read answered busy once now shows the decoded call and the named member, and busy
-three times in a row is reported after two retries. On a failure the smoke now prints what the dialog showed. The same
-edits add two texts. The Transactions tab names the first block the gateway's transaction index still keeps
+twice, 1.5 s and then 3 s later, and a 429 no sooner than its `Retry-After` (the gateway sends 3 s; at most 30 s are
+honoured): the relay's busy or failure answer (HTTP 429, 502, 503) and a read that the node or gateway answered busy or
+temporarily unavailable (-32021, -32000). Any other answer is reported at once, as before. The test runs the read in
+`node:vm` with a scripted fetch. The reason was `explorer_smoke.mjs`'s registerReplacing check, which failed in CI (run
+44985665129, the dialog never showed the decoded call). The likely cause, inferred and reproduced with a fake relay but
+not confirmed from that run (its artifact could not be downloaded): the transaction view's receipt read is heavy on v3,
+a node whose heavy lane is full answers it -32021 busy, and the view reported that as final ("Unable to load this
+result: busy"), so the smoke waited its 60 s and failed. `explorer_w7_browser.mjs` scenario 5 reproduces this with a
+fake relay: the receipt read answered busy once now shows the decoded call and the named member, and busy three times
+in a row is reported after two retries. On a failure the smoke now prints what the dialog showed. The same edits add
+two texts. The Transactions tab names the first block the gateway's transaction index still keeps
 (`pocol_transactions.py` `index.from`) once older blocks have been removed. The Miner map says that the network records
 no miner location and that peers are not placed by their IP addresses; it no longer points to a GeoIP installer that
-does not exist.
+does not exist. Without geography data (the gateway never serves any) the map panel, on its tab and on the Overview, is
+only that notice: its map, IP counts, filters, "Automatic GeoIP" tag and DB-IP attribution are shown only with data.
+`explorer_w7_browser.mjs` scenario 7 checks that none of those texts is on the page, and scenario 3 serves a geography
+answer so the map's members summary is still checked; the smoke checks the same on the devnet.
 
 ## Site texts and download checks (Sites W14)
 

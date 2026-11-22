@@ -100,6 +100,25 @@ class PolicyMatchesTheCode(unittest.TestCase):
         self.assertIn('self.clients[(day, client)] = used + 1', faucet)
         self.assertIn('return str(ipaddress.IPv6Network((int(ip) >> 64 << 64, 64)))', faucet)
 
+    def test_the_gateways_count_requests_per_ip_in_memory_as_the_policy_says(self):
+        # The explorer gateway (EXP-02): a token bucket per client, the client an IP address or an IPv6 /64, at most
+        # CLIENTS_MAX (4,096) remembered, in a dict only. The Studio relay: a bucket per IP address, at most 4,096.
+        gateway = (ROOT / 'deploy' / 'rewards' / 'gateway.py').read_text(encoding='utf-8')
+        self.assertIn('CLIENT_BURST, CLIENT_RATE, CLIENTS_MAX = 40.0, 10.0, 4096', gateway)
+        self.assertIn("return str(ipaddress.ip_network(f'{address}/64', strict=False))", gateway)
+        self.assertIn('self.clients[client] = (own, now)', gateway)
+        self.assertIn('while len(self.clients) > CLIENTS_MAX: self.clients.popitem(last=False)', gateway)
+        studio = (ROOT / 'deploy' / 'studio' / 'pocol_studio_gateway.py').read_text(encoding='utf-8')
+        self.assertIn('while len(self.buckets) > 4096:', studio)
+        self.assertIn('try: return str(ipaddress.ip_address(value))', studio)
+        for text in (gateway, studio):
+            self.assertNotRegex(text, r"open\([^)]*['\"][wa]")
+        en, ar = (json.dumps(translations()[k], ensure_ascii=False) for k in ('en', 'ar'))
+        self.assertIn('the explorer gateway (/rpc and the explorer\u2019s /api reads) counts requests per IP address (for IPv6, '
+                      'per /64 network) and the Studio relay (/studio/rpc) counts requests per IP address, in memory only and for '
+                      'at most the 4,096 most recently seen; neither writes IP addresses to disk.', en)
+        self.assertIn('بوابة المستكشف', ar); self.assertIn('4096', ar)
+
     def test_the_explorer_still_loads_google_fonts_as_the_policy_says(self):
         css = ''.join(p.read_text(encoding='utf-8') for p in (ROOT / 'deploy/websites/explorer.pocol.net/assets').glob('*.css'))
         self.assertIn('fonts.googleapis.com', css)

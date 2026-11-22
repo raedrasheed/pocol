@@ -4,23 +4,27 @@ that follows the network from its invitation's seeds and answers RPC on 127.0.0.
 (install_explorer_gateway.py) on the same host. It holds no key: it never mines and never signs.
 
     sudo python3 deploy/explorer/install_observer_node.py --invitation network.pocol.json \\
-        --pocold /path/to/release/pocold --pocold-sha256 HEX [--invitation-sha256 HEX] [--listen 0.0.0.0:30300] --check
+        --invitation-sha256 HEX --pocold /path/to/release/pocold --pocold-sha256 HEX [--listen 0.0.0.0:30300] --check
     sudo python3 deploy/explorer/install_observer_node.py ...same arguments without --check
 
 --pocold is the pocold binary of the signed release (verify the release signature first, deploy/release); its
 SHA-256 must be --pocold-sha256 (from the release's verified SHA256SUMS). --invitation is the network's invitation
-file; with --invitation-sha256 its digest must match (the owner publishes it; PoCol Mainnet's is a74c1cf4...f233).
+file and its SHA-256 must be --invitation-sha256 (required: the invitation decides the seeds and the network identity of
+the explorer's only data source; the owner publishes it, PoCol Mainnet's is a74c1cf4...f233).
 The installer copies both, writes the network files exactly as the invitation carries them (as `pocol start` does),
 and writes pocol-observer.service:
 
 - `pocold run --network /etc/pocol-observer/network --data /var/lib/pocol-observer/data --name explorer-observer
   --rpc 127.0.0.1:8545 --seed <each invitation seed>` and no --miner or --miner-key-file (the installer refuses to
-  write a unit with either, or with an RPC address that is not 127.0.0.1:8545);
+  write a unit with either, or with an RPC address that is not 127.0.0.1:8545). A seed is IPv4:PORT or [IPv6]:PORT
+  written plainly (no IPv6 zone, no space or other character), at most pocold's 7 (node::SEEDS_MAX), and every
+  ExecStart argument must consist of plain path and address characters, so no argument can split into more pocold
+  flags or carry a systemd % specifier;
 - inbound P2P only with --listen (default: outbound connections to the seeds only);
 - DynamicUser, StateDirectory, ProtectSystem=strict and the standalone node's memory sizing (MemoryMax=7G for the
   6 GiB A13 budget: a host with 8 GiB of RAM or more).
 
---check runs every preflight and changes nothing: the binary digest and `pocold --help`-free version check, the
+--check runs every preflight and changes nothing: the binary digest (it does not run the binary), the
 invitation (schema pocol-network-v2, its files, its seeds, chain ID and genesis hash, and the explorer gateway's
 /etc/pocol-explorer-gateway/network.json naming the same network when it exists), the free RPC port. An install backs
 up what it replaces under /var/backups/pocol-observer, starts the unit and waits up to --wait seconds (default 120)
@@ -57,7 +61,13 @@ MARKER = 'managed-by-observer-v1'
 RPC = '127.0.0.1:8545'
 FILES = ('alloc.json', 'devnet.json', 'genesis.spec.hex')
 INVITATION_MAX = 1 << 20
-SEEDS_MAX = 16
+SEEDS_MAX = 7                 # pocold node::SEEDS_MAX (discovery.rs): `--seed (<= 7)`
+IPV4_SEED = re.compile(r'((?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3})'
+                       r':([1-9][0-9]{0,4})')
+IPV6_SEED = re.compile(r'\[([0-9a-fA-F:.]{2,45})\]:([1-9][0-9]{0,4})')
+# The characters an ExecStart argument may have: systemd splits a line at whitespace, strips quotes and expands % and
+# $ specifiers, so none of those (or a backslash or a semicolon) may reach the unit.
+UNIT_ARGUMENT = re.compile(r'[A-Za-z0-9/._:\[\]-]+')
 WAIT, WAIT_RANGE = 120, (10, 1800)
 ROOT_UID = 0
 
@@ -81,15 +91,22 @@ def parse_invitation(raw):
     files, seeds = value.get('files'), value.get('seeds')
     if not isinstance(files, dict) or any(not isinstance(files.get(name), str) for name in FILES):
         raise ValueError('The invitation does not carry ' + ', '.join(FILES))
-    if not isinstance(seeds, list) or not 1 <= len(seeds) <= SEEDS_MAX or len(set(seeds)) != len(seeds):
-        raise ValueError('The invitation needs 1 to 16 distinct seeds')
+    if (not isinstance(seeds, list) or not 1 <= len(seeds) <= SEEDS_MAX or not all(isinstance(s, str) for s in seeds)
+            or len(set(seeds)) != len(seeds)):
+        raise ValueError(f'The invitation needs 1 to {SEEDS_MAX} distinct seeds (pocold takes at most {SEEDS_MAX})')
     for seed in seeds:
-        host, _, port = seed.rpartition(':') if isinstance(seed, str) else ('', '', '')
+        found, version = IPV4_SEED.fullmatch(seed), 4
+        if found is None:
+            found, version = IPV6_SEED.fullmatch(seed), 6
         try:
-            address = ipaddress.ip_address(host.strip('[]'))
+            address = ipaddress.ip_address(found.group(1)) if found else None
         except ValueError:
-            raise ValueError(f'Seed {seed!r}: expected IP:PORT') from None
-        if not re.fullmatch(r'[1-9][0-9]{0,4}', port) or int(port) > 65535 or address.is_unspecified or address.is_multicast:
+            address = None
+        if address is not None and address.version != version:
+            address = None
+        if address is None:
+            raise ValueError(f'Seed {seed!r}: expected IPv4:PORT or [IPv6]:PORT')
+        if int(found.group(2)) > 65535 or address.is_unspecified or address.is_multicast:
             raise ValueError(f'Seed {seed!r}: not a usable address')
     declared = json.loads(files['devnet.json'])
     chain, genesis = declared.get('chainId') if isinstance(declared, dict) else None, declared.get('genesisHash') if isinstance(declared, dict) else None
@@ -112,7 +129,11 @@ def exec_args(seeds, listen=None, pocold=BASE / 'pocold'):
 
 
 def check_args(args):
-    """The guard against an edit of this file: no miner identity, RPC 127.0.0.1:8545 and nothing else."""
+    """The guard against an edit of this file: every argument one plain word (UNIT_ARGUMENT, so none splits into more
+    flags in the unit), no miner identity, RPC 127.0.0.1:8545 and nothing else."""
+    for a in args:
+        if not isinstance(a, str) or not UNIT_ARGUMENT.fullmatch(a):
+            raise RuntimeError(f'Unexpected character in the observer node command line: {a!r}')
     if any(a in ('--miner', '--miner-key-file') or a.startswith('--miner') for a in args):
         raise RuntimeError('The observer node must not mine: no --miner or --miner-key-file')
     if args.count('--rpc') != 1 or args[args.index('--rpc') + 1] != RPC:
@@ -217,8 +238,8 @@ def make_directory(path):
         folder.mkdir(mode=0o755); os.chmod(folder, 0o755)
 
 
-USAGE = ('Usage: sudo python3 deploy/explorer/install_observer_node.py --invitation FILE --pocold FILE --pocold-sha256 HEX '
-         '[--invitation-sha256 HEX] [--listen IP:PORT] [--wait SECONDS] [--check]')
+USAGE = ('Usage: sudo python3 deploy/explorer/install_observer_node.py --invitation FILE --invitation-sha256 HEX --pocold FILE '
+         '--pocold-sha256 HEX [--listen IP:PORT] [--wait SECONDS] [--check]')
 
 
 def usage(argv):
@@ -239,7 +260,7 @@ def usage(argv):
             options[flag] = int(rest.pop(0))
         else:
             raise RuntimeError(USAGE)
-    if not all(k in options for k in ('--invitation', '--pocold', '--pocold-sha256')):
+    if not all(k in options for k in ('--invitation', '--invitation-sha256', '--pocold', '--pocold-sha256')):
         raise RuntimeError(USAGE)
     return options
 
@@ -257,7 +278,7 @@ def main(argv=None):
     if sha256(binary) != options['--pocold-sha256']:
         raise RuntimeError('--pocold does not have the --pocold-sha256 digest; no changes made')
     raw = options['--invitation'].read_bytes()
-    if '--invitation-sha256' in options and sha256(raw) != options['--invitation-sha256']:
+    if sha256(raw) != options['--invitation-sha256']:
         raise RuntimeError('--invitation does not have the --invitation-sha256 digest; no changes made')
     chain, genesis, seeds, files = parse_invitation(raw)
     if GATEWAY_NETWORK.is_file():

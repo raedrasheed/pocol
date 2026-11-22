@@ -8,9 +8,11 @@
 //    later: the relay's busy or failure answer (HTTP 429, 502, 503) and a read the node or gateway answered busy or
 //    temporarily unavailable (-32021, -32000). Anything else (a refused method, a moved chain, a timeout, a 400) is
 //    reported at once, as before. The transaction view (explorer_smoke.mjs: registerReplacing) needs it: its
-//    receipt read is heavy on v3, and the node answers -32021 busy when its heavy lane is full.
+//    receipt read is heavy on v3, and the node answers -32021 busy when its heavy lane is full. A 429 is retried no
+//    sooner than its Retry-After (at most 30 s), as the gateway asks (Retry-After: 3).
 // 3. The texts: the transaction index's first kept block, and miner geography (the network records no miner location;
-//    peers are not placed by IP address).
+//    peers are not placed by IP address). Without geography data (this gateway never serves any) the Miner map is only
+//    that notice: none of its GeoIP texts (map, counts, filters, attribution) is shown beside it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -57,8 +59,9 @@ function relay(respond) {
   const asked = [], delays = [];
   const fetch = async (url, options) => {
     const body = JSON.parse(options.body); asked.push(body);
-    const { status, text } = respond(body, asked.length);
-    return { status, ok: status >= 200 && status < 300, text: async () => text };
+    const { status, text, headers = {} } = respond(body, asked.length);
+    const get = (name) => Object.entries(headers).find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1] ?? null;
+    return { status, ok: status >= 200 && status < 300, headers: { get }, text: async () => text };
   };
   const context = Object.assign(Object.create(null), { fetch, AbortSignal: { timeout: () => undefined }, setTimeout: (f, ms) => { delays.push(ms); f(); } });
   return { it: vm.runInNewContext(`${REGION};it`, context, { timeout: 2000 }), asked, delays };
@@ -96,6 +99,24 @@ test('the relay\'s busy and failure answers are retried; three in a row report t
   assert.equal(later.asked.length, 2);
 });
 
+test('a 429 is retried no sooner than its Retry-After, at most 30 s; other answers keep 1.5 s and 3 s', async () => {
+  const busy = (after) => () => ({ status: 429, text: JSON.stringify({ error: BUSY }), headers: after === undefined ? {} : { 'Retry-After': after } });
+  for (const [after, delays] of [['3', [3000, 3000]], ['10', [10000, 10000]], ['1', [1500, 3000]], ['3600', [30000, 30000]],
+    ['0', [1500, 3000]], ['soon', [1500, 3000]], [undefined, [1500, 3000]]]) {
+    const r = relay(busy(after));
+    await assert.rejects(r.it([['eth_blockNumber', []]]), (e) => e.message === BUSY);
+    assert.deepEqual(r.delays, delays, `Retry-After ${after}`);
+  }
+  // Retry-After on a 502 or 503 (not the gateway's busy answer) is not used.
+  const r = relay(() => ({ status: 503, text: '{}', headers: { 'Retry-After': '20' } }));
+  await assert.rejects(r.it([['eth_blockNumber', []]]));
+  assert.deepEqual(r.delays, [1500, 3000]);
+  // A busy relay that then answers, waited for as asked.
+  const later = relay((body, n) => (n === 1 ? busy('3')() : { status: 200, text: answer(body, () => ({ result: '0x2a' })) }));
+  assert.deepEqual(plain(await later.it([['eth_blockNumber', []]])), ['0x2a']);
+  assert.deepEqual(later.delays, [3000]);
+});
+
 test('a final answer is reported at once: a refused method, a moved chain, a 400, a timeout, an unreadable body', async () => {
   const once = async (respond, pattern) => {
     const r = relay(respond);
@@ -114,4 +135,11 @@ test('the texts: the first kept block of the transaction index, and miner geogra
   for (const gone of ['Update-PoCol-Explorer-GeoIP.sh', 'Check the GeoIP gateway update', 'Automatic country estimates from observed network connections.']) assert.equal(count(BUNDLE, gone), 0, gone);
   assert.equal(count(BUNDLE, 'Miner locations are unavailable: the PoCol network does not record where miners are, and this explorer does not place peers by their IP addresses.'), 1);
   assert.equal(count(BUNDLE, 'Miner locations are not published: the network does not record them.'), 1);
+  // Without geography data the panel returns only its notice (before the map, its counts and its GeoIP texts).
+  const notice = BUNDLE.indexOf('if(!r.data)return(0,N.jsx)(`section`,{className:`panel miner-map-panel');
+  const panel = BUNDLE.indexOf('"aria-label":`Automatic network geography`');
+  assert.ok(notice > 0 && panel > notice && panel - notice < 600, 'the notice returns right before the geography panel');
+  const early = BUNDLE.slice(notice, panel);
+  assert.match(early, /children:r\.error\|\|\(r\.loading\?`Checking for miner location data\.`:`Miner locations are unavailable\.`\)/);
+  for (const gone of ['GeoIP', 'IP', 'Countries', 'country', 'estimated']) assert.ok(!early.includes(gone), gone);
 });

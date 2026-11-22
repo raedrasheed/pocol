@@ -24,7 +24,7 @@
 // Production readiness (2026-11-22): the gateway runs with the transaction index (POCOL_TX_DB, pocol_transactions.py):
 // /api/transactions.php lists the devnet's transactions newest first and the Transactions tab shows them in that order
 // with the index's status; the Miner map says miner locations are not available (no GeoIP module: the network records
-// none, and peers are not placed by IP address). At 390 and 1366 px the Overview, Blocks, Transactions, Miners and
+// none, and peers are not placed by IP address), with none of the map's GeoIP texts beside it. At 390 and 1366 px the Overview, Blocks, Transactions, Miners and
 // Miner map tabs and the block, transaction and account views have no horizontal scroll (screenshots in the work
 // directory); the Overview's head moves without a reload (automatic refresh); with the gateway stopped the page says
 // "Data delayed" and returns to "Connected" when it is back; no page shows the test-fixture banner.
@@ -188,7 +188,9 @@ async function main() {
     const reward = await post(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'pocol_getBlockReward', params: [] }));
     ok('/api/rpc.php refuses a method outside the explorer allow-list that /rpc accepts (400)', reward.status === 400);
     const geo = await fetch(`${base}/api/miner-locations.php`), badTx = await fetch(`${base}/api/transactions.php?page=0`);
-    ok('without a GeoIP module miner-locations answers 503 with its message; a bad transaction query is 400', geo.status === 503 && /GeoIP/.test((await geo.json()).error) && badTx.status === 400, `${geo.status} ${badTx.status}`);
+    const geoError = (await geo.json()).error;
+    ok('without a geography module miner-locations answers 503 saying the network records no miner locations (no GeoIP installer named); a bad transaction query is 400',
+      geo.status === 503 && geoError === 'Miner locations are unavailable: the PoCol network does not record where miners are.' && badTx.status === 400, `${geo.status} ${geoError} ${badTx.status}`);
     // The transaction index: the devnet's only transactions are the two Registry calls, newest (block, position) first.
     const newestFirst = [[registered, receipts[0]], [replacing, receipts[1]]].sort(([, a], [, b]) => Number(b.blockNumber) - Number(a.blockNumber) || Number(b.transactionIndex) - Number(a.transactionIndex)).map(([h]) => h);
     const txPage = await wait(async () => { const r = await fetch(`${base}/api/transactions.php?page=1&size=25&order=newest&q=`); const v = r.status === 200 && (await r.json()).data;
@@ -276,9 +278,12 @@ async function main() {
         history.rows.length === 2 && history.rows[0].includes(newestFirst[0].slice(0, 8)) && history.rows[1].includes(newestFirst[1].slice(0, 8)) && history.rows.every((r) => r.includes('Contract call')),
         JSON.stringify(history.rows).slice(0, 400) + ' ' + String(history.t).slice(String(history.t).indexOf('History'), String(history.t).indexOf('History') + 120));
       await page.click('nav button:has-text("Miner map")');
-      const map = await wait(async () => { const t = await text(); return /Miner locations unavailable/.test(t) && t; }, 30000, 'the Miner map').catch((e) => e.message);
-      ok('the Miner map says miner locations are unavailable and that peers are not placed by IP address, with no GeoIP installer named',
-        /Miner locations are not published: the network does not record them\./.test(map) && /not used to place them/.test(map) && !/GeoIP\.sh|GeoIP gateway update/.test(map), String(map).slice(String(map).indexOf('Miner locations'), String(map).indexOf('Miner locations') + 300));
+      const map = await wait(async () => { const t = await text(); return /Miner locations are unavailable:/.test(t) && t; }, 30000, 'the Miner map').catch((e) => e.message);
+      // Without geography the panel is only its notice: none of the GeoIP texts the map shows with data.
+      const claims = ['GeoIP', 'Countries detected from', 'estimated from IP', 'Located public IPs', 'country level', 'Detecting countries', 'DB-IP'].filter((c) => String(map).includes(c));
+      ok('the Miner map says miner locations are unavailable and that peers are not placed by IP address, with no GeoIP text beside it',
+        /Miner locations are not published: the network does not record them\./.test(map) && /does not place peers by their IP addresses/.test(map) && claims.length === 0,
+        `claims ${JSON.stringify(claims)}: ` + String(map).slice(String(map).indexOf('Miner locations'), String(map).indexOf('Miner locations') + 300));
       await page.click('nav button:has-text("Overview")');
       await sleep(16000); // past one 15 s refresh of the overview and the transaction history
       const biggest = Math.max(0, ...answers.map((a) => a.bytes));

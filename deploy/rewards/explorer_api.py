@@ -68,7 +68,9 @@ BUSY = 'The data service is busy. Please retry shortly.'
 REFUSED = 'Only supported, bounded explorer reads are accepted.'
 FAILED = 'The PoCol gateway request failed. Check the explorer gateway service and its node.'
 INVALID = 'The PoCol gateway returned an invalid response.'
-GEOIP_UNAVAILABLE = 'Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node.'
+# miner-locations.php named a GeoIP gateway update that does not exist (deploy/explorer/README.md, Miner map); the
+# gateway says what is true whether or not a geography module is installed (a documented difference from PHP).
+GEOIP_UNAVAILABLE = 'Miner locations are unavailable: the PoCol network does not record where miners are.'
 TRANSACTIONS_UNAVAILABLE = ('Transaction history is unavailable. Install or check the Transactions gateway update on '
                             'the Linux node.')
 GEOGRAPHY_KEYS = ('schema', 'chainId', 'genesisHash', 'generatedAt', 'source', 'scope', 'peerConnections',

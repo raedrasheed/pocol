@@ -246,6 +246,58 @@ class FollowTests(Base):
         self.assertEqual(sum((self.hashes(p) for p in pages), []), [r[2] for r in chain2.canonical_rows()])
         self.assertTrue(all(bundle_valid(p) for p in pages))
 
+    def test_value_orders_page_through_valued_then_undecoded_rows(self):
+        # 40 blocks: values with ties, an Undecoded transaction every fifth block, pages of 25 across the boundary
+        # between the valued and the Undecoded rows, with and without a search.
+        txs = {n: [transfer(n % 7, A1 if n % 2 else A2, A3)] + ([{'raw': '0x02'}] if n % 5 == 0 else []) for n in range(1, 41)}
+        chain = FakeChain(40, txs)
+        index = self.index(chain)
+        index.step()
+        rows = [(int(r['value'], 16) if r['value'] else None, int(r['blockNumber'], 16), int(r['transactionIndex'], 16), r['hash'])
+                for p in (1, 2, 3) for r in index.page(options(size=25, page=p))['rows']]
+        self.assertEqual(len(rows), 48)
+        valued, undecoded = [r for r in rows if r[0] is not None], [r for r in rows if r[0] is None]
+        undecoded.sort(key=lambda r: (r[1], r[2]), reverse=True)
+        expected = {'value_desc': sorted(valued, key=lambda r: r[:3], reverse=True) + undecoded,
+                    'value_asc': sorted(valued, key=lambda r: r[:3]) + undecoded}
+        for order, want in expected.items():
+            for q in ('', A1.lower()[:5]):
+                with self.subTest(order=order, q=q):
+                    want_q = [r[3] for r in want if not q or r[3].startswith(q) or (r[0] is not None and r[1] % 2)]
+                    pages = [index.page(options(size=25, page=p, order=order, q=q)) for p in (1, 2, 3)]
+                    self.assertEqual(sum((self.hashes(p) for p in pages), []), want_q)
+                    self.assertTrue(all(p['total'] == len(want_q) and bundle_valid(p) for p in pages))
+
+    def test_no_page_sorts_the_table_and_deep_value_pages_skip_index_entries_only(self):
+        """Every statement a page runs without a search reads the primary key or an index in its own order: none
+        sorts (no temporary B-tree), so a deep page of a value order costs a walk of the covering index, not a sort of
+        every row (the reviewed denial of service: 2 s per page at 500,000 rows)."""
+        chain = FakeChain(60, {n: [transfer(n * 13 % 17), transfer(n % 3, A2, A3)] + ([{'raw': '0x02'}] if n % 9 == 0 else []) for n in range(1, 61)})
+        index = self.index(chain)
+        index.step()
+        traced = []
+        real = sqlite3.connect
+
+        def connect(*args, **kwargs):
+            conn = real(*args, **kwargs)
+            conn.set_trace_callback(traced.append)
+            return conn
+        plans = sqlite3.connect(self.path)
+        self.addCleanup(plans.close)
+        for order in T.ORDERS:
+            for page in (1, 2, 5, 10 ** 9):
+                with self.subTest(order=order, page=page):
+                    traced.clear()
+                    with unittest.mock.patch.object(T.sqlite3, 'connect', connect):
+                        index.page(options(order=order, page=page, size=25))
+                    selects = [sql for sql in traced if sql.lstrip().upper().startswith('SELECT')]
+                    self.assertTrue(selects)
+                    for sql in selects:
+                        plan = ' | '.join(row[-1] for row in plans.execute('EXPLAIN QUERY PLAN ' + sql))
+                        self.assertNotIn('TEMP B-TREE', plan, sql)
+                        if order.startswith('value') and 'FROM txs' in sql and 'ORDER BY' in sql:
+                            self.assertIn('COVERING INDEX txs_value', plan, sql)
+
     def test_a_snapshot_keeps_pages_stable_and_a_moved_snapshot_is_refused(self):
         chain = FakeChain(10, {n: [transfer(n)] for n in range(1, 11)})
         index = self.index(chain)
@@ -409,6 +461,30 @@ class RestartAndBoundTests(Base):
         rows = conn.execute("SELECT value FROM meta WHERE key='rows'").fetchone()[0]
         conn.close()
         self.assertEqual(int(rows), page['total'])
+
+    def test_a_reorganization_below_the_first_kept_block_lowers_index_from(self):
+        # The row bound removed blocks up to 15 (index.from 16); then the chain reorganizes at 12. The new branch is
+        # indexed from 13, so index.from must say 13, never a height above the rows the page lists.
+        chain = FakeChain(20, {n: [transfer(n)] for n in range(1, 21)})
+        index = self.index(chain, max_rows=5)
+        index.step()
+        page = index.page(options())
+        self.assertEqual((page['index']['from'], page['index']['height']), (16, 20))
+        chain.reorg(12, 13, {13: [transfer(1300)]})
+        index.step()
+        page = index.page(options())
+        heights = [int(r['blockNumber'], 16) for r in page['rows']]
+        self.assertEqual((heights, page['index']['height']), ([13], 13))
+        self.assertEqual(page['index']['from'], 13)
+        self.assertLessEqual(page['index']['from'], min(heights))
+        # Following the new branch past the bound moves index.from up again.
+        chain.txs.update({n: [transfer(n)] for n in range(14, 22)})
+        for _ in range(8):
+            chain.append()
+        index.step()
+        page = index.page(options())
+        self.assertEqual(page['index']['from'], min(int(r['blockNumber'], 16) for r in page['rows']))
+        self.assertEqual(page['total'], 5)
 
     def test_block_hashes_are_kept_for_the_recent_window_only(self):
         chain = FakeChain(30)

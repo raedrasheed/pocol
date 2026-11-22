@@ -1,6 +1,7 @@
 """The explorer gateway's request budget (EXP-02): a bucket per client inside the node's bucket, and a share of the
-node's bucket that public /rpc reads cannot take, kept for the explorer site's /api reads and pocol.net's summary.
-Clients are told apart by the last X-Forwarded-For hop of a loopback (Caddy) peer. Loopback only."""
+node's bucket that requests to /rpc cannot take (requests to /api/* can: the reserve stops only a flood sent to /rpc).
+Clients are told apart by the last X-Forwarded-For hop of a loopback (Caddy) peer. Transaction pages run behind their
+own slots, so they never make the node reads busy. Loopback only."""
 import json
 import sys
 import threading
@@ -82,6 +83,17 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(self.flood('198.51.100.60', '/api/rpc.php') + self.flood('198.51.100.61', '/api/rpc.php'),
                          gateway.API_RESERVE - 2)
 
+    def test_the_reserve_does_not_stop_a_flood_of_api_reads(self):
+        # What gateway.py and deploy/explorer/README.md state: /api/rpc.php takes requests without an Origin header
+        # (pocol.net's server-side summary sends none), so many addresses reading there spend the node bucket to zero,
+        # and the explorer site's own read is then refused too. Each address is still held to its own bucket.
+        answered = sum(self.flood(f'198.51.100.{i}', '/api/rpc.php') for i in range(10, 13))
+        self.assertEqual(answered, gateway.GLOBAL_BURST)
+        value = {'jsonrpc': '2.0', 'id': 1, 'method': 'eth_blockNumber', 'params': []}
+        status = F.post_json(self.port, '/api/rpc.php', value, origin='http://127.0.0.1:8661',
+                             extra=[('X-Forwarded-For', '198.51.100.99')])[0]
+        self.assertEqual(status, 429)
+
     def test_a_refused_request_is_not_charged_and_buckets_refill(self):
         self.assertEqual(self.flood('198.51.100.1'), gateway.CLIENT_BURST)
         with self.gw.lock:
@@ -100,6 +112,59 @@ class BudgetTests(unittest.TestCase):
                 self.assertTrue(self.gw.charge(1, f'client-{i}'))
             self.assertEqual(len(self.gw.clients), 8)
             self.assertEqual(list(self.gw.clients)[0], 'client-12', 'the least recently seen clients go first')
+
+
+class Pages:
+    """A transaction index whose pages wait for `release` (a slow page in progress)."""
+    def __init__(self):
+        self.release, self.started = threading.Event(), threading.Semaphore(0)
+
+    def page(self, options):
+        self.started.release()
+        self.release.wait(10)
+        return F.transactions_page(options)
+
+
+class SlotTests(unittest.TestCase):
+    """The reviewed denial of service: transaction pages held the node reads' four slots, so a client keeping four slow
+    pages in flight made every other explorer read answer -32021 busy."""
+
+    def setUp(self):
+        self.node = F.FakeNode()
+        self.pages = Pages()
+        self.gw = gateway.Gateway(self.node.server_address[1], None, self.pages, network=F.NET)
+        self.addCleanup(self.node.stop)
+
+    def page(self, i):
+        options = {'page': 3000 + i, 'size': 100, 'order': 'value_desc', 'q': ''}
+        return self.gw.call({'jsonrpc': '2.0', 'id': i, 'method': 'pocol_getTransactions', 'params': [options]})
+
+    def test_slow_pages_never_make_node_reads_busy(self):
+        answers = {}
+        threads = [threading.Thread(target=lambda i=i: answers.__setitem__(i, self.page(i))) for i in range(gateway.TX_SLOTS)]
+        for t in threads: t.start()
+        try:
+            for _ in threads: self.assertTrue(self.pages.started.acquire(timeout=10))
+            busy = self.page(99)
+            self.assertEqual(busy['error']['code'], -32021, 'a page beyond TX_SLOTS is busy at once')
+            for i in range(2 * gateway.RPC_SLOTS):
+                read = self.gw.call({'jsonrpc': '2.0', 'id': i, 'method': 'eth_getBalance', 'params': ['0x' + f'{i:040x}', 'latest']})
+                self.assertIn('result', read, read)
+            self.assertEqual(self.gw.call({'jsonrpc': '2.0', 'id': 1, 'method': 'eth_blockNumber', 'params': []})['result'], '0x10')
+        finally:
+            self.pages.release.set()
+            for t in threads: t.join(10)
+        self.assertTrue(all('result' in a for a in answers.values()), answers)
+        self.assertIn('result', self.page(7), 'the slots are released')
+
+    def test_node_reads_in_flight_never_make_pages_busy(self):
+        for _ in range(gateway.RPC_SLOTS): self.assertTrue(self.gw.rpc_slots.acquire(blocking=False))
+        try:
+            self.pages.release.set()
+            self.assertEqual(self.gw.call({'jsonrpc': '2.0', 'id': 1, 'method': 'eth_blockNumber', 'params': []})['error']['code'], -32021)
+            self.assertIn('result', self.page(1))
+        finally:
+            for _ in range(gateway.RPC_SLOTS): self.gw.rpc_slots.release()
 
 
 if __name__ == '__main__':

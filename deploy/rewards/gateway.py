@@ -64,9 +64,14 @@ DRAW_CACHE_MAX = 2
 # Token cost per method (others cost 1): a reward snapshot, one member record (four calls and a fresh-block check), a
 # transaction history page.
 COSTS = {'pocol_getBlockReward': 20, 'pocol_getMember': 20, 'pocol_getMembers': 5, 'pocol_getRemovable': 10,
-         # A transaction history page: a count and a sorted read over the index (up to about 0.8 s at 500,000 rows
-         # for a one-digit prefix in value order; pocol_transactions.PAGE_SECONDS stops it at 2 s).
+         # A transaction history page: a count and an indexed read over the index file, no node read. Measured at
+         # 500,000 rows: under 0.15 s in every order at any depth, about 0.9 s for a one-digit search prefix (the
+         # slowest); pocol_transactions.PAGE_SECONDS interrupts a page at 2 s. Pages run behind TX_SLOTS.
          'pocol_getTransactions': 5}
+# Node reads (every method but pocol_getTransactions) take one of RPC_SLOTS, transaction pages one of TX_SLOTS, both
+# without waiting (busy: -32021). Pages never take a node read's slot, so transaction pages (however many clients send
+# them) can make only the Transactions tab busy, never the explorer's other reads.
+RPC_SLOTS, TX_SLOTS = 4, 2
 # MinerRegistry record word w0 (REGISTRY-LAYOUT.md): status 0..7, tomb 8..15, bondState 16..23, recPos 24..55,
 # actPos 56..87, lastShare 88..151, registeredAt 152..215 (earn-in). Every value the v3 programs write is labelled.
 STATUS_LABELS = {0: 'NONE', 1: 'ACTIVE', 2: 'EXITED'}
@@ -80,8 +85,13 @@ HASH_METHODS = {'eth_getTransactionByHash', 'eth_getTransactionReceipt'}
 ACCOUNT_METHODS = {'eth_getBalance', 'eth_getTransactionCount', 'eth_getCode'}
 # The request budget: one bucket for the node (GLOBAL_BURST tokens, GLOBAL_RATE per second) shared by every caller, and
 # within it a bucket per client (CLIENT_BURST, CLIENT_RATE; at most CLIENTS_MAX clients remembered, least recently seen
-# first out), so one client cannot take the whole budget. Public /rpc reads may not take the node's bucket below
-# API_RESERVE tokens: that share is kept for the explorer site's /api reads and pocol.net's network summary.
+# first out), so one client cannot take the whole budget. A client is one IPv4 address or one IPv6 /64 (client_key):
+# browsers behind one shared address (carrier-grade NAT, an office) share one budget; one open explorer tab refreshing
+# its overview spends about 2.5 tokens a second. Requests to /rpc may not take the node's bucket below API_RESERVE
+# tokens; requests to /api/* may. That only stops a flood sent to /rpc: /api/rpc.php is just as public (a request
+# without an Origin header is accepted, as pocol.net's server-side summary sends none, and an Origin header is easy to
+# forge outside a browser), so a flood of /api reads from many addresses can still spend the whole node bucket, and
+# every caller then gets 429 until it refills (GLOBAL_RATE a second). Each address is still limited to its own bucket.
 GLOBAL_BURST, GLOBAL_RATE = 80.0, 20.0
 CLIENT_BURST, CLIENT_RATE, CLIENTS_MAX = 40.0, 10.0, 4096
 API_RESERVE = 30.0
@@ -257,7 +267,8 @@ class Gateway:
         self.cache = collections.OrderedDict()
         self.cache_size = 0
         self.lock = threading.Lock()
-        self.rpc_slots = threading.BoundedSemaphore(4)
+        self.rpc_slots = threading.BoundedSemaphore(RPC_SLOTS)
+        self.tx_slots = threading.BoundedSemaphore(TX_SLOTS)
         self.reward_slot = threading.Lock()
         self.reward_failed_at = -float('inf')
         self.tokens, self.token_time = GLOBAL_BURST, time.monotonic()
@@ -415,7 +426,8 @@ class Gateway:
             if item and item[0] > now:
                 self.cache.move_to_end(key)
                 answer = json.loads(item[1]); answer['id'] = request['id']; return answer
-        if not self.rpc_slots.acquire(blocking=False):
+        slots = self.tx_slots if method == 'pocol_getTransactions' else self.rpc_slots
+        if not slots.acquire(blocking=False):
             return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32021,'message':'Explorer busy; retry shortly'}}
         reward_locked = False
         try:
@@ -452,7 +464,7 @@ class Gateway:
             elif method in MEMBERS:
                 answer = {'jsonrpc':'2.0','id':request['id'],'result':self.membership(method, params, deadline)}
             elif method == 'pocol_getNetworkGeography':
-                if self.geography is None: raise RuntimeError('Automatic GeoIP is not installed')
+                if self.geography is None: raise RuntimeError('No geography module is installed')
                 raw_status = self.read('pocol_status', [], deadline).get('result')
                 answer = {'jsonrpc':'2.0','id':request['id'],'result':self.geography.snapshot(raw_status)}
             else:
@@ -477,7 +489,7 @@ class Gateway:
             return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32000,'message':'Node data temporarily unavailable'}}
         finally:
             if reward_locked: self.reward_slot.release()
-            self.rpc_slots.release()
+            slots.release()
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'

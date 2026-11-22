@@ -2,7 +2,7 @@
  {
   "file": "explorer-bundle",
   "old": "async function it(e){let t=e.map(",
-  "new": "async function it(e){for(let t=1;;t++)try{return await PocolP1Once(e)}catch(n){if(t>=3||!n.PocolP1Busy)throw n;await new Promise(e=>setTimeout(e,1500*t))}}function PocolP1Mark(e,t){return e.PocolP1Busy=t,e}async function PocolP1Once(e){let t=e.map(",
+  "new": "async function it(e){for(let t=1;;t++)try{return await PocolP1Once(e)}catch(n){if(t>=3||!n.PocolP1Busy)throw n;await new Promise(e=>setTimeout(e,Math.max(1500*t,n.PocolP1After||0)))}}function PocolP1Mark(e,t,n=0){return e.PocolP1Busy=t,e.PocolP1After=n,e}function PocolP1RetryAfter(e){let t=Number(e.headers?.get?.(`Retry-After`));return Number.isFinite(t)&&t>0?Math.min(t,30)*1e3:0}async function PocolP1Once(e){let t=e.map(",
   "count": 1
  },
  {
@@ -14,7 +14,7 @@
  {
   "file": "explorer-bundle",
   "old": "if(!n.ok)throw Error(i.error||`Data source unavailable`);",
-  "new": "if(!n.ok)throw PocolP1Mark(Error(i.error||`Data source unavailable`),n.status===429||n.status===502||n.status===503);",
+  "new": "if(!n.ok)throw PocolP1Mark(Error(i.error||`Data source unavailable`),n.status===429||n.status===502||n.status===503,n.status===429?PocolP1RetryAfter(n):0);",
   "count": 1
  },
  {
@@ -57,6 +57,12 @@
   "file": "explorer-bundle",
   "old": "(0,N.jsx)(`div`,{className:`table-wrap`,\"aria-busy\":s,children:",
   "new": "(0,N.jsx)(`div`,{className:`table-wrap`,\"aria-busy\":s,style:{position:`relative`},children:",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": ":null):null;return(0,N.jsxs)(`section`,{className:`panel miner-map-panel ${i?`map-compact`:``}`,\"aria-label\":`Automatic network geography`,children:[",
+  "new": ":null):null;if(!r.data)return(0,N.jsx)(`section`,{className:`panel miner-map-panel ${i?`map-compact`:``}`,\"aria-label\":`Miner locations`,children:(0,N.jsx)(`div`,{className:`panel-heading`,children:(0,N.jsxs)(`div`,{children:[(0,N.jsxs)(`h2`,{children:[(0,N.jsx)(w,{size:19}),`Miner locations`]}),(0,N.jsx)(`p`,{role:`status`,children:r.error||(r.loading?`Checking for miner location data.`:`Miner locations are unavailable.`)})]})})});return(0,N.jsxs)(`section`,{className:`panel miner-map-panel ${i?`map-compact`:``}`,\"aria-label\":`Automatic network geography`,children:[",
   "count": 1
  }
 ]

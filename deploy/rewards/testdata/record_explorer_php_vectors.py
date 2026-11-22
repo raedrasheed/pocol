@@ -123,26 +123,28 @@ case('health: the request budget is spent', get('/api/health.php'), {'tokens': 0
 
 # ---- /api/miner-locations.php ----
 G = '/api/miner-locations.php'
+GEO_NOTE = ('PHP\'s 503 named a GeoIP gateway update that does not exist; the gateway says that the network records no '
+            'miner locations (explorer_api.GEOIP_UNAVAILABLE).')
 case('geography: the public fields only', get(G))
 case('geography: HEAD', get(G, 'HEAD'), note='The gateway also sends nosniff on a bodiless HEAD answer (php -S ignores .htaccess, whose Header always set added it on Apache).')
 case('geography: query string ignored', get(G + '?refresh=1'))
 case('geography: POST refused with Allow: GET, HEAD', post(call(), path=G))
-case('geography: another schema', get(G), {'geography': {'changes': {'schema': 'pocol-network-geography-v2'}}})
-case('geography: another chain ID', get(G), {'geography': {'changes': {'chainId': 1}}})
-case('geography: a string chain ID', get(G), {'geography': {'changes': {'chainId': '777963'}}})
-case('geography: the genesis hash in upper case', get(G), {'geography': {'changes': {'genesisHash': '0x' + '5A' * 32}}})
-case('geography: another source', get(G), {'geography': {'changes': {'source': 'configured'}}})
-case('geography: another scope', get(G), {'geography': {'changes': {'scope': 'network'}}})
-case('geography: nodes not a list', get(G), {'geography': {'changes': {'nodes': {'a': 1}}}})
-case('geography: database not an object', get(G), {'geography': {'changes': {'database': ['DB-IP Lite']}}})
-case('geography: a node that is not an object', get(G), {'geography': {'changes': {'nodes': [{'id': 'ip-' + 'a' * 24}, 5]}}})
+case('geography: another schema', get(G), {'geography': {'changes': {'schema': 'pocol-network-geography-v2'}}}, note=GEO_NOTE)
+case('geography: another chain ID', get(G), {'geography': {'changes': {'chainId': 1}}}, note=GEO_NOTE)
+case('geography: a string chain ID', get(G), {'geography': {'changes': {'chainId': '777963'}}}, note=GEO_NOTE)
+case('geography: the genesis hash in upper case', get(G), {'geography': {'changes': {'genesisHash': '0x' + '5A' * 32}}}, note=GEO_NOTE)
+case('geography: another source', get(G), {'geography': {'changes': {'source': 'configured'}}}, note=GEO_NOTE)
+case('geography: another scope', get(G), {'geography': {'changes': {'scope': 'network'}}}, note=GEO_NOTE)
+case('geography: nodes not a list', get(G), {'geography': {'changes': {'nodes': {'a': 1}}}}, note=GEO_NOTE)
+case('geography: database not an object', get(G), {'geography': {'changes': {'database': ['DB-IP Lite']}}}, note=GEO_NOTE)
+case('geography: a node that is not an object', get(G), {'geography': {'changes': {'nodes': [{'id': 'ip-' + 'a' * 24}, 5]}}}, note=GEO_NOTE)
 case('geography: missing excludedConnections and peerConnections are null', get(G), {'geography': {'changes': {}, 'remove': ['excludedConnections', 'peerConnections']}})
 case('geography: no nodes', get(G), {'geography': {'changes': {'nodes': []}}})
 case('geography: database without public fields', get(G), {'geography': {'changes': {'database': {'path': '/x'}}}},
      note='PHP encoded the empty filtered object as []; the gateway sends {}.')
 case('geography: a node without public fields', get(G), {'geography': {'changes': {'nodes': [{'ip': '203.0.113.1'}]}}},
      note='PHP encoded the empty filtered row as []; the gateway sends {}.')
-case('geography: no GeoIP module', get(G), {'geography': None})
+case('geography: no GeoIP module', get(G), {'geography': None}, note=GEO_NOTE)
 case('geography: no GeoIP module, HEAD', get(G, 'HEAD'), {'geography': None},
      note='php -S added its default text/html Content-Type to the bodiless 503; the gateway sends no Content-Type.')
 case('geography: the request budget is spent', get(G), {'tokens': 0},

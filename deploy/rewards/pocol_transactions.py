@@ -14,14 +14,20 @@ hash of the light block it extends (eth_getBlockByHash), so a reorganization dur
 With no common block in the kept window the index starts again from genesis (logged); PoCol's finality makes that a
 fault, not a normal event.
 
-Bounds: at most `max_rows` transactions (default 500,000, about 200 MB on disk with its indexes). Past it the oldest
-whole blocks are removed, and the answer's index.from names the first block whose transactions are all still kept;
-the explorer then says the history starts there. Node reads are paced (`pace` seconds between reads while catching up)
+Bounds: at most `max_rows` transactions (default 500,000, about 300 MB on disk with its indexes, plus room for the
+WAL). Past it the oldest whole blocks are removed, and the answer's index.from names the first block whose
+transactions are all still kept; the explorer then says the history starts there (a reorganization below it lowers it
+to the fork point's next block). Node reads are paced (`pace` seconds between reads while catching up)
 and back off after failures, so the index does not take the node's RPC from the gateway's own readers.
 
-The gateway is never blocked: `page()` opens its own read-only connection (WAL mode: readers never wait for the
-writer) with a short busy timeout, and runs in the request's thread; the follower runs in a daemon thread with its own
-connection. Standard library only (Python 3.10+).
+Pages: `page()` opens its own read-only connection (WAL mode: readers never wait for the writer) with a short busy
+timeout and runs in the request's thread; the follower runs in a daemon thread with its own connection. The gateway
+runs pages behind their own two slots (gateway.TX_SLOTS), not the node reads' slots, so pages never make the rest of
+the explorer busy. A page's work is bounded rather than only timed: the newest and oldest orders walk the primary key,
+and the value orders walk the covering index txs_value (the page's keys first, then its rows by primary key), so no
+order sorts the whole table; a deep page skips index entries only. Measured on 500,000 rows (a synthetic index with this
+schema): page 5,000 of 100 rows in any order under 0.15 s; a one-digit search prefix (about 3/16 of the rows match)
+about 0.9 s, the slowest page; PAGE_SECONDS interrupts anything slower. Standard library only (Python 3.10+).
 """
 import json
 import logging
@@ -164,10 +170,14 @@ CREATE INDEX IF NOT EXISTS txs_value ON txs(value_key, height, position);
 ORDER_SQL = {
     'newest': 'height DESC, position DESC',
     'oldest': 'height ASC, position ASC',
-    # Undecoded rows (no value) last in both value orders.
-    'value_desc': 'value_key IS NULL, value_key DESC, height DESC, position DESC',
-    'value_asc': 'value_key IS NULL, value_key ASC, height DESC, position DESC',
 }
+# The value orders are the txs_value index's own order (forwards or backwards), so a page never sorts: valued rows by
+# value, equal values by block and position in the same direction (highest value: newest first among equals; lowest
+# value: oldest first), then the Undecoded rows (no value), newest first, in both orders.
+VALUE_SQL = {'value_desc': 'value_key DESC, height DESC, position DESC',
+             'value_asc': 'value_key ASC, height ASC, position ASC'}
+UNDECODED_SQL = 'height DESC, position DESC'
+COLUMNS = 'hash, block_hash, height, position, timestamp, value, kind, sender, recipient'
 
 
 def _upper(prefix):
@@ -383,6 +393,11 @@ class TransactionIndex:
                 conn.execute('DELETE FROM blocks WHERE height>?', (fork,))
                 rows = int(self._meta(conn, 'rows', '0')) - removed
                 conn.execute("UPDATE meta SET value=? WHERE key='rows'", (str(rows),))
+                # A fork point below the first whole block (older blocks were removed by the row bound): the new
+                # branch is indexed from fork + 1, so every block from there on is whole again.
+                first = int(self._meta(conn, 'from', '0'))
+                if first > fork + 1:
+                    conn.execute("UPDATE meta SET value=? WHERE key='from'", (str(fork + 1),))
             conn.execute('COMMIT')
         except BaseException:
             conn.execute('ROLLBACK')
@@ -423,6 +438,26 @@ class TransactionIndex:
             head, contact, failing = self.head, self.last_contact, self.failing
         return head, contact, failing
 
+    @staticmethod
+    def _value_page(conn, condition, args, order, size, offset, total, searched):
+        """A value-order page: the keys of its rows from the covering index txs_value (valued rows, then Undecoded
+        ones), then the rows by primary key. The Undecoded rows (value_key NULL, rare) are always read through that
+        index; the valued rows too without a search (INDEXED BY), so the page skips index entries and never sorts. A
+        search lets SQLite pick its prefix indexes and sort the matches (many only for a short prefix)."""
+        null_rows = ' INDEXED BY txs_value WHERE value_key IS NULL AND '
+        undecoded = conn.execute('SELECT COUNT(*) FROM txs' + null_rows + condition, args).fetchone()[0]
+        valued = total - undecoded
+        keys = []
+        if offset < valued:
+            keys = conn.execute('SELECT height, position FROM txs' + ('' if searched else ' INDEXED BY txs_value')
+                                + ' WHERE value_key IS NOT NULL AND ' + condition + ' ORDER BY ' + VALUE_SQL[order]
+                                + ' LIMIT ? OFFSET ?', args + [size, offset]).fetchall()
+        if len(keys) < size and undecoded:
+            keys += conn.execute('SELECT height, position FROM txs' + null_rows + condition + ' ORDER BY ' + UNDECODED_SQL
+                                 + ' LIMIT ? OFFSET ?', args + [size - len(keys), max(0, offset - valued)]).fetchall()
+        return [conn.execute('SELECT ' + COLUMNS + ' FROM txs WHERE height=? AND position=?', key).fetchone()
+                for key in keys]
+
     def page(self, options):
         """The pocol-transactions-v1 page for `options` (valid_options). Raises SnapshotChanged when the asked
         snapshot is no longer an indexed canonical block."""
@@ -458,11 +493,14 @@ class TransactionIndex:
                 args += part_args
             condition = ' AND '.join(where)
             total = conn.execute('SELECT COUNT(*) FROM txs WHERE ' + condition, args).fetchone()[0]
-            size, offset = options['size'], (options['page'] - 1) * options['size']
-            rows = [] if offset >= total else conn.execute(
-                'SELECT hash, block_hash, height, position, timestamp, value, kind, sender, recipient FROM txs WHERE '
-                + condition + ' ORDER BY ' + ORDER_SQL[options['order']] + ' LIMIT ? OFFSET ?',
-                args + [size, offset]).fetchall()
+            size, offset, order = options['size'], (options['page'] - 1) * options['size'], options['order']
+            if offset >= total:
+                rows = []
+            elif order in ORDER_SQL:
+                rows = conn.execute('SELECT ' + COLUMNS + ' FROM txs WHERE ' + condition + ' ORDER BY ' + ORDER_SQL[order]
+                                    + ' LIMIT ? OFFSET ?', args + [size, offset]).fetchall()
+            else:
+                rows = self._value_page(conn, condition, args, order, size, offset, total, bool(q))
             conn.execute('COMMIT')
         finally:
             conn.close()

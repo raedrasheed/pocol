@@ -41,12 +41,24 @@ class InvitationTests(unittest.TestCase):
                {'seeds': ['192.0.2.1:70000']}, {'files': {k: v for k, v in good['files'].items() if k != 'alloc.json'}},
                {'files': {**good['files'], 'devnet.json': json.dumps({'chainId': 'x', 'genesisHash': GENESIS})}},
                {'files': {**good['files'], 'devnet.json': json.dumps({'chainId': 1, 'genesisHash': GENESIS.upper()})}},
-               {'files': {**good['files'], 'genesis.spec.hex': 'not hex'}}]
+               {'files': {**good['files'], 'genesis.spec.hex': 'not hex'}},
+               # More seeds than pocold takes (node::SEEDS_MAX 7), and seeds that are not one plain address: an IPv6
+               # zone (which ipaddress accepts, spaces included) would split into more pocold flags in ExecStart.
+               {'seeds': [f'192.0.2.{i}:30300' for i in range(1, 9)]},
+               {'seeds': ['[fe80::1%a --listen 0.0.0.0 --x]:30300']}, {'seeds': ['[fe80::1%a --peer 203.0.113.9]:30300']},
+               {'seeds': ['[fe80::1%eth0]:30300']}, {'seeds': ['192.0.2.1:30300 --miner x']}, {'seeds': [' 192.0.2.1:30300']},
+               {'seeds': ['192.0.2.1:030300']}, {'seeds': ['192.0.2.01:30300']}, {'seeds': ['[192.0.2.1]:30300']},
+               {'seeds': ['2001:db8::1:30300']}, {'seeds': ['[2001:db8::1]:30300%%n']}, {'seeds': ['192.0.2.1:30300\n']},
+               {'seeds': [30300]}]
         for change in bad:
             with self.subTest(change=change), self.assertRaises(ValueError):
                 observer.parse_invitation(invitation(**change))
         with self.assertRaises(ValueError):
             observer.parse_invitation(b'x' * (observer.INVITATION_MAX + 1))
+        self.assertEqual(observer.SEEDS_MAX, 7, "pocold's node::SEEDS_MAX")
+        seven = [f'192.0.2.{i}:30300' for i in range(1, 8)] + []
+        self.assertEqual(observer.parse_invitation(invitation(seeds=seven))[2], seven)
+        self.assertEqual(observer.parse_invitation(invitation(seeds=['[::ffff:192.0.2.1]:30300']))[2], ['[::ffff:192.0.2.1]:30300'])
 
     @unittest.skipUnless(os.environ.get('POCOL_INVITATION'), 'POCOL_INVITATION names an invitation file to parse')
     def test_an_operator_invitation_parses(self):
@@ -77,10 +89,20 @@ class UnitTests(unittest.TestCase):
         with patch.object(observer, 'RPC', '0.0.0.0:8545'), self.assertRaises(RuntimeError):
             observer.check_args(observer.exec_args(SEEDS)[:-6] + ['--rpc', '0.0.0.0:8545'])
 
+    def test_no_argument_can_split_into_more_flags_or_carry_a_specifier(self):
+        # The guard itself, for a seed that reached it some other way: whitespace, %, $, quotes, backslashes refused.
+        for seed in ('[fe80::1%a --listen 0.0.0.0 --x]:30300', '192.0.2.1:30300 --peer 203.0.113.9', '192.0.2.1:%H',
+                     '$HOME', '"192.0.2.1:1"', '192.0.2.1:1\\', '192.0.2.1:1;x', '192.0.2.1:1\tx', ''):
+            with self.subTest(seed=seed), self.assertRaisesRegex(RuntimeError, 'Unexpected character'):
+                observer.unit_text([seed])
+        line = next(l for l in observer.unit_text(SEEDS, '0.0.0.0:30300').splitlines() if l.startswith('ExecStart='))
+        self.assertRegex(line, r'^ExecStart=[A-Za-z0-9/._:\[\] -]+$')
+        self.assertEqual(line.count(' --'), 5 + len(SEEDS), 'one flag per argument pair, nothing more')
+
 
 class InstallTests(unittest.TestCase):
     def run_install(self, extra=(), raw=None, binary=b'\x7fELF fake pocold', identity=None, existing=None, gateway_network=None,
-                    fail=None, digest=None):
+                    fail=None, digest=None, invitation_digest=None):
         """main() on temporary paths: (root, commands, printed, error). `identity` is what the node's RPC answers
         (default: the invitation's network, no miner); `existing(paths)` prepares a previous install."""
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
@@ -101,7 +123,8 @@ class InstallTests(unittest.TestCase):
             absent = args[:2] in (('systemctl', 'is-active'), ('systemctl', 'is-enabled')) and not existing
             return SimpleNamespace(returncode=1 if absent else 0, stdout=b'', stderr=b'')
         answer = identity if identity is not None else (777963, GENESIS, None)
-        argv = ['--invitation', str(root / 'in' / 'network.pocol.json'), '--pocold', str(root / 'in' / 'pocold'),
+        argv = ['--invitation', str(root / 'in' / 'network.pocol.json'),
+                '--invitation-sha256', invitation_digest or hashlib.sha256(raw).hexdigest(), '--pocold', str(root / 'in' / 'pocold'),
                 '--pocold-sha256', digest or hashlib.sha256(binary).hexdigest(), '--wait', '10', *extra]
         error = None
         with patch.multiple(observer, **paths), \
@@ -139,7 +162,7 @@ class InstallTests(unittest.TestCase):
 
     def test_refusals_change_nothing(self):
         cases = {
-            'digest': dict(extra=['--invitation-sha256', '0' * 64]),
+            'invitation digest': dict(invitation_digest='0' * 64),
             'gateway network': dict(gateway_network={'chainId': 1, 'genesisHash': GENESIS}),
             'another invitation': dict(existing=lambda p: (p['CONFIG'].mkdir(), p['BASE'].mkdir(), (p['BASE'] / observer.MARKER).write_text('x'),
                                                           p['INVITATION'].write_bytes(invitation(seeds=['192.0.2.99:30300'])))),
@@ -152,6 +175,8 @@ class InstallTests(unittest.TestCase):
                 self.assertIsNotNone(error)
                 self.assertNotIn(('systemctl', 'restart', observer.SERVICE), commands)
                 self.assertFalse((root / 'opt' / 'pocold').exists())
+        root, commands, _, error = self.run_install(invitation_digest='0' * 64)
+        self.assertRegex(error, '--invitation-sha256')
         root, commands, _, error = self.run_install(digest='0' * 64)
         self.assertRegex(error, '--pocold-sha256')
         self.assertEqual(commands, []); self.assertFalse((root / 'opt').exists())
@@ -179,7 +204,11 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(commands[-1], ('systemctl', 'restart', observer.SERVICE))
 
     def test_usage(self):
+        full = ['--invitation', 'x', '--invitation-sha256', '1' * 64, '--pocold', 'y', '--pocold-sha256', '0' * 64]
+        self.assertEqual(observer.usage(full)['--invitation-sha256'], '1' * 64)
         for argv in ([], ['--invitation', 'x'], ['--invitation', 'x', '--pocold', 'y'], ['--invitation', 'x', '--pocold', 'y', '--pocold-sha256', 'ab'],
+                     # --invitation-sha256 is required: the invitation decides the node's seeds and network identity.
+                     ['--invitation', 'x', '--pocold', 'y', '--pocold-sha256', '0' * 64], full[:2] + ['--invitation-sha256', 'AB' * 32] + full[4:],
                      ['--invitation', 'x', '--pocold', 'y', '--pocold-sha256', '0' * 64, '--listen', 'host:1'],
                      ['--invitation', 'x', '--pocold', 'y', '--pocold-sha256', '0' * 64, '--wait', '5'],
                      ['--invitation', 'x', '--pocold', 'y', '--pocold-sha256', '0' * 64, '--check', '--check']):

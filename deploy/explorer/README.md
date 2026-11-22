@@ -113,8 +113,11 @@ node. `install_observer_node.py` installs one that never mines and holds no key:
 `--listen` is given, under `pocol-observer.service` (DynamicUser, StateDirectory, ProtectSystem=strict, the standalone
 node's MemoryMax=7G, so a host with 8 GiB of RAM or more). The installer refuses to write a unit with a miner or another
 RPC address. It checks the pocold binary against the SHA-256 the operator gives (from the verified signed release), the
-invitation against its published SHA-256 when given, and that `/etc/pocol-explorer-gateway/network.json` names the same
-network. It writes the invitation's three network files exactly as `pocol start` would. After the start it waits for
+invitation against its published SHA-256 (`--invitation-sha256` is required: the invitation decides the node's seeds
+and network identity), and that `/etc/pocol-explorer-gateway/network.json` names the same network. Seeds must be
+plain `IPv4:PORT` or `[IPv6]:PORT` (no IPv6 zone, no whitespace), at most 7 (pocold's limit), and every argument of
+the unit's `ExecStart` must be plain path and address characters, so an invitation cannot add pocold flags or systemd
+`%` specifiers. It writes the invitation's three network files exactly as `pocol start` would. After the start it waits for
 the node's RPC to name the invitation's chain ID and genesis hash and report no miner; on any failure it rolls back.
 Its unit is ordered before the gateway's (`After=pocol-observer.service`).
 
@@ -132,10 +135,20 @@ The Transactions tab (`/api/transactions.php`) and `pocol_getTransactions` on `/
   branch. A page pinned to a snapshot that is no longer canonical is 409 with `reset`, and the explorer starts again
   from page 1.
 - Restarts resume from the file. A file of another network is refused at start.
-- Bound: at most 500,000 transactions (`POCOL_TX_MAX_ROWS`; about 200 MB on disk). Past it the oldest whole blocks
-  are removed, and the page's `index.from` names the first kept block, which the Transactions tab shows.
-- The gateway never waits for it: pages are read on their own read-only WAL connections, and node failures make the
-  index `reconnecting` while the last data is still served.
+- Bound: at most 500,000 transactions (`POCOL_TX_MAX_ROWS`; about 300 MB on disk with its indexes, measured 296 MB
+  on a synthetic index of that size, plus room for the WAL). Past it the oldest whole blocks are removed, and the
+  page's `index.from` names the first kept block, which the Transactions tab shows. A reorganization below that block
+  lowers `index.from` to the fork point's next block.
+- Orders: newest and oldest first walk the primary key; highest and lowest value walk the `(value, block, position)`
+  index forwards or backwards (equal values: newest first for highest, oldest first for lowest; Undecoded
+  transactions, which have no value, last and newest first in both), so no page sorts the table and a deep page only
+  skips index entries. Measured on a synthetic 500,000-row index: page 5,000 of 100 rows (the `Last` button) under
+  0.15 s in every order; the slowest page is a search with a one-digit prefix (about 3 in 16 rows match), about
+  0.9 s. A page running 2 s is interrupted (503).
+- The gateway never waits for it: pages are read on their own read-only WAL connections, behind their own two slots
+  (`gateway.TX_SLOTS`), never the four slots of the node reads, so transaction pages can make only the Transactions
+  tab busy, not the rest of the explorer. Node failures make the index `reconnecting` while the last data is still
+  served.
 
 It was tested against a fake chain (`test_pocol_transactions.py`) and on a local devnet (`e2e_explorer_devnet.py`,
 `explorer_smoke.mjs`), not against PoCol Mainnet.
@@ -143,9 +156,11 @@ It was tested against a fake chain (`test_pocol_transactions.py`) and on a local
 ## Miner map
 
 The network does not record where miners are, and nothing ties a peer's IP address to a miner address. The gateway has
-no GeoIP module (`pocol_getNetworkGeography` and `/api/miner-locations.php` stay 503), and the explorer says "Miner
-locations unavailable: the network has no location data for miners, and peers' IP addresses are not used to place them
-(privacy)." Showing the countries of one node's peers would be an estimate about connections, not miners, and close to
+no GeoIP module (`pocol_getNetworkGeography` and `/api/miner-locations.php` stay 503 with "Miner locations are
+unavailable: the PoCol network does not record where miners are."), and the explorer's Miner map shows only that
+notice: "Miner locations unavailable: the network has no location data for miners, and peers' IP addresses are not
+used to place them (privacy)." Its map, counts, filters and GeoIP texts are shown only with geography data, which this
+gateway never serves. Showing the countries of one node's peers would be an estimate about connections, not miners, and close to
 personal data with few peers. That needs an explicit owner decision (a licensed database such as DB-IP Lite, its
 attribution, and a privacy review); until then the view stays unavailable.
 
@@ -158,7 +173,7 @@ local devnet. Prerequisites the owner provides:
   explorer.pocol.net`) merged. A checkout whose explorer bundle names another network shows "The data source belongs
   to a different network." for every PoCol Mainnet answer.
 - A host for the gateway, separate from the founders: 8 GiB of RAM or more, disk for the node's chain growth plus about
-  200 MB for the index, systemd, Python 3.10+, Caddy, inbound 80/443, and outbound P2P to the seeds on 30300.
+  300 MB for the index (plus room for its WAL), systemd, Python 3.10+, Caddy, inbound 80/443, and outbound P2P to the seeds on 30300.
 - The signed release's `pocold` (signature verified per deploy/release) and its SHA-256, and the invitation
   `network.pocol.json` (PoCol Mainnet: SHA-256 `a74c1cf432e7fbca59aa6bd8250af660f1b1582d693b1b109316686f7241f233`).
 - The DNS change, made by the owner, between steps 5 and 6.
@@ -204,14 +219,26 @@ these handlers' answers). Where an in-process answer cannot be the PHP one, the 
   relay (PHP: the gateway answered HTTP 200), even if the node answered it with an error;
 - an empty filtered object is encoded `{}` (PHP encoded `[]`), and big integers in geography and transaction
   answers stay exact (PHP re-encoded them as floats);
+- `/api/miner-locations.php` without geography says "Miner locations are unavailable: the PoCol network does not
+  record where miners are." (PHP pointed to a GeoIP gateway update that does not exist);
 - wrong methods on the four paths get the PHP 405 and `Allow` header (not a 501), other `/api` paths are 404.
 
 The budget is the gateway's (deploy/rewards/gateway.py `charge`, tested by `test_gateway_limits.py`). The node's
 bucket (80 tokens, 20 per second) is shared by `/rpc`, the `/api` reads, pocol.net's summary and the reward page, as
 it was behind the PHP relays. Inside it, each client has its own bucket (40 tokens, 10 per second, at most 4096 clients
 remembered). Behind Caddy, the client is the last `X-Forwarded-For` hop, which is the address Caddy appends; the
-gateway trusts the header only from a loopback peer, and an IPv6 client counts by its /64. Public `/rpc` reads cannot
-take the node's bucket below 30 tokens. That share is kept for the explorer site's `/api` reads and pocol.net's
-summary, so one client, or a flood of `/rpc` reads, cannot make the explorer busy for everyone. Four relay slots are
-also shared by the `/api` reads (PHP's four lock slots). A connection beyond the gateway's 16 request slots gets the same JSON busy answer (429,
+gateway trusts the header only from a loopback peer, and an IPv6 client counts by its /64. So one client cannot make
+the explorer busy for everyone. Requests to `/rpc` cannot take the node's bucket below 30 tokens, so a flood sent to
+`/rpc` leaves 30 tokens for the `/api` reads. That reserve does not protect against a flood of `/api/rpc.php`:
+`/api/rpc.php` is just as public, it accepts requests without an `Origin` header (pocol.net's server-side summary sends
+none), and an `Origin` header is easy to forge outside a browser, so many addresses reading there can spend the whole
+node bucket, and every caller then gets 429 until it refills (20 tokens a second). A real share for the explorer
+site would need an authenticated route for pocol.net's summary; there is none. Four relay slots are also shared by the
+`/api` reads (PHP's four lock slots).
+
+The per-client budget is per IPv4 address or IPv6 /64, so browsers behind one shared address (carrier-grade NAT, an
+office or campus) share it. One open explorer tab costs about 2.5 tokens a second (the Overview refresh every 15 s:
+status, parameters, a members page and 20 blocks, about 37 tokens; an open account view about 23 more), so about
+four tabs behind one IPv4 address reach the 10 tokens a second and get 429 (the explorer retries a 429 after the
+answer's `Retry-After`, then reports it). This is measured from the bundle's refresh code, not from traffic. A connection beyond the gateway's 16 request slots gets the same JSON busy answer (429,
 `Retry-After: 3`), which Caddy passes on, not an empty 502.
