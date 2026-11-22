@@ -56,6 +56,12 @@ STATE = Path('/var/lib/pocol-observer')
 SERVICE = 'pocol-observer.service'
 UNIT = Path('/etc/systemd/system') / SERVICE
 GATEWAY_NETWORK = Path('/etc/pocol-explorer-gateway/network.json')
+# Final review (2026-11-22): the invitation and its SHA-256 are both the operator's input, so an invitation of another
+# network with a matching digest would install an observer of that network. Its chain ID and genesis hash (devnet.json,
+# which the booted node must then answer: wait_identity) must be the identity this repository pins for the websites
+# (deploy/websites/site-identity.json, set by step 7 from the published values), unless --other-network says the
+# observer is for another network on purpose (a test network).
+REPO_IDENTITY = Path(__file__).resolve().parents[1] / 'websites' / 'site-identity.json'
 BACKUPS = Path('/var/backups/pocol-observer')
 MARKER = 'managed-by-observer-v1'
 RPC = '127.0.0.1:8545'
@@ -239,7 +245,18 @@ def make_directory(path):
 
 
 USAGE = ('Usage: sudo python3 deploy/explorer/install_observer_node.py --invitation FILE --invitation-sha256 HEX --pocold FILE '
-         '--pocold-sha256 HEX [--listen IP:PORT] [--wait SECONDS] [--check]')
+         '--pocold-sha256 HEX [--listen IP:PORT] [--wait SECONDS] [--other-network] [--check]')
+
+
+def pinned_identity(path):
+    """(chainId, genesisHash) the repository pins (site-identity.json), or None when the file is absent."""
+    if not Path(path).is_file():
+        return None
+    value = json.loads(Path(path).read_bytes()[:1048576])
+    chain, genesis = value.get('chainId'), str(value.get('genesisHash', '')).lower()
+    if type(chain) is not int or not re.fullmatch(r'0x[0-9a-f]{64}', genesis):
+        raise RuntimeError(f'{path} does not name a chain ID and a genesis hash; no changes made')
+    return chain, genesis
 
 
 def usage(argv):
@@ -248,7 +265,7 @@ def usage(argv):
         flag = rest.pop(0)
         if flag in options:
             raise RuntimeError(USAGE)
-        if flag == '--check':
+        if flag in ('--check', '--other-network'):
             options[flag] = True
         elif flag in ('--invitation', '--pocold') and rest and not rest[0].startswith('--'):
             options[flag] = Path(rest.pop(0))
@@ -281,6 +298,14 @@ def main(argv=None):
     if sha256(raw) != options['--invitation-sha256']:
         raise RuntimeError('--invitation does not have the --invitation-sha256 digest; no changes made')
     chain, genesis, seeds, files = parse_invitation(raw)
+    if not options.get('--other-network'):
+        pinned = pinned_identity(REPO_IDENTITY)
+        if pinned is None:
+            raise RuntimeError(f'{REPO_IDENTITY} is missing: run the installer from the repository checkout, or pass --other-network '
+                               'for an observer of another network; no changes made')
+        if pinned != (chain, genesis):
+            raise RuntimeError(f'The invitation names chain {chain} genesis {genesis}, not the network this repository pins '
+                               f'(chain {pinned[0]} genesis {pinned[1]}); pass --other-network only for a test network; no changes made')
     if GATEWAY_NETWORK.is_file():
         gateway_network = json.loads(GATEWAY_NETWORK.read_bytes()[:4097])
         if gateway_network.get('chainId') != chain or str(gateway_network.get('genesisHash', '')).lower() != genesis:

@@ -22,8 +22,15 @@ import { readNetworkFees, ABSOLUTE_CEILING } from './lib/fees.js';
 import { JOB_PREFIX, JOB_TTL_MS, validatePublishRequest, validateSiteTarget, publicJob } from './lib/studio-bridge.js';
 import { IDE_JOB_PREFIX, isIdeOrigin, validateContractRequest, publicContractJob } from './lib/contracts.js';
 import { networkOf, blocksAccount, archiveForeignJobs, removeSideKeys } from './lib/jobs.js';
+import { LOCK_SIGNAL_KEY } from './lib/vault-guard.js';
 
 const store = chrome.storage.local;
+// Final review (2026-11-22): Chrome lets content scripts use storage.local by default, and the extension's content
+// scripts on studio.pocol.net and ide.pocol.net (studio-content.js, ide-content.js) never need it. Only the extension's
+// own pages and this worker may read or write the vault, the history, the profiles and the jobs. It is set on every
+// worker start (an install, an update, a browser restart), before any listener is registered.
+export const STORAGE_ACCESS = Object.freeze({ accessLevel: 'TRUSTED_CONTEXTS' });
+export const storageRestricted = (async () => { try { await store.setAccessLevel(STORAGE_ACCESS); return true; } catch { return false; } })();
 // F11: minimum seed-encryption password length, enforced in the worker (the security boundary), to
 // match the Studio key-file export. The viewer wallet cannot export its seed, so a weak password or a
 // silent replace is unrecoverable.
@@ -847,7 +854,13 @@ async function accountRequest(msg, sender) {
       lockAccount('unlocked again'); account = { secret, address: addressOf(secret), until: Date.now() + LOCK_MS };
       return { address: account.address, lockAt: account.until };
     }
-    case 'account.lock': lockAccount('locked'); return {};
+    case 'account.lock': {
+      // The user's Lock (toolbar or settings) locks every page that holds a decrypted key too: the Studio publisher and
+      // IDE contract pages watch this key (lib/vault-guard.js watchLockSignal) and lock at once.
+      lockAccount('locked');
+      await store.set({ [LOCK_SIGNAL_KEY]: { at: Date.now(), id: crypto.randomUUID() } });
+      return {};
+    }
     case 'account.export': {
       // EXT-04: a backup at any time, after the password is entered again; the result is the stored encrypted vault.
       fromPages(sender, PAGES.manage);

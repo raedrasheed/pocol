@@ -17,8 +17,8 @@ list, the hosts, the summary length, the images and the privacy policy page). Th
 - **Category:** Developer Tools (or Productivity; an owner choice: the store has no wallet category)
 - **Language:** English
 - **Store icon:** `store/icon-128.png` (128x128; the extension's artwork at 96x96 with 16 px transparent padding)
-- **Screenshots:** `store/screenshots/01-settings.png`, `02-studio-publisher.png`, `03-studio-wallet.png`,
-  `04-ide-contract.png` (1280x800). Upload only renders of the release build: `store/screenshots/RENDERED-FROM.json`
+- **Screenshots:** `store/screenshots/01-wallet-popup.png`, `02-send.png`, `03-settings.png`,
+  `04-studio-publisher.png`, `05-ide-contract.png` (1280x800, five, the store's maximum). Upload only renders of the release build: `store/screenshots/RENDERED-FROM.json`
   must say `"placeholderBuild": false` (store/README.md, step 4).
 - **Small promo tile:** `store/promo-small-440x280.png` (440x280)
 - **Official URL / homepage:** https://pocol.net

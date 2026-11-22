@@ -8,6 +8,7 @@ import { isForeignJob, blocksAccount, archiveJob, networkOf, filesKey, rawKey, r
 import { request, Pool, TRUST_POOL, RESERVE_WAIT_MS } from './lib/transport.js';
 import { withRetry } from './lib/retry.js';
 import { assertIdentity } from './lib/identity.js';
+import { saveVaultIfNone, savedVault, vaultAddressOf, createRefusal, otherWalletNote, checkNewPassword, watchLockSignal } from './lib/vault-guard.js';
 
 const $ = (id) => document.getElementById(id);
 // The chain ID chip shows the built-in profile's chain ID (lib/studio-network.js), the one this page checks the node
@@ -51,7 +52,7 @@ function renderWallet() {
   $('walletAddress').textContent = unlocked ? addressOf(secret) : 'Wallet locked';
   $('publish').disabled = busy || walletBusy || foreign || !unlocked || !plan || !quote || !$('consent').checked || job?.status === 'complete' || job?.status === 'cancelled';
   $('pause').disabled = !busy; $('unlock').disabled = busy || walletBusy; $('create').disabled = busy || walletBusy; $('keyfile').disabled = busy || walletBusy;
-  $('password').disabled = busy || walletBusy; $('cancel').disabled = busy || job?.status === 'complete';
+  $('password').disabled = busy || walletBusy; $('passwordConfirm').disabled = busy || walletBusy; $('cancel').disabled = busy || job?.status === 'complete';
   $('refreshFees').disabled = busy || foreign || !plan; $('economy').disabled = busy || foreign; $('tip').disabled = busy || foreign; $('deadline').disabled = busy || foreign;
 }
 function lock() { walletEpoch++; if (secret) secret.fill(0); secret = null; lease.lock(); $('password').value = ''; if (controller) controller.abort(); renderWallet(); }
@@ -60,7 +61,7 @@ function adopt(bytes, epoch) { checkWalletEpoch(epoch); if (secret) secret.fill(
 async function walletAction(action) {
   if (busy || walletBusy) return;
   walletBusy = true; const epoch = ++walletEpoch; renderWallet();
-  try { $('walletNote').textContent = 'Unlocking…'; await action(epoch); checkWalletEpoch(epoch); $('walletNote').textContent = 'Wallet unlocked locally. It locks after 15 minutes, or at the deadline of an approved publication.'; }
+  try { $('walletNote').textContent = 'Unlocking…'; const note = await action(epoch); checkWalletEpoch(epoch); $('walletNote').textContent = (note ? note + ' ' : '') + 'Wallet unlocked locally. It locks after 15 minutes, at the deadline of an approved publication, or when you lock the PoCol wallet from the toolbar.'; }
   catch (e) { $('walletNote').textContent = errorMessage(e); }
   finally { walletBusy = false; renderWallet(); }
 }
@@ -68,21 +69,41 @@ $('unlock').onclick = () => walletAction(async (epoch) => {
   const password = $('password').value; if (!password) throw new Error('Enter your password');
   const file = $('keyfile').files[0]; let bytes;
   if (file) { if (file.size > 16384) throw new Error('Wallet file too large'); bytes = new Uint8Array(await file.arrayBuffer()); }
-  else { const vault = (await chrome.storage.local.get(vaultKey))[vaultKey]; if (!vault) throw new Error('Choose your encrypted wallet file first'); bytes = new TextEncoder().encode(JSON.stringify(vault)); }
+  else { const vault = await savedVault(chrome.storage.local); if (!vault) throw new Error('Choose your encrypted wallet file first'); bytes = new TextEncoder().encode(JSON.stringify(vault)); }
   const key = await importKeyfile(bytes, password); bytes.fill(0);
-  try { checkWalletEpoch(epoch); if (file) { const vault = await exportKeyfile(key, password); checkWalletEpoch(epoch); await chrome.storage.local.set({[vaultKey]:vault}); $('keyfile').value=''; } adopt(key,epoch); }
+  let note = null;
+  try {
+    checkWalletEpoch(epoch);
+    // Final review: a file's wallet is saved only when no wallet is saved; another saved wallet is never replaced here.
+    if (file) {
+      const address = addressOf(key), saved = await saveVaultIfNone(chrome.storage.local, address, () => exportKeyfile(key, password)); checkWalletEpoch(epoch);
+      if (saved.state === 'other') note = otherWalletNote(address, saved.saved);
+      $('keyfile').value='';
+    }
+    adopt(key,epoch);
+  }
   catch (e) { key.fill(0); throw e; }
+  if (note) return note;
 });
 $('create').onclick = () => walletAction(async (epoch) => {
-  const password = $('password').value; let key;
+  const password = $('password').value;
+  checkNewPassword(password, $('passwordConfirm').value);
+  // Final review: Create never replaces a saved wallet (its key could not be unlocked again in this browser).
+  const before = await savedVault(chrome.storage.local); if (before) throw new Error(createRefusal(vaultAddressOf(before)));
+  let key;
   do { key = crypto.getRandomValues(new Uint8Array(32)); try { validSecret(key); break; } catch { key.fill(0); } } while (true);
   try {
-    const vault = await exportKeyfile(key,password); checkWalletEpoch(epoch); const blob = new Blob([JSON.stringify(vault,null,2)], {type:'application/json'});
+    const vault = await exportKeyfile(key,password); checkWalletEpoch(epoch);
+    const saved = await saveVaultIfNone(chrome.storage.local, addressOf(key), async () => vault); checkWalletEpoch(epoch);
+    if (saved.state !== 'saved') throw new Error(createRefusal(saved.saved));
+    const blob = new Blob([JSON.stringify(vault,null,2)], {type:'application/json'});
     const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href=url; a.download='PoCol-Studio-Wallet.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-    await chrome.storage.local.set({[vaultKey]:vault}); adopt(key,epoch);
+    $('passwordConfirm').value = ''; adopt(key,epoch);
   } catch(e) { key.fill(0); throw e; }
 });
 $('lock').onclick = lock;
+// The toolbar's (or the settings') Lock locks this page too, an approved publication included.
+watchLockSignal(chrome, () => { if (secret || walletBusy) lock(); });
 $('consent').onchange = renderWallet;
 $('pause').onclick = () => controller?.abort();
 // Sites W4: the fees are quoted from the node after connecting (no fixed caps). A saved publication is quoted for its

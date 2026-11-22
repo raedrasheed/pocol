@@ -1,5 +1,7 @@
 // Renders the Chrome Web Store images from the real extension (2026-11-22):
-//   screenshots/01-settings.png, 02-studio-publisher.png, 03-studio-wallet.png, 04-ide-contract.png  (1280x800)
+//   screenshots/01-wallet-popup.png, 02-send.png, 03-settings.png, 04-studio-publisher.png, 05-ide-contract.png (1280x800;
+//   the store takes at most five; final review 2026-11-22, STORE-02: the toolbar wallet and its Send page lead, since
+//   the listing names the item a wallet)
 //   icon-128.png        (the store icon: the extension's artwork at 96x96 centred on a transparent 128x128 canvas)
 //   promo-small-440x280.png (the small promo tile: the PoCol logo of pocol.net on the site's dark colour)
 //
@@ -10,8 +12,9 @@
 // that https://studio.pocol.net and https://ide.pocol.net open through the extension's content-script bridge. Those two
 // origins are answered here by a minimal local page that only speaks the bridge's postMessage protocol (Playwright
 // request routing), and every other host name is unresolvable (--host-resolver-rules), so nothing reaches a PoCol or any
-// other server: fee reads fail or stay pending, and no wallet holds funds. The Studio wallet created for
-// 03-studio-wallet.png is a throwaway made in a temporary browser profile that is deleted afterwards.
+// other server: fee reads fail or stay pending, the wallet shows its network as not reachable, and no wallet holds
+// funds. The wallet the popup and Send page show is a throwaway made in a temporary browser profile (by the Studio
+// publisher's Create) that is deleted afterwards.
 //
 // The pages show the network the build pins. Before the identity switch (deploy/mainnet/README.md step 7) that is the
 // D1 placeholder profile, and the publisher and contract pages show the chain ID the tree carries today, not PoCol
@@ -63,7 +66,7 @@ try {
   let [sw] = ctx.serviceWorkers(); if (!sw) sw = await ctx.waitForEvent('serviceworker', { timeout: 20000 });
   const id = new URL(sw.url()).host;
   const settings = await ctx.newPage(); await settings.goto(`chrome-extension://${id}/options.html`);
-  await shot(settings, '01-settings.png');
+  await shot(settings, '03-settings.png');
 
   const studio = await ctx.newPage(); await studio.goto('https://studio.pocol.net/');
   await studio.waitForTimeout(500);
@@ -71,13 +74,31 @@ try {
   const job = await studio.evaluate((files) => window.bridge('openPublisher', { title: 'My PoCol site', files, entry: '/index.html' }), SAMPLE_SITE);
   if (!job.ok) throw new Error('openPublisher: ' + JSON.stringify(job));
   const publisher = await opened; await publisher.waitForLoadState();
-  await shot(publisher, '02-studio-publisher.png');
+  await shot(publisher, '04-studio-publisher.png');
   await publisher.evaluate(() => { for (const d of document.querySelectorAll('details')) d.open = true; });
-  await publisher.fill('#password', 'store-screenshot-' + Math.random().toString(36).slice(2));
+  const password = 'store-screenshot-' + Math.random().toString(36).slice(2);
+  await publisher.fill('#password', password); await publisher.fill('#passwordConfirm', password);
   const [backup] = await Promise.all([publisher.waitForEvent('download', { timeout: 60000 }), publisher.click('#create')]);
   await backup.delete();
   await publisher.waitForFunction(() => /^0x[0-9a-fA-F]{40}$/.test(document.querySelector('#walletAddress')?.textContent.trim()), null, { timeout: 60000 });
-  await shot(publisher, '03-studio-wallet.png');
+
+  // The toolbar wallet (popup.html, 380 px wide) after its first-run agreement, unlocked, on a 1280x800 canvas; then
+  // the Send page with a recipient and an amount typed (no review: the network is not reachable here).
+  const popup = await ctx.newPage(); await popup.setViewportSize({ width: 380, height: 640 });
+  await popup.goto(`chrome-extension://${id}/popup.html`); await settle(popup);
+  if (await popup.isVisible('#accept')) { await popup.click('#accept'); await settle(popup); }
+  if (await popup.isVisible('#unlock')) { await popup.fill('#password', password); await popup.click('#unlock'); }
+  await popup.waitForFunction(() => /^0x[0-9a-fA-F]{40}$/.test(document.querySelector('#address')?.textContent.trim()), null, { timeout: 60000 });
+  await settle(popup);
+  const popupPng = await popup.screenshot({ fullPage: true });
+  const canvas = await ctx.newPage(); await canvas.setViewportSize({ width: W, height: H });
+  await canvas.setContent(`<html><body style="margin:0;width:${W}px;height:${H}px;background:#060e18;display:flex;align-items:center;justify-content:center">
+    <img src="data:image/png;base64,${popupPng.toString('base64')}" style="max-height:${H - 60}px;border:1px solid #253549;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5)"></body></html>`);
+  await canvas.waitForTimeout(300); await canvas.screenshot({ path: join(OUT, 'screenshots', '01-wallet-popup.png') }); console.log('wrote', join(OUT, 'screenshots', '01-wallet-popup.png'));
+  const send = await ctx.newPage(); await send.goto(`chrome-extension://${id}/send.html#${encodeURIComponent(await popup.evaluate(() => document.querySelector('#network').value))}`); await settle(send);
+  if (await send.isVisible('#unlock')) { await send.fill('#password', password); await send.click('#unlock'); await settle(send); }
+  if (await send.isVisible('#to')) { await send.fill('#to', '0x' + '5a'.repeat(20)); await send.fill('#amount', '1.25'); }
+  await shot(send, '02-send.png');
 
   const ide = await ctx.newPage(); await ide.goto('https://ide.pocol.net/');
   await ide.waitForTimeout(500);
@@ -85,7 +106,7 @@ try {
   const contractJob = await ide.evaluate((request) => window.bridge('openContract', request), SAMPLE_CONTRACT);
   if (!contractJob.ok) throw new Error('openContract: ' + JSON.stringify(contractJob));
   const contract = await contractTab; await contract.waitForLoadState();
-  await shot(contract, '04-ide-contract.png');
+  await shot(contract, '05-ide-contract.png');
 
   // The store icon and the small promo tile, from the existing artwork.
   const art = (file) => 'data:image/png;base64,' + readFileSync(file).toString('base64');
@@ -106,7 +127,7 @@ try {
 const manifest = JSON.parse(readFileSync(join(DIST, 'manifest.json'), 'utf8'));
 const provenance = { version: manifest.version, name: manifest.name, placeholderBuild: placeholder,
   studioNetworkSha256: createHash('sha256').update(readFileSync(join(DIST, 'lib', 'studio-network.js'))).digest('hex'),
-  screenshots: ['01-settings.png', '02-studio-publisher.png', '03-studio-wallet.png', '04-ide-contract.png'] };
+  screenshots: ['01-wallet-popup.png', '02-send.png', '03-settings.png', '04-studio-publisher.png', '05-ide-contract.png'] };
 writeFileSync(join(OUT, 'screenshots', 'RENDERED-FROM.json'), JSON.stringify(provenance, null, 2) + '\n');
 console.log(JSON.stringify({ extensionBuild: DIST, ...provenance, blockedRequests: [...new Set(outside)] }, null, 1));
 if (placeholder) console.log('NOTE: this is the pre-identity-switch build (D1 placeholder); re-render from the switched release build before uploading.');

@@ -5,20 +5,21 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 
-const I = await import('../dist/lib/identity.js'), R = await import('../dist/lib/retry.js'), P = await import('../dist/lib/publisher.js'), L = await import('../dist/lib/lease.js'), J = await import('../dist/lib/jobs.js'), B = await import('../dist/lib/studio-bridge.js');
+const VG = await import('../dist/lib/vault-guard.js'), I = await import('../dist/lib/identity.js'), R = await import('../dist/lib/retry.js'), P = await import('../dist/lib/publisher.js'), L = await import('../dist/lib/lease.js'), J = await import('../dist/lib/jobs.js'), B = await import('../dist/lib/studio-bridge.js');
 const SOURCE = readFileSync(new URL('../src/publisher-ui.js', import.meta.url), 'utf8').replace(/^import [^;]*;\n/gm, '');
 const HTML = readFileSync(new URL('../src/publisher.html', import.meta.url), 'utf8');
 const JOB_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', KEY = 'studio:job:' + JOB_ID, ADDRESS = '0x1111111111111111111111111111111111111111';
 const NETWORK = {chainId: 2656089850, genesisHash: '0x' + 'ab'.repeat(32), endpoint: 'https://explorer.pocol.net/studio/rpc', name: 'pocol-public'};
 const FLOOR = '10000000', TIP = '1000000000';
 const settle = async () => { for (let i = 0; i < 40; i++) await new Promise((r) => setImmediate(r)); };
-function makeElement(id) { return {id, textContent: '', hidden: false, disabled: false, checked: false, value: '', files: [], children: [], replaceChildren(...items) { this.children = items; }, after() {}, append() {}, remove() {}}; }
-async function fixture({job = {}, publish, base = FLOOR, now = 1000, rpc: editAnswers} = {}) {
+function makeElement(id) { return {id, textContent: '', hidden: false, disabled: false, checked: false, value: '', files: [], children: [], replaceChildren(...items) { this.children = items; }, after() {}, append() {}, remove() {}, click() {}}; }
+async function fixture({job = {}, publish, base = FLOOR, now = 1000, rpc: editAnswers, vault = {schema: 'pocol-studio-vault-v1'}} = {}) {
   let clock = now;
   class Clock extends Date { static now() { return clock; } }
   const elements = new Map([...HTML.matchAll(/id="([^"]+)"/g)].map((m) => [m[1], makeElement(m[1])]));
   const files = [{path: '/index.html', base64: btoa('<h1>hi</h1>')}, {path: '/style.css', base64: btoa('b{}')}];
-  const storage = new Map([[KEY, {id: JOB_ID, origin: 'https://studio.pocol.net', status: 'awaitingApproval', network: {chainId: String(NETWORK.chainId), genesisHash: NETWORK.genesisHash}, request: {title: 'Site', files, entry: '/index.html', site: null}, ...job}], ['studio:wallet', {schema: 'pocol-studio-vault-v1'}]]);
+  const storage = new Map([[KEY, {id: JOB_ID, origin: 'https://studio.pocol.net', status: 'awaitingApproval', network: {chainId: String(NETWORK.chainId), genesisHash: NETWORK.genesisHash}, request: {title: 'Site', files, entry: '/index.html', site: null}, ...job}], ...(vault ? [['studio:wallet', vault]] : [])]);
+  const changed = [];
   const state = {calls: [], publishes: [], signed: 0};
   const rpcAnswers = {eth_chainId: '0x' + NETWORK.chainId.toString(16), pocol_status: {genesisHash: NETWORK.genesisHash}, eth_maxPriorityFeePerGas: '0x' + BigInt(TIP).toString(16),
     eth_gasPrice: () => '0x' + (BigInt(state.base ?? base) + BigInt(TIP)).toString(16), eth_feeHistory: () => ({baseFeePerGas: ['0x' + BigInt(state.base ?? base).toString(16)]}), eth_getBlockByNumber: () => ({baseFeePerGas: '0x' + BigInt(state.base ?? base).toString(16), gasUsed: '0x0', gasLimit: '0x7a1200'})};
@@ -28,7 +29,8 @@ async function fixture({job = {}, publish, base = FLOOR, now = 1000, rpc: editAn
     location: {hash: '#' + JOB_ID}, document: {documentElement: {}, getElementById: (id) => { if (id === 'resumeEarlier') return null; assert.ok(elements.has(id), id); return elements.get(id); }, createElement: (t) => makeElement(t)},
     window: {addEventListener() {}}, setInterval: (fn) => { state.tick = fn; }, setTimeout, confirm: () => true, crypto: globalThis.crypto, Blob, URL,
     NETWORK, assertIdentity: I.assertIdentity, JOB_PREFIX: B.JOB_PREFIX, base64Bytes: B.base64Bytes, LOCK_MS: 900000,
-    importKeyfile: async () => new Uint8Array(32).fill(7), exportKeyfile: async () => ({}), validSecret() {}, addressOf: () => ADDRESS,
+    importKeyfile: async () => new Uint8Array(32).fill(7), exportKeyfile: async () => ({address: ADDRESS, ct: 'new'}), validSecret() {}, addressOf: () => ADDRESS,
+    saveVaultIfNone: VG.saveVaultIfNone, savedVault: VG.savedVault, vaultAddressOf: VG.vaultAddressOf, createRefusal: VG.createRefusal, otherWalletNote: VG.otherWalletNote, checkNewPassword: VG.checkNewPassword, watchLockSignal: VG.watchLockSignal,
     signTx: () => { state.signed++; return {raw: '0x02', hash: '0x' + 'ee'.repeat(32)}; },
     prepareSite: P.prepareSite, quotePublish: P.quotePublish, readNetworkFees: P.readNetworkFees, remainingTransactions: P.remainingTransactions,
     publishSite: async (o) => { state.publishes.push(o); return publish ? publish(o, state, (v) => { clock = v; }) : {site: '0x' + '22'.repeat(20), version: 0, transactions: []}; },
@@ -37,7 +39,7 @@ async function fixture({job = {}, publish, base = FLOOR, now = 1000, rpc: editAn
     request: async (_url, method, params) => { state.calls.push(method); if (state.busy && state.busy[method] > 0) { state.busy[method]--; throw Object.assign(new Error('rate'), {transport: 'rate', status: 429, retryAfterMs: 2000}); } const a = rpcAnswers[method]; if (a === undefined) throw Object.assign(new Error('no ' + method), {rpc: {code: -32601}}); return typeof a === 'function' ? a(params) : a; },
     Pool: class {}, TRUST_POOL: 1, RESERVE_WAIT_MS: 2000, withRetry: (fn, o) => R.withRetry(fn, {...o, sleep: async () => {}}),
     navigator: {locks: {request: async (_n, _o, fn) => fn({})}},
-    chrome: {runtime: {getURL: (p) => 'chrome-extension://x/' + p}, tabs: {create() {}}, storage: {local: {
+    chrome: {runtime: {getURL: (p) => 'chrome-extension://x/' + p}, tabs: {create() {}}, storage: {onChanged: {addListener: (f) => changed.push(f)}, local: {
       get: async (k) => k === null ? Object.fromEntries([...storage].map(([a, b]) => [a, structuredClone(b)])) : (storage.has(k) ? {[k]: structuredClone(storage.get(k))} : {}),
       set: async (o) => { for (const [k, v] of Object.entries(o)) storage.set(k, structuredClone(v)); },
       remove: async (k) => { for (const x of [].concat(k)) storage.delete(x); }, getKeys: async () => [...storage.keys()]}}},
@@ -46,7 +48,7 @@ async function fixture({job = {}, publish, base = FLOOR, now = 1000, rpc: editAn
   const click = async (id) => { await elements.get(id).onclick(); await settle(); };
   const unlock = async () => { elements.get('password').value = 'password-123'; await click('unlock'); };
   const consent = () => { elements.get('consent').checked = true; elements.get('consent').onchange(); };
-  return {elements, storage, state, context, click, unlock, consent, setNow: (v) => { clock = v; }};
+  return {elements, storage, state, context, click, unlock, consent, setNow: (v) => { clock = v; }, storageChange: (c) => { for (const f of changed) f(c, 'local'); }};
 }
 test('the chain ID chip shows the built-in profile\'s chain ID; the page names no network of its own', async () => {
   const f = await fixture();
@@ -128,4 +130,40 @@ test('identity page: another chain ID or genesis is refused and the difference i
     await g.unlock(); g.consent(); assert.equal(g.elements.get('publish').disabled, true, field + ': no quote, so nothing can be approved');
     assert.equal(g.state.signed, 0); assert.equal(g.state.publishes.length, 0);
   }
+});
+
+// Final review (2026-11-22): the publisher page never replaces a saved PoCol wallet of another address. A Create is
+// refused while a wallet is saved and needs the password twice; a file of another wallet is unlocked in the tab only.
+const SAVED = {schema: 'pocol-studio-vault-v1', address: '0x' + '99'.repeat(20), ct: 'saved'};
+test('final review: Create never replaces a saved wallet, and needs the same password twice', async () => {
+  const f = await fixture({vault: SAVED});
+  f.elements.get('password').value = 'password-123'; f.elements.get('passwordConfirm').value = 'password-123'; await f.click('create');
+  assert.deepEqual(f.storage.get('studio:wallet'), SAVED, 'the saved wallet is unchanged');
+  assert.match(f.elements.get('walletNote').textContent, /already saved in this browser \(0x9{40}\)/);
+  assert.equal(f.elements.get('walletAddress').textContent, 'Wallet locked');
+  const g = await fixture({vault: null});
+  g.elements.get('password').value = 'password-123'; g.elements.get('passwordConfirm').value = 'password-124'; await g.click('create');
+  assert.equal(g.storage.has('studio:wallet'), false); assert.match(g.elements.get('walletNote').textContent, /differ/);
+  g.elements.get('password').value = 'short'; g.elements.get('passwordConfirm').value = 'short'; await g.click('create');
+  assert.equal(g.storage.has('studio:wallet'), false); assert.match(g.elements.get('walletNote').textContent, /at least 10/);
+  g.elements.get('password').value = 'password-123'; g.elements.get('passwordConfirm').value = 'password-123'; await g.click('create');
+  assert.deepEqual(g.storage.get('studio:wallet'), {address: ADDRESS, ct: 'new'}, 'with no wallet saved, Create saves the new one');
+  assert.equal(g.elements.get('walletAddress').textContent, ADDRESS);
+});
+test('final review: unlocking with a file of another wallet keeps the saved wallet; with none saved the file is saved', async () => {
+  const f = await fixture({vault: SAVED});
+  f.elements.get('keyfile').files = [{size: 10, arrayBuffer: async () => new Uint8Array(10).buffer}];
+  await f.unlock();
+  assert.deepEqual(f.storage.get('studio:wallet'), SAVED, 'the saved wallet is unchanged');
+  assert.equal(f.elements.get('walletAddress').textContent, ADDRESS, 'the file\'s wallet is unlocked in this tab');
+  assert.match(f.elements.get('walletNote').textContent, /unlocked in this tab only.*\(0x9{40}\) was not changed/);
+  const g = await fixture({vault: null});
+  g.elements.get('keyfile').files = [{size: 10, arrayBuffer: async () => new Uint8Array(10).buffer}];
+  await g.unlock(); assert.deepEqual(g.storage.get('studio:wallet'), {address: ADDRESS, ct: 'new'});
+});
+test('final review: the toolbar\'s Lock (the worker\'s lock signal) locks this page and stops an approved publication', async () => {
+  const f = await fixture({publish: async (o) => { await o.sign({}); f.storageChange({'wallet:lockSignal': {newValue: {at: 1, id: 'x'}}}); assert.equal(o.signal.aborted, true); await assert.rejects(o.sign({}), /locked|paused/); throw Object.assign(new Error('Publication paused'), {code: 'PUBLISH_PAUSED'}); }});
+  await f.unlock(); f.consent(); await f.click('publish');
+  assert.equal(f.state.signed, 1); assert.equal(f.elements.get('walletAddress').textContent, 'Wallet locked'); assert.equal(f.storage.get(KEY).status, 'paused');
+  const g = await fixture(); await g.unlock(); g.storageChange({'something:else': {newValue: 1}}); assert.equal(g.elements.get('walletAddress').textContent, ADDRESS, 'another key changing does not lock');
 });

@@ -5,11 +5,12 @@ This directory holds what the Chrome Web Store item of the extension needs: the 
 real extension (`render-store-assets.mjs`). `scripts/package-store.py` makes the upload zip. Nothing here uploads,
 signs or publishes anything; every step below is the owner's.
 
-**Not ready to submit yet.** The extension can be packaged only after the identity switch
-(`deploy/mainnet/README.md` step 7): until then the built-in profile is the D1 network placeholder and both packagers
-refuse the build ("network placeholder"). The committed screenshots were rendered from that pre-switch build
-(`screenshots/RENDERED-FROM.json`: `"placeholderBuild": true`); the network chip of the publisher and contract pages
-shows the chain ID the tree carries today, not PoCol Mainnet's, so they must be rendered again (step 4) before upload.
+**Packaging is possible since the identity switch** (`deploy/mainnet/README.md` step 7, on this branch): the built-in
+profile pins PoCol Mainnet and both packagers accept the build. Before it, the D1 network placeholder made them refuse
+("network placeholder"). The committed screenshots (final review, 2026-11-22, STORE-02) were rendered from the switched
+0.5.0 build (`screenshots/RENDERED-FROM.json`: `"placeholderBuild": false`), with every network request blocked, so
+the popup and Send page show PoCol Mainnet's endpoint as unreachable; the owner may render them again against the live
+network (step 4) before upload. Submission still waits for the owner's steps below.
 The item's scope is the PoCol wallet (`listing.md`, "Single purpose"): create or import a wallet, address, balance,
 network and connection status (toolbar popup), Send PCOL with a confirmation page, the transfers sent from the
 extension with their status, an encrypted backup at any time, the Studio and IDE confirmations and the on-chain site
@@ -22,8 +23,9 @@ viewer. It is not a miner. The owner decides the item name (`listing.md`).
   --extension-id`). Developer reports say the Chrome Web Store refuses an upload whose manifest has a `key` field
   ("key field is not allowed in manifest"); no current official page states it, so the store zip simply leaves it out.
 - `scripts/package-store.py` runs every check of `scripts/package-release.py`, then writes the same files with
-  `manifest.json` minus `key` (`tests/package_store_test.mjs`). No other file and no behaviour changes, so the
-  store item and the signed side-loaded release are the same build.
+  `manifest.json` minus `key`, except the side-loading material (EXT-10): no `tools/` export helpers, no
+  `README-STUDIO.md`, and the store-install READMEs of `install/` (`tests/package_store_test.mjs`). The code of the
+  store item and of the signed side-loaded release is the same build.
 
 ## The store item's id: an OWNER DECISION
 
@@ -100,7 +102,9 @@ release).
 7. Upload, note the item id (choice A) or check it (choice B), submit for review. Then publish the store link, the
    extension id and the release key fingerprint on pocol.net (W16).
 
-Known review points: the package ships the wallet export helpers (`tools/Export-Studio-Wallet.ps1`,
-`tools/export-studio-wallet.py`, offered as downloads by the Settings page, never run by the extension) and READMEs
-that describe installing with Developer mode (`README-EN.md`, `README-AR.md`, `README-STUDIO.md`); the viewer runs
-on-chain website code in the sandboxed page (disclosed in `listing.md`).
+Known review points: the viewer runs on-chain website code in the sandboxed page (disclosed in `listing.md`). EXT-10
+(final review, 2026-11-22): the store zip no longer ships the wallet export helpers (`tools/`) or the Developer-mode
+READMEs; `scripts/package-store.py` writes the store-install texts of `install/` as `README-EN.md` and `README-AR.md`,
+leaves out `README-STUDIO.md`, and refuses a store text that says "Load unpacked", "Developer mode" or
+"ExecutionPolicy Bypass" (`tests/package_store_test.mjs`). The Settings page hides its helper links when the helpers
+are not installed. The side-loaded release zip is unchanged.

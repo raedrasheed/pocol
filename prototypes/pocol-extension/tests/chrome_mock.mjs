@@ -32,6 +32,7 @@ export function installChromeMock({ extensionId = 'mockextensionidaaaaaaaaaaaaaa
     },
     async remove(keys) { for (const k of Array.isArray(keys) ? keys : [keys]) data.delete(k); },
     async getKeys() { return [...data.keys()]; },
+    accessLevel: null, async setAccessLevel(o) { storage.accessLevel = o?.accessLevel ?? null; },
     async getBytesInUse() { let n = 0; for (const [k, v] of data) n += k.length + JSON.stringify(v).length; return n; },
     release() { const h = storage.held.shift(); if (h) h.release(); return !!h; },
     data,

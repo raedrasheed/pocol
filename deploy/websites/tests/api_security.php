@@ -71,6 +71,18 @@ $mixed = static function(array $requests) use ($rpc): array {
     return $values;
 };
 rejected('summary mixed branch refused', static fn()=>pocol_network_summary($mixed,$now));
+// Final review (2026-11-22): a reorganisation between the head read and the block read is read again once (the whole
+// snapshot), instead of failing a refresh that has no cached copy yet; a second inconsistent snapshot still fails it.
+$reorgs = 1; $summaryCalls = [];
+$reorgOnce = static function(array $requests) use ($rpc, &$reorgs): array {
+    $values = $rpc($requests);
+    if ($requests[0]['method'] === 'eth_getBlockByNumber' && $reorgs-- > 0) $values[0]->hash = '0x'.str_repeat('ee',32);
+    return $values;
+};
+check('a snapshot reorganised once is read again and succeeds', pocol_network_summary($reorgOnce,$now)['metrics']['eligibleMiners']===2 && count($summaryCalls) === 4);
+$summaryCalls = [];
+rejected('a snapshot inconsistent twice fails the refresh', static fn()=>pocol_network_summary($mixed,$now));
+check('the inconsistent snapshot was read exactly twice', count($summaryCalls) === 4 && POCOL_SUMMARY_REORG_RETRIES === 1);
 // 10,000 members cost the same two requests as five (deploy/websites/tests/network_budget.py replays them through the
 // gateway's own token bucket).
 $summaryCalls = [];
@@ -239,6 +251,31 @@ $envelope = json_encode(['jsonrpc'=>'2.0','id'=>1,'result'=>$reward]);
 check('v3 gateway envelope accepted', pocol_reward_envelope($envelope,$now)['blockHeight']===3);
 rejected('gateway error envelope refused', static fn()=>pocol_reward_envelope(json_encode(['jsonrpc'=>'2.0','id'=>1,'error'=>['code'=>-32021,'message'=>'busy']]),$now));
 rejected('reply over the gateway cap refused', static fn()=>pocol_reward_envelope(str_repeat(' ',POCOL_REWARD_MAX_REPLY+1),$now));
+// Final review (2026-11-22): the reward read and the network summary share pocol.net's per-client gateway budget. The
+// reward cache lasts 6 s (network_budget.py replays both), and a busy refusal (HTTP 429) is sent once more after its
+// Retry-After (1 to 3 s); any other failure is final at once.
+check('the reward cache lasts 6 s; a busy read is resent once', POCOL_REWARD_CACHE_TTL === 6 && POCOL_REWARD_BUSY_RETRIES === 1 && POCOL_REWARD_FAILURE_PAUSE === 3);
+$fresh = clone $reward; $fresh->fetchedAt = gmdate('Y-m-d\TH:i:s\Z', time());
+$okReply = json_encode(['jsonrpc'=>'2.0','id'=>1,'result'=>$fresh]);
+$posts = 0; $slept = [];
+$answers = static function(array $list) use (&$posts): callable { return static function() use (&$posts, $list): array { return $list[min($posts++, count($list)-1)]; }; };
+$napR = static function(float $s) use (&$slept): void { $slept[] = $s; };
+check('a busy reward read is resent after its Retry-After', pocol_reward_fetch($answers([[429,3.0,null],[200,0.0,$okReply]]),$napR)['blockHeight']===3 && $posts===2 && $slept===[3.0]);
+$posts = 0; $slept = [];
+pocol_reward_fetch($answers([[429,60.0,null],[200,0.0,$okReply]]),$napR);
+check('the reward wait is at most 3 s', $slept===[3.0]);
+$posts = 0; $slept = [];
+pocol_reward_fetch($answers([[429,0.0,null],[200,0.0,$okReply]]),$napR);
+check('a reward refusal without Retry-After waits 1 s', $slept===[1.0]);
+$posts = 0; $slept = [];
+rejected('a reward read busy twice fails', static fn()=>pocol_reward_fetch($answers([[429,3.0,null],[429,3.0,null],[200,0.0,$okReply]]),$napR));
+check('it was sent twice and waited once', $posts===2 && $slept===[3.0]);
+$posts = 0; $slept = [];
+rejected('a reward read that failed otherwise is not resent', static fn()=>pocol_reward_fetch($answers([[503,3.0,null],[200,0.0,$okReply]]),$napR));
+check('a 503 was sent once without a wait', $posts===1 && $slept===[]);
+$posts = 0;
+rejected('a failed connection is not resent', static fn()=>pocol_reward_fetch($answers([[0,0.0,null],[200,0.0,$okReply]]),$napR));
+check('a failed connection was sent once', $posts===1);
 
 $base=sys_get_temp_dir().'/pocol-php-audit-'.bin2hex(random_bytes(8));
 mkdir($base,0700);
@@ -255,6 +292,12 @@ try {
     mkdir($base.'/shared',0777);chmod($base.'/shared',0777);
     rejected('shared-writable summary cache refused',static fn()=>pocol_network_cached($loader,$now,$base.'/shared'));
     rejected('shared-writable reward cache refused',static fn()=>pocol_reward_cached(static fn()=>(array)$reward,$now,$base.'/shared'));
+    $rloads=0; $rewardSnap = pocol_reward_validate($reward,$now);
+    $rloader=static function()use(&$rloads,$reward):array{$rloads++;return (array)$reward;};
+    pocol_reward_cached($rloader,$now,$base.'/reward');
+    check('the reward cache is reused for 6 s', pocol_reward_cached($rloader,$now+5,$base.'/reward')===$rewardSnap && $rloads===1);
+    pocol_reward_cached($rloader,$now+6,$base.'/reward');
+    check('the reward cache is read again after 6 s', $rloads===2);
     symlink($base.'/summary',$base.'/link');
     rejected('symlink cache directory refused',static fn()=>pocol_network_cached($loader,$now,$base.'/link'));
     symlink($base.'/outside.json',$base.'/summary/refresh.lock.swap');

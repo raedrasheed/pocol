@@ -35,6 +35,9 @@ const HERE = dirname(fileURLToPath(import.meta.url)), EXT = dirname(HERE), POCOL
 const POCOLD = process.env.POCOLD || join(POCOLD_DIR, 'target', 'release', 'pocold');
 const BIN_DIR = process.env.POCOL_BIN_DIR || dirname(POCOLD);
 const PW_MODULE = process.env.PLAYWRIGHT_MODULE || '/opt/node-tools/node_modules/playwright/index.mjs';
+// The wait for the popup's first connected status (final review, 2026-11-22: one integration run timed out at 30 s while
+// other suites loaded the machine; CI runs this beside other jobs).
+const CONNECT_MS = Number(process.env.WALLET_E2E_CONNECT_MS || 90000);
 const { chromium } = await import(PW_MODULE);
 const PROXY = 8597, PASSWORD = 'wallet-browser-test-1';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -128,7 +131,7 @@ async function main() {
     // The popup lists the profile added in Settings after it was opened (the list is read on every refresh).
     await wait(async () => (await popup.$$eval('#network option', (o) => o.map((x) => x.value))).includes('devnet'), 15000, 'devnet listed in the popup');
     await popup.selectOption('#network', 'devnet');
-    await wait(async () => /^Connected/.test(await text(popup, '#netText')), 30000, 'popup connected');
+    await wait(async () => /^Connected/.test(await text(popup, '#netText')), CONNECT_MS, 'popup connected');
     const status = await text(popup, '#netText'), detail = await text(popup, '#netDetail');
     ok('popup: connected, chain ID and genesis match, block height and age', /chain ID and genesis match · block \d+, \d+ s ago/.test(status) && detail.includes(`Chain ID ${cid}`) && detail.includes(`http://127.0.0.1:${PROXY}`), status + ' | ' + detail);
     await wait(async () => (await text(popup, '#balance')) === '2 PCOL', 30000, 'balance');

@@ -61,6 +61,15 @@ test('the store images have the store sizes and the screenshots record the build
   assert.equal(provenance.name, manifest.name);
   // A placeholder render is never presented as ready: the README says to render again before uploading.
   if (provenance.placeholderBuild) assert.match(readme, /must be rendered again \(step 4\) before upload/);
+  // STORE-02 (final review, 2026-11-22): once the tree pins a release network (no D1 placeholder mark), the committed
+  // screenshots must come from such a build, and the toolbar wallet and its Send page are among them.
+  const placeholderTree = readFileSync(join(EXT, 'src', 'lib', 'studio-network.js'), 'utf8').includes('NETWORK_PLACEHOLDER');
+  if (!placeholderTree) {
+    assert.equal(provenance.placeholderBuild, false, 'the screenshots show the placeholder build although the tree pins the release network');
+    assert.equal(provenance.version, manifest.version, 'the screenshots show another extension version');
+    for (const name of ['01-wallet-popup.png', '02-send.png']) assert.ok(provenance.screenshots.includes(name), name);
+  }
+  for (const name of provenance.screenshots) assert.ok(listing.includes(name), `listing.md names ${name}`);
 });
 
 test('the store materials name no chain ID or genesis hash (the network is the release build\'s)', () => {

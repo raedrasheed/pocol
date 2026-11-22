@@ -187,7 +187,9 @@ Steps, from a checkout of the release commit:
    that `deploy/websites/site-identity.json` pins (PoCol Mainnet's, set by the step-7 identity switch).
 2. The observer node: `sudo python3 deploy/explorer/install_observer_node.py --invitation network.pocol.json
    --invitation-sha256 a74c1cf4... --pocold ./pocold --pocold-sha256 <release digest> --check`, then the same command
-   without `--check`. It prints `INSTALLED` once the node answers for PoCol Mainnet with no miner.
+   without `--check`. It prints `INSTALLED` once the node answers for PoCol Mainnet with no miner. Run it from the
+   repository checkout: it refuses an invitation whose chain ID and genesis hash are not the ones
+   `deploy/websites/site-identity.json` pins (`--other-network` is only for a test network).
 3. Wait for the sync: `curl -s -X POST -H 'Content-Type: application/json' --data
    '{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}' http://127.0.0.1:8545`. The head height must grow
    and the node must have peers. The gateway can be installed while it syncs; its pages show the node's head.

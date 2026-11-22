@@ -1,12 +1,13 @@
 {
-  "version": "0.4.1",
+  "version": "0.5.0",
   "name": "PoCol Studio, IDE & Viewer",
-  "placeholderBuild": true,
-  "studioNetworkSha256": "9b2ec859c6f0ef23356741e88f07c4dfdd6a510c812c5dc446353d41b05bb378",
+  "placeholderBuild": false,
+  "studioNetworkSha256": "193910c5bcb091d1ca81632252d885d8a5f62c66b0b202dbca5fd39e63e2d5f4",
   "screenshots": [
-    "01-settings.png",
-    "02-studio-publisher.png",
-    "03-studio-wallet.png",
-    "04-ide-contract.png"
+    "01-wallet-popup.png",
+    "02-send.png",
+    "03-settings.png",
+    "04-studio-publisher.png",
+    "05-ide-contract.png"
   ]
 }

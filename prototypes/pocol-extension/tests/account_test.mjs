@@ -397,3 +397,48 @@ test('EXT-08: a Studio page\'s openSite opens the viewer on a confirmation, neve
   const viewer = readFileSync(join(dist, 'viewer.js'), 'utf8');
   assert.match(viewer, /get\('confirm'\) !== 'studio'/); assert.match(viewer, /if \(!e\.isTrusted\) return;/); assert.match(viewer, /gate\(\)\.then\(start\)/);
 });
+
+// Final review (2026-11-22): the content scripts on studio.pocol.net and ide.pocol.net must not read or write
+// chrome.storage.local (the vault, history, profiles, jobs); Chrome allows it unless the worker restricts the area.
+test('final review: the worker restricts storage.local to the extension\'s own pages and itself on every start', async () => {
+  const w = await world();
+  assert.equal(w.mock.storage.accessLevel, 'TRUSTED_CONTEXTS');
+  const src = readFileSync(join(dist, 'sw.js'), 'utf8');
+  assert.match(src, /setAccessLevel\(STORAGE_ACCESS\)/); assert.match(src, /accessLevel: 'TRUSTED_CONTEXTS'/);
+  for (const f of ['studio-content.js', 'ide-content.js']) assert.doesNotMatch(readFileSync(join(dist, f), 'utf8'), /chrome\.storage/, f + ' needs no storage');
+});
+
+// Final review: the toolbar's Lock locks every page holding a decrypted key, through a storage signal the pages watch.
+test('final review: account.lock writes the lock signal the Studio and IDE pages watch; an unlock or a timeout does not', async () => {
+  const VG = await L('vault-guard.js');
+  assert.equal(VG.PASSWORD_MIN, A.PASSWORD_MIN, 'vault-guard.js and account.js agree on the password minimum');
+  const w = await world();
+  await w.options({ type: 'account.import', kind: 'privateKey', privateKey: KEY2, password: PW });
+  assert.equal(w.mock.storage.data.has(VG.LOCK_SIGNAL_KEY), false, 'an import signals no lock');
+  const seen = []; VG.watchLockSignal(chrome, () => seen.push('lock'));
+  await w.popup({ type: 'account.unlock', password: PW }); assert.deepEqual(seen, []);
+  await w.popup({ type: 'account.lock' });
+  const first = w.mock.storage.data.get(VG.LOCK_SIGNAL_KEY); assert.ok(first && Number.isInteger(first.at) && typeof first.id === 'string');
+  assert.deepEqual(seen, ['lock']);
+  await w.popup({ type: 'account.lock' }); assert.notEqual(w.mock.storage.data.get(VG.LOCK_SIGNAL_KEY).id, first.id, 'every Lock is a new signal');
+  assert.deepEqual(seen, ['lock', 'lock']);
+});
+
+test('final review: vault-guard saves a page\'s vault only when none is saved, and never replaces another wallet', async () => {
+  const VG = await L('vault-guard.js');
+  const data = new Map(), storage = { get: async (k) => (data.has(k) ? { [k]: structuredClone(data.get(k)) } : {}), set: async (o) => { for (const [k, v] of Object.entries(o)) data.set(k, structuredClone(v)); } };
+  const A1 = '0x' + 'a1'.repeat(20), B1 = '0x' + 'b1'.repeat(20);
+  assert.deepEqual(await VG.saveVaultIfNone(storage, A1, async () => ({ address: A1, ct: 'one' })), { state: 'saved' });
+  assert.deepEqual(await VG.saveVaultIfNone(storage, A1.toUpperCase().replace('0X', '0x'), async () => { throw new Error('not called'); }), { state: 'same' });
+  let made = 0;
+  assert.deepEqual(await VG.saveVaultIfNone(storage, B1, async () => { made++; return { address: B1, ct: 'two' }; }), { state: 'other', saved: A1 });
+  assert.equal(made, 0); assert.equal(data.get(VG.VAULT_KEY).ct, 'one');
+  // A wallet saved by another tab while this one encrypted is not overwritten either.
+  data.clear();
+  assert.deepEqual(await VG.saveVaultIfNone(storage, B1, async () => { data.set(VG.VAULT_KEY, { address: A1, ct: 'raced' }); return { address: B1, ct: 'two' }; }), { state: 'other', saved: A1 });
+  assert.equal(data.get(VG.VAULT_KEY).ct, 'raced');
+  assert.throws(() => VG.checkNewPassword('short', 'short'), /at least 10/);
+  assert.throws(() => VG.checkNewPassword('long-enough-1', 'long-enough-2'), /differ/);
+  VG.checkNewPassword('long-enough-1', 'long-enough-1');
+  assert.match(VG.createRefusal(A1), new RegExp(`already saved in this browser \\(${A1}\\).*Nothing was changed`));
+});

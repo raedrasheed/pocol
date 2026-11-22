@@ -1,5 +1,5 @@
 // Public contract intents; signing stays in a trusted extension confirmation page.
-import { Interface, Fragment, Transaction, getAddress, getCreateAddress, keccak256, toUtf8Bytes } from '../vendor/ethers.js';
+import { Interface, Fragment, Transaction, AbiCoder, getAddress, getCreateAddress, keccak256, toUtf8Bytes } from '../vendor/ethers.js';
 import { NETWORK } from './studio-network.js';
 import { identityDifference, describeDifference } from './identity.js';
 export const IDE_JOB_PREFIX = 'ide:job:';
@@ -85,6 +85,39 @@ export function validateContractRequest(input) {
   } catch(error) { if(error.code && ['INVALID_REQUEST','NON_PAYABLE'].includes(error.code))throw error;fail('Contract arguments do not match the ABI: '+String(error.shortMessage||error.message).slice(0,200),'INVALID_REQUEST'); }
   const request={schema:1,action:input.action,title,abi:clone(input.abi),bytecode,args,valueWei,to,method,data:data.toLowerCase()};
   request.requestHash=keccak256(toUtf8Bytes(JSON.stringify(request)));return request;
+}
+// Final review (2026-11-22): the confirmation page shows every argument, decoded from the exact data that is signed
+// (request.data: the call data, or the creation bytecode followed by the encoded constructor arguments), not the IDE's
+// title or a collapsed JSON section. Methods that let another address move or spend the account's tokens get a warning.
+const MAX_UINT256 = (1n << 256n) - 1n;
+const SPEND_METHODS = new Set(['approve', 'increaseAllowance', 'setApprovalForAll', 'transfer', 'transferFrom', 'safeTransferFrom', 'permit', 'delegate']);
+function shownValue(param, value) {
+  if (param.baseType === 'array') return '[' + Array.from(value, item => shownValue(param.arrayChildren, item)).join(', ') + ']';
+  if (param.baseType === 'tuple') return '(' + param.components.map((c, i) => (c.name ? c.name + ': ' : '') + shownValue(c, value[i])).join(', ') + ')';
+  if (param.type === 'address') return getAddress(value);
+  if (/^u?int\d*$/.test(param.type)) { const n = BigInt(value); return n.toString() + (param.type === 'uint256' && n === MAX_UINT256 ? ' (the largest uint256: an unlimited amount)' : ''); }
+  if (param.type === 'bool') return value ? 'true' : 'false';
+  if (param.type === 'string') return JSON.stringify(String(value));
+  return String(value).toLowerCase();
+}
+/** The arguments of a validated contract request, decoded from its signed data: [{name, type, value}], plus the
+ *  warnings the page shows next to them. Throws when the data does not decode under the request's ABI. */
+export function contractArguments(request) {
+  const iface = new Interface(request.abi);
+  let fragment, values;
+  if (request.action === 'deploy') {
+    assert(typeof request.bytecode === 'string' && typeof request.data === 'string' && request.data.startsWith(request.bytecode), 'The deployment data does not start with its bytecode', 'INVALID_REQUEST');
+    fragment = iface.deploy; values = AbiCoder.defaultAbiCoder().decode(fragment.inputs, '0x' + request.data.slice(request.bytecode.length));
+  } else {
+    fragment = iface.getFunction(request.method); assert(fragment, 'Unknown contract method', 'INVALID_REQUEST');
+    values = iface.decodeFunctionData(fragment, request.data);
+  }
+  const args = fragment.inputs.map((param, i) => ({ name: param.name || `argument ${i + 1}`, type: param.format('sighash'), value: shownValue(param, values[i]) }));
+  const warnings = [];
+  if (request.action === 'call' && SPEND_METHODS.has(fragment.name)) warnings.push(`${fragment.name} can let another address spend or move tokens of this account. Check every argument above before you approve.`);
+  if (args.some(a => a.value.includes('(the largest uint256'))) warnings.push('An amount is the largest uint256 value, which contracts usually treat as unlimited.');
+  if (BigInt(request.valueWei || '0') > 0n) warnings.push('This transaction also sends PCOL to the contract (see "Value sent").');
+  return { args, warnings };
 }
 export function publicContractJob(job) {
   return {jobId:job.id,status:job.status,progress:job.progress||null,error:job.error||null,result:job.result||null};

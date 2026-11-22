@@ -106,3 +106,14 @@ $('acctSave').onclick = async () => {
   refreshAccount();
 };
 refreshAccount();
+
+// EXT-10 (final review, 2026-11-22): the Chrome Web Store build leaves out the native-wallet export helpers
+// (scripts/package-store.py STORE_OMIT), so their links are hidden when the files are not in this installation.
+export async function hideMissingHelpers(fetcher = fetch) {
+  for (const [id, path] of [['helperWin', 'tools/Export-Studio-Wallet.ps1'], ['helperLinux', 'tools/export-studio-wallet.py']]) {
+    let present = false;
+    try { present = (await fetcher(chrome.runtime.getURL(path), { method: 'HEAD' })).ok; } catch { present = false; }
+    if (!present) { $(id).hidden = true; $('helperNote').hidden = false; }
+  }
+}
+hideMissingHelpers().catch(() => {});

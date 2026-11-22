@@ -5,6 +5,11 @@ const $ = (id) => document.getElementById(id);
 const call = async (msg) => { try { return (await chrome.runtime.sendMessage(msg)) || { ok: false, error: { message: 'No answer from the extension' } }; } catch (e) { return { ok: false, error: { message: String(e?.message || e) } }; } };
 const errText = (r) => String(r?.error?.message || r?.error || 'Unknown error');
 let selected = null, status = null;
+// Final review (2026-11-22): refreshes overlap (the agreement's refresh still reads the built-in profile when the user
+// picks another one). Only the latest refresh may write the page; an earlier one that answers later is dropped, so the
+// popup never shows the status, balance or list of a profile that is no longer selected.
+let generation = 0;
+const current = (gen) => gen === generation;
 
 function dot(state) { $('netDot').className = 'dot ' + state; }
 function shortHash(h) { return typeof h === 'string' && h.length > 20 ? h.slice(0, 10) + '…' + h.slice(-8) : String(h ?? ''); }
@@ -21,9 +26,10 @@ async function loadNetworks() {
   $('network').replaceChildren(...list.map((p) => Object.assign(document.createElement('option'), { value: p.name, textContent: `${p.name === builtIn ? 'PoCol Mainnet (built-in)' : p.name} · chain ${p.chainId}`, selected: p.name === selected })));
 }
 
-async function renderNetwork() {
+async function renderNetwork(gen) {
   dot(''); $('netText').textContent = 'Checking…'; $('netDetail').textContent = '';
   const r = await call({ type: 'net.status', name: selected });
+  if (!current(gen)) return null;
   if (!r.ok) { dot('bad'); $('netText').textContent = errText(r); return r; }
   const detail = [`Chain ID ${r.chainId}`, `endpoint ${r.endpoint}`, `genesis ${shortHash(r.genesisHash)}`];
   if (r.placeholder) { dot('warn'); $('netText').textContent = 'Not connected: this build pins a placeholder, not PoCol Mainnet'; $('netDetail').textContent = detail.join(' · ') + '\n' + r.note; return r; }
@@ -36,8 +42,10 @@ async function renderNetwork() {
   return r;
 }
 
-async function renderAccount(net) {
-  status = await call({ type: 'account.status' });
+async function renderAccount(net, gen) {
+  const st = await call({ type: 'account.status' });
+  if (!current(gen)) return;
+  status = st;
   $('disclosure').hidden = !!status.disclosureAccepted;
   $('noWallet').hidden = !!status.exists; $('haveWallet').hidden = !status.exists;
   $('lockState').textContent = !status.exists ? 'No wallet' : status.unlocked ? 'Unlocked' : 'Locked';
@@ -49,6 +57,7 @@ async function renderAccount(net) {
   $('note').textContent = '';
   if (!status.disclosureAccepted) { $('balance').textContent = '—'; return; }
   const b = await call({ type: 'account.balance', name: selected });
+  if (!current(gen)) return;
   if (!b.ok) { $('balance').textContent = '—'; $('note').textContent = errText(b); }
   else if (b.placeholder) { $('balance').textContent = '—'; $('note').textContent = b.note; }
   else $('balance').textContent = b.pcol;
@@ -58,8 +67,9 @@ async function renderAccount(net) {
 }
 
 const STATUS_WORDS = { sending: 'sending', pending: 'pending', unknown: 'outcome unknown', included: 'included', failed: 'failed (included, reverted)', dropped: 'dropped (not included)', rejected: 'rejected by the node' };
-async function renderTxs(refresh = false) {
+async function renderTxs(refresh = false, gen = generation) {
   const r = await call({ type: refresh ? 'txs.refresh' : 'txs.list' });
+  if (!current(gen)) return;
   const list = (r.transactions || []).filter((t) => !status?.address || t.from === status.address).slice(0, 10);
   $('txs').replaceChildren(...list.map((t) => {
     const li = document.createElement('li');
@@ -73,11 +83,17 @@ function formatWei(v) {
 }
 
 async function refresh(refreshTxs = false) {
-  status = await call({ type: 'account.status' });
+  const gen = ++generation;
+  const st = await call({ type: 'account.status' });
+  if (!current(gen)) return;
+  status = st;
   await loadNetworks();
-  const net = status.disclosureAccepted ? await renderNetwork() : (() => { dot('warn'); $('netText').textContent = 'Waiting for your agreement below'; return null; })();
-  await renderAccount(net);
-  await renderTxs(refreshTxs && status.disclosureAccepted);
+  if (!current(gen)) return;
+  const net = status.disclosureAccepted ? await renderNetwork(gen) : (() => { dot('warn'); $('netText').textContent = 'Waiting for your agreement below'; return null; })();
+  if (!current(gen)) return;
+  await renderAccount(net, gen);
+  if (!current(gen)) return;
+  await renderTxs(refreshTxs && status.disclosureAccepted, gen);
 }
 
 $('network').onchange = () => { selected = $('network').value; try { localStorage.setItem('pocol:popup:network', selected); } catch { /* not kept */ } refresh(); };

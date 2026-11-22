@@ -9,6 +9,16 @@ const POCOL_REWARD_GENESIS = '0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b
 const POCOL_REWARD_UPSTREAM = 'https://explorer.pocol.net/rpc';
 // A v3 answer carries the block's own flows and, for a final block, every pot it settles: the gateway's reply cap.
 const POCOL_REWARD_MAX_REPLY = 4194304;
+// Final review (2026-11-22): pocol.net's server is one client of the explorer gateway (deploy/rewards/gateway.py
+// CLIENT_BURST 40 tokens, CLIENT_RATE 10 a second), and this read costs 20 tokens (COSTS pocol_getBlockReward). With a
+// 3-second cache it alone took 6.7 tokens a second, and with the network summary's 4.2 (api/network.php) more than the
+// client's 10: about one reward read in five was refused under steady visitors. The cache now lasts 6 seconds (3.3 tokens
+// a second), and a read the gateway refuses as busy (HTTP 429) is sent once more after its Retry-After (1 to 3 s).
+// deploy/websites/tests/network_budget.py replays both pages' reads through the real Gateway.charge.
+const POCOL_REWARD_CACHE_TTL = 6;
+const POCOL_REWARD_FAILURE_PAUSE = 3;
+const POCOL_REWARD_BUSY_RETRIES = 1;
+const POCOL_REWARD_BUSY_WAIT_MAX = 3.0;
 const POCOL_REWARD_UINT256_MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
 
 function pocol_reward_fail(): never {
@@ -122,11 +132,26 @@ function pocol_reward_envelope(string $raw, ?int $now = null): array {
     return pocol_reward_validate($reply->result, $now);
 }
 
-function pocol_reward_fetch(): array {
+/** The gateway's read; `$post` (tests) replaces the HTTPS request and returns [HTTP status, Retry-After seconds, body].
+ * A busy answer (HTTP 429) is sent again after its Retry-After (at least 1 s, at most POCOL_REWARD_BUSY_WAIT_MAX), at
+ * most POCOL_REWARD_BUSY_RETRIES times; any other failure fails at once. */
+function pocol_reward_fetch(?callable $post = null, ?callable $sleep = null): array {
+    $post ??= 'pocol_reward_post';
+    $sleep ??= static function (float $s): void { usleep((int)round($s * 1e6)); };
+    for ($retry = 0; ; $retry++) {
+        [$code, $retryAfter, $raw] = $post();
+        if ($code === 429 && $retry < POCOL_REWARD_BUSY_RETRIES) { $sleep(min(POCOL_REWARD_BUSY_WAIT_MAX, max(1.0, (float)$retryAfter))); continue; }
+        if ($code !== 200 || !is_string($raw)) pocol_reward_fail();
+        return pocol_reward_envelope($raw);
+    }
+}
+
+/** One HTTPS POST of the fixed read: [HTTP status (0 when the request failed), Retry-After seconds, body]. */
+function pocol_reward_post(): array {
     if (!extension_loaded('curl')) pocol_reward_fail();
     $handle = curl_init(POCOL_REWARD_UPSTREAM);
     if ($handle === false) pocol_reward_fail();
-    $raw = '';
+    $raw = ''; $retryAfter = 0.0;
     try {
         curl_setopt_array($handle, [
             CURLOPT_POST=>true,
@@ -139,13 +164,17 @@ function pocol_reward_fetch(): array {
                 if (strlen($raw) + strlen($chunk) > POCOL_REWARD_MAX_REPLY) return 0;
                 $raw .= $chunk; return strlen($chunk);
             },
+            CURLOPT_HEADERFUNCTION=>static function ($unused, string $line) use (&$retryAfter): int {
+                if (preg_match('/^Retry-After:\s*([0-9]{1,3})\s*$/i', $line, $m) === 1) $retryAfter = (float)$m[1];
+                return strlen($line);
+            },
         ]);
-        if (curl_exec($handle) === false || curl_getinfo($handle, CURLINFO_HTTP_CODE) !== 200) pocol_reward_fail();
-        return pocol_reward_envelope($raw);
+        if (curl_exec($handle) === false) return [0, 0.0, null];
+        return [(int)curl_getinfo($handle, CURLINFO_HTTP_CODE), $retryAfter, $raw];
     } finally { curl_close($handle); }
 }
 
-/** Three-second cache and nonblocking refresh lock. Expired data is never served. */
+/** A POCOL_REWARD_CACHE_TTL-second cache and nonblocking refresh lock. Expired data is never served. */
 function pocol_reward_cached(callable $loader, ?int $now = null, ?string $directory = null): array {
     $clock = static fn(): int => $now ?? time();
     $directory ??= sys_get_temp_dir() . '/pocol-reward-' . substr(hash('sha256', __FILE__), 0, 24);
@@ -167,14 +196,14 @@ function pocol_reward_cached(callable $loader, ?int $now = null, ?string $direct
             try {
                 $saved = json_decode($raw, false, 32, JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING);
                 if (!is_object($saved) || !is_int($saved->cachedAt ?? null) || $saved->cachedAt > $clock()
-                    || $clock() - $saved->cachedAt >= 3) return null;
+                    || $clock() - $saved->cachedAt >= POCOL_REWARD_CACHE_TTL) return null;
                 return pocol_reward_validate($saved->snapshot ?? null, $clock());
             } catch (Throwable $error) { return null; }
         };
         $cached = $readCache(); if ($cached !== null) return $cached;
         $lastFailure = is_file($failure) ? @file_get_contents($failure, false, null, 0, 32) : false;
         if (is_string($lastFailure) && preg_match('/^[0-9]{1,16}$/D', $lastFailure) === 1
-            && (int)$lastFailure <= $clock() && $clock() - (int)$lastFailure < 3) pocol_reward_fail();
+            && (int)$lastFailure <= $clock() && $clock() - (int)$lastFailure < POCOL_REWARD_FAILURE_PAUSE) pocol_reward_fail();
         $lock = @fopen($lockFile, 'c'); if ($lock === false) pocol_reward_fail();
         try {
             if (!flock($lock, LOCK_EX | LOCK_NB)) pocol_reward_fail();

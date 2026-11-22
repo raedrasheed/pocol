@@ -1,11 +1,12 @@
 import { NETWORK } from './lib/studio-network.js';
 import { importKeyfile, exportKeyfile } from './lib/studio-keyfile.js';
 import { addressOf, signTx, LOCK_MS } from './lib/wallet.js';
-import { prepareContractReview, submitContractReview, checkContractReceipt } from './lib/contracts.js';
+import { prepareContractReview, submitContractReview, checkContractReceipt, contractArguments } from './lib/contracts.js';
 import { request as transportRequest, Pool, TRUST_POOL, RESERVE_WAIT_MS } from './lib/transport.js';
 import { withRetry } from './lib/retry.js';
 import { extendLease, JOB_DEADLINE_DEFAULT_MS } from './lib/lease.js';
 import { isForeignJob, networkOf } from './lib/jobs.js';
+import { saveVaultIfNone, savedVault, otherWalletNote, watchLockSignal } from './lib/vault-guard.js';
 
 const $ = id => document.getElementById(id);
 // The chain ID chip shows the built-in profile's chain ID (lib/studio-network.js), the one this page checks the node
@@ -15,6 +16,7 @@ const JOB_PREFIX = 'ide:job:', STUDIO_PREFIX = 'studio:job:', VAULT_KEY = 'studi
 const jobId = location.hash.slice(1), storageKey = JOB_PREFIX + jobId;
 const allowedOrigins = new Set(['https://ide.pocol.net']);
 const pool = new Pool(TRUST_POOL); let rpcId = 0;
+let argsShown = false, shownArguments = [];
 let job = null, review = null, secret = null, until = 0, jobDeadline = 0, busy = false, walletBusy = false, walletEpoch = 0, controller = null, writes = Promise.resolve(), storageFailure = false, checkingReceipt = false, nextReceiptCheck = 0;
 // W2: idempotent reads are retried on 429, -32021, 502/503/504, timeouts and dropped connections; eth_sendRawTransaction
 // is sent once. An attempt takes at most the pool wait plus its deadline, which the 60 s retry deadline counts.
@@ -54,9 +56,27 @@ function checkedJob(value) {
   if (!value || value.id !== jobId || !allowedOrigins.has(value.origin) || !value.request || !['deploy', 'call'].includes(value.request.action)) throw new Error('This contract request is missing or invalid. Open it again from PoCol IDE.');
   return value;
 }
+// Final review: every argument is shown, decoded from the data that is signed; without them nothing can be approved.
+const argumentLines = (list) => list.map(a => { const li = document.createElement('li'); li.textContent = `${a.name} (${a.type}) = ${a.value}`; return li; });
+function renderArguments() {
+  argsShown = false; shownArguments = [];
+  try {
+    const {args, warnings} = contractArguments(job.request);
+    shownArguments = args;
+    const none = () => { const li = document.createElement('li'); li.textContent = 'No arguments'; return [li]; };
+    $('arguments').replaceChildren(...(args.length ? argumentLines(args) : none()));
+    $('argumentWarnings').textContent = warnings.join('\n'); $('argumentWarnings').hidden = !warnings.length;
+    argsShown = true;
+  } catch (error) {
+    $('arguments').replaceChildren();
+    $('argumentWarnings').textContent = 'The arguments could not be decoded from the transaction data, so this request cannot be signed: ' + errorMessage(error);
+    $('argumentWarnings').hidden = false;
+  }
+}
 function renderReview() {
   $('reviewDetails').hidden = !review;
   if (!review) return;
+  $('reviewArguments').replaceChildren(...argumentLines(shownArguments));
   $('from').textContent = review.from;
   $('toLabel').textContent = review.predictedAddress ? 'Expected contract address' : 'Contract';
   $('to').textContent = review.predictedAddress || review.to || review.tx.to || 'Contract creation';
@@ -79,10 +99,10 @@ function render() {
   $('keyfile').disabled = busy || walletBusy || !job;
   $('password').disabled = busy || walletBusy || !job;
   $('lock').disabled = !secret && !walletBusy;
-  $('prepare').disabled = busy || walletBusy || storageFailure || !unlocked || !job || done || signed;
+  $('prepare').disabled = busy || walletBusy || storageFailure || !unlocked || !job || done || signed || !argsShown;
   $('prepare').textContent = review && !signed ? 'Refresh transaction review' : 'Prepare transaction review';
   $('consent').disabled = busy || walletBusy || storageFailure || !unlocked || !review || done || (!signed && expired);
-  $('confirm').disabled = busy || walletBusy || checkingReceipt || storageFailure || !unlocked || !review || done || !$('consent').checked || (!signed && expired);
+  $('confirm').disabled = busy || walletBusy || checkingReceipt || storageFailure || !unlocked || !review || done || !$('consent').checked || (!signed && expired) || (!signed && !argsShown);
   $('confirm').textContent = signed ? 'Resume saved transaction' : 'Confirm & sign transaction';
   $('pause').disabled = !busy;
   $('cancel').disabled = busy || walletBusy || storageFailure || !job || done || hasSigned(job);
@@ -108,7 +128,7 @@ async function walletAction(action) {
   $('consent').checked = false;
   if (!signedRecord(job)) { review = null; renderReview(); }
   render(); $('walletNote').textContent = 'Unlocking your wallet locally…';
-  try { await action(epoch); checkEpoch(epoch); $('walletNote').textContent = 'Unlocked locally. This wallet locks after 15 minutes or when you close the tab.'; }
+  try { const note = await action(epoch); checkEpoch(epoch); $('walletNote').textContent = (note ? note + ' ' : '') + 'Unlocked locally. This wallet locks after 15 minutes, when you close the tab, or when you lock the PoCol wallet from the toolbar.'; }
   catch (error) { $('walletNote').textContent = errorMessage(error); }
   finally { walletBusy = false; render(); }
 }
@@ -121,23 +141,28 @@ $('unlock').onclick = () => walletAction(async epoch => {
       if (file.size > 16384) throw new Error('Wallet file exceeds the supported size.');
       bytes = new Uint8Array(await file.arrayBuffer());
     } else {
-      const vault = (await chrome.storage.local.get(VAULT_KEY))[VAULT_KEY];
+      const vault = await savedVault(chrome.storage.local);
       checkEpoch(epoch);
       if (!vault) throw new Error('Choose your existing PoCol wallet file first.');
       bytes = new TextEncoder().encode(JSON.stringify(vault));
     }
     key = await importKeyfile(bytes, password); checkEpoch(epoch);
     if (job?.walletAddress && hasSigned(job) && addressOf(key).toLowerCase() !== job.walletAddress.toLowerCase()) throw new Error('Unlock the original signing wallet to resume this saved transaction.');
+    let note = null;
     if (file) {
-      const vault = await exportKeyfile(key, password); checkEpoch(epoch);
-      await chrome.storage.local.set({[VAULT_KEY]: vault}); checkEpoch(epoch);
+      // Final review: a file's wallet is saved only when no wallet is saved; another saved wallet is never replaced here.
+      const address = addressOf(key), saved = await saveVaultIfNone(chrome.storage.local, address, () => exportKeyfile(key, password)); checkEpoch(epoch);
+      if (saved.state === 'other') note = otherWalletNote(address, saved.saved);
       $('keyfile').value = '';
     }
     if (secret) secret.fill(0);
     secret = key; key = null; until = Date.now() + LOCK_MS; $('password').value = '';
+    return note;
   } finally { bytes?.fill(0); key?.fill(0); }
 });
 $('lock').onclick = lock;
+// The toolbar's (or the settings') Lock locks this page too.
+watchLockSignal(chrome, () => { if (secret || walletBusy) lock(); });
 $('consent').onchange = render;
 $('pause').onclick = () => controller?.abort();
 
@@ -214,7 +239,7 @@ async function underAccountLock(address, action) {
   });
 }
 $('prepare').onclick = async () => {
-  if (busy || walletBusy || storageFailure || !secret || Date.now() >= until || terminal(job) || signedRecord(job)) return;
+  if (busy || walletBusy || storageFailure || !secret || Date.now() >= until || terminal(job) || signedRecord(job) || !argsShown) return;
   const epoch = walletEpoch, address = currentAddress(); busy = true; controller = new AbortController(); $('consent').checked = false; $('earlierJob').hidden = true; render(); status('Checking PoCol and preparing the transaction…');
   try {
     await underJobLock(async () => {
@@ -232,7 +257,7 @@ $('prepare').onclick = async () => {
   finally { busy = false; controller = null; render(); }
 };
 $('confirm').onclick = async () => {
-  if (busy || walletBusy || checkingReceipt || storageFailure || !secret || Date.now() >= until || !review || terminal(job) || !$('consent').checked) return;
+  if (busy || walletBusy || checkingReceipt || storageFailure || !secret || Date.now() >= until || !review || terminal(job) || !$('consent').checked || (!signedRecord(job) && !argsShown)) return;
   if (!signedRecord(job) && Date.now() >= review.expiresAt) { render(); return; }
   const address = currentAddress(), epoch = walletEpoch;
   // Sites W4 key lease: the approved job's signature extends the lock by LOCK_MS, at most to its deadline.
@@ -318,6 +343,7 @@ async function init() {
   $('method').textContent = job.request.action === 'deploy' ? 'Deploy creation bytecode' : job.request.method || 'Contract call';
   $('destination').textContent = job.request.to || 'New contract address, derived from your account and nonce';
   $('intent').textContent = stringify(job.request);
+  renderArguments();
   const vault = (await chrome.storage.local.get(VAULT_KEY))[VAULT_KEY];
   if (vault) $('walletNote').textContent = 'Your encrypted Studio wallet is already saved. Enter its password without choosing another file.';
   renderReview();

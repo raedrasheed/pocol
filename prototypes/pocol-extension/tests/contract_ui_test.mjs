@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { withRetry } from '../src/lib/retry.js';
 
-const LEASE = await import('../dist/lib/lease.js'), JOBS = await import('../dist/lib/jobs.js');
+const LEASE = await import('../dist/lib/lease.js'), JOBS = await import('../dist/lib/jobs.js'), VG = await import('../dist/lib/vault-guard.js'), CONTRACTS = await import('../dist/lib/contracts.js');
 const SOURCE = readFileSync(new URL('../src/contract-ui.js', import.meta.url), 'utf8').replace(/^import .*;\n/gm, '').replace(/^init\(\)\.catch\(.*\);\n?$/m, '');
 const HTML = readFileSync(new URL('../src/contract.html', import.meta.url), 'utf8');
 const JOB_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -18,8 +18,9 @@ async function fixture(options = {}) {
   const elements = new Map([...HTML.matchAll(/id="([^"]+)"/g)].map(match => [match[1], makeElement(match[1])]));
   const state = { prepared:0, submitted:0, signed:0, locks:[], generatedKeys:[], ...options };
   const baseReview = {from:ADDRESS,to:null,predictedAddress:'0x2222222222222222222222222222222222222222',gas:'100000',valueWei:'0',maxFeeWei:'100000000000000',maxCostWei:'100000000000000',calldataHash:HASH,dataBytes:2,expiresAt:121000,requestHash:HASH,tx:{chainId:'2656089850',nonce:'0',maxPriority:'1000000000',maxFee:'1000000000',gas:'100000',to:null,value:'0',data:'0x6000'}};
-  const job = {id:JOB_ID,origin:'https://ide.pocol.net',request:{schema:1,action:'deploy',title:'Counter',bytecode:'0x6000',abi:[],args:[],valueWei:'0'},status:'awaitingApproval',...options.job};
-  const storage = new Map([[KEY,structuredClone(job)],['studio:wallet',{schema:'pocol-studio-vault-v1'}]]);
+  const job = {id:JOB_ID,origin:'https://ide.pocol.net',request:{schema:1,action:'deploy',title:'Counter',bytecode:'0x6000',abi:[],args:[],valueWei:'0',data:'0x6000'},status:'awaitingApproval',...options.job};
+  const storage = new Map([[KEY,structuredClone(job)],...(options.noVault?[]:[['studio:wallet',options.vault||{schema:'pocol-studio-vault-v1'}]])]);
+  const changed = [];
   if(options.otherJob)storage.set(options.otherJob[0],options.otherJob[1]);
   let tick; const listeners = new Map();
   const globals = {
@@ -28,13 +29,13 @@ async function fixture(options = {}) {
     window:{addEventListener:(name,callback)=>listeners.set(name,callback)},setInterval:fn=>{tick=fn},
     NETWORK:{chainId:2656089850,genesisHash:'0x'+'ab'.repeat(32),endpoint:'https://explorer.pocol.net/studio/rpc'},LOCK_MS:900000,
     extendLease:LEASE.extendLease,JOB_DEADLINE_DEFAULT_MS:LEASE.JOB_DEADLINE_DEFAULT_MS,isForeignJob:JOBS.isForeignJob,networkOf:JOBS.networkOf,
-    addressOf:()=>ADDRESS, importKeyfile:async()=>{state.importEntered=true;const key = options.importGate ? await options.importGate : new Uint8Array(32).fill(7);state.generatedKeys.push(key);return key;}, exportKeyfile:async()=>({encrypted:true}),
+    addressOf:()=>ADDRESS, contractArguments:CONTRACTS.contractArguments, saveVaultIfNone:VG.saveVaultIfNone, savedVault:VG.savedVault, otherWalletNote:VG.otherWalletNote, watchLockSignal:VG.watchLockSignal, importKeyfile:async()=>{state.importEntered=true;const key = options.importGate ? await options.importGate : new Uint8Array(32).fill(7);state.generatedKeys.push(key);return key;}, exportKeyfile:async()=>({encrypted:true}),
     signTx:()=>{state.signed++;return{raw:'0x02',hash:HASH}}, Pool:class{},TRUST_POOL:1,RESERVE_WAIT_MS:2000,withRetry,transportRequest:async()=>{throw Error('No network should be used by this mocked UI test')},
     prepareContractReview:async()=>{state.prepared++;return baseReview},
     submitContractReview:async args=>{state.submitted++;state.submitArgs=args;return options.submit ? options.submit(args,state) : {state:'pending',hash:HASH,address:baseReview.predictedAddress,from:ADDRESS,receipt:null}},
     checkContractReceipt:async args=>{state.receiptChecks=(state.receiptChecks||0)+1;state.checkArgs=args;return options.checkReceipt?options.checkReceipt(args,state):{state:'pending',hash:HASH,address:baseReview.predictedAddress,from:ADDRESS,receipt:null}},
     navigator:{locks:{request:async(name,_options,action)=>{state.locks.push(name);return action(state.unavailableLock===name?null:{name})}}},
-    chrome:{runtime:{getURL:path=>'chrome-extension://test/'+path},storage:{local:{
+    chrome:{runtime:{getURL:path=>'chrome-extension://test/'+path},storage:{onChanged:{addListener:f=>changed.push(f)},local:{
       get:async key=>key===null?Object.fromEntries([...storage].map(([k,v])=>[k,structuredClone(v)])):{[key]:structuredClone(storage.get(key))},
       set:async values=>{if(state.failCheckpointWrites&&values[KEY]?.checkpoint)throw Error('Storage quota exceeded');for(const[k,v]of Object.entries(values))storage.set(k,structuredClone(v));},
     }}},
@@ -43,7 +44,8 @@ async function fixture(options = {}) {
   const click=async id=>elements.get(id).onclick();
   const unlock=async()=>{elements.get('password').value='test-password-only';await click('unlock');};
   const consent=()=>{elements.get('consent').checked=true;elements.get('consent').onchange();};
-  return {elements,storage,state,context,click,unlock,consent,review:baseReview,tick:()=>tick(),setNow:value=>{now=value},dispatch:name=>listeners.get(name)?.()};
+  return {elements,storage,state,context,click,unlock,consent,review:baseReview,tick:()=>tick(),setNow:value=>{now=value},dispatch:name=>listeners.get(name)?.(),
+    storageChange:(changes)=>{for(const f of changed)f(changes,'local');}};
 }
 
 test('the chain ID chip shows the built-in profile\'s chain ID; the page names no network of its own', async()=>{
@@ -180,4 +182,43 @@ test('W4: the approved contract job extends the key lease by LOCK_MS at its sign
   assert.equal(f.state.signed,1);assert.equal(vm.runInContext('until',f.context),601000+900000,'extended from the signature');
   assert.deepEqual(f.storage.get(KEY).network,{chainId:'2656089850',genesisHash:'0x'+'ab'.repeat(32)});
   assert.equal(vm.runInContext('extendLease(2000,1500,900000,5000)',f.context),5000,'never past the job deadline');
+});
+
+// Final review (2026-11-22): the contract page never replaces a saved PoCol wallet; the toolbar's Lock locks it; and
+// every argument, decoded from the signed data, is shown before anything can be approved.
+const SAVED = {schema:'pocol-studio-vault-v1',address:'0x'+'99'.repeat(20),ct:'saved'};
+const fileOf = () => [{size:10,arrayBuffer:async()=>new Uint8Array(10).buffer}];
+test('final review: unlocking with a file of another wallet keeps the saved wallet; with none saved the file is saved',async()=>{
+  const f=await fixture({vault:SAVED});f.elements.get('keyfile').files=fileOf();await f.unlock();
+  assert.deepEqual(f.storage.get('studio:wallet'),SAVED,'the saved wallet is unchanged');
+  assert.equal(f.elements.get('walletAddress').textContent,ADDRESS);assert.match(f.elements.get('walletNote').textContent,/unlocked in this tab only/);
+  const g=await fixture({noVault:true});g.elements.get('keyfile').files=fileOf();await g.unlock();
+  assert.deepEqual(g.storage.get('studio:wallet'),{encrypted:true},'with no wallet saved, the file becomes the saved wallet');
+  assert.doesNotMatch(HTML,/Your original wallet stays unchanged/);
+});
+test('final review: the toolbar\'s Lock locks the contract page, so it cannot sign',async()=>{
+  const f=await fixture();await f.unlock();await f.click('prepare');f.consent();assert.equal(f.elements.get('confirm').disabled,false);
+  f.storageChange({'wallet:lockSignal':{newValue:{at:1,id:'y'}}});
+  assert.equal(vm.runInContext('secret',f.context),null);assert.equal(f.elements.get('walletAddress').textContent,'Wallet locked');assert.equal(f.elements.get('confirm').disabled,true);
+  await f.click('confirm');assert.equal(f.state.signed,0);assert.equal(f.state.submitted,0);
+});
+const { Interface } = await import('ethers');
+const ERC20 = [{type:'function',name:'approve',stateMutability:'nonpayable',inputs:[{name:'spender',type:'address'},{name:'amount',type:'uint256'}],outputs:[{type:'bool'}]}];
+const SPENDER = '0x'+'ab'.repeat(20), MAX = ((1n<<256n)-1n).toString();
+const approveJob = (data) => ({request:{schema:1,action:'call',title:'Deploy HelloWorld (test build, no funds move)',abi:ERC20,args:[SPENDER,MAX],valueWei:'0',to:'0x'+'cd'.repeat(20),method:'approve(address,uint256)',bytecode:null,data}});
+const visible = (f) => [...f.elements.get('arguments').children.map(c=>c.textContent), f.elements.get('argumentWarnings').hidden ? '' : f.elements.get('argumentWarnings').textContent].join('\n');
+test('final review: every argument of the signed data is visible, with a warning for approve and an unlimited amount',async()=>{
+  const data = new Interface(ERC20).encodeFunctionData('approve',[SPENDER,MAX]);
+  const f=await fixture({job:approveJob(data)});
+  const text=visible(f);
+  assert.match(text,new RegExp('spender \\(address\\) = '+ '0x' + 'ab'.repeat(20),'i'),text);
+  assert.ok(text.includes('amount (uint256) = '+MAX+' (the largest uint256: an unlimited amount)'),text);
+  assert.match(text,/approve can let another address spend or move tokens/);assert.match(text,/unlimited/);
+  await f.unlock();await f.click('prepare');f.consent();assert.equal(f.elements.get('confirm').disabled,false);
+  assert.ok(f.elements.get('reviewArguments').children.some(c=>c.textContent.includes(MAX)),'the review repeats the arguments next to Confirm');
+});
+test('final review: data that does not decode under the ABI cannot be prepared or signed',async()=>{
+  const f=await fixture({job:approveJob('0x095ea7b3')});
+  assert.match(f.elements.get('argumentWarnings').textContent,/could not be decoded/);assert.equal(f.elements.get('argumentWarnings').hidden,false);
+  await f.unlock();assert.equal(f.elements.get('prepare').disabled,true);await f.click('prepare');assert.equal(f.state.prepared,0);
 });

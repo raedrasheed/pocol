@@ -102,7 +102,7 @@ class UnitTests(unittest.TestCase):
 
 class InstallTests(unittest.TestCase):
     def run_install(self, extra=(), raw=None, binary=b'\x7fELF fake pocold', identity=None, existing=None, gateway_network=None,
-                    fail=None, digest=None, invitation_digest=None):
+                    fail=None, digest=None, invitation_digest=None, pinned=None):
         """main() on temporary paths: (root, commands, printed, error). `identity` is what the node's RPC answers
         (default: the invitation's network, no miner); `existing(paths)` prepares a previous install."""
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
@@ -111,7 +111,12 @@ class InstallTests(unittest.TestCase):
         (root / 'in').mkdir()
         (root / 'in' / 'network.pocol.json').write_bytes(raw); (root / 'in' / 'pocold').write_bytes(binary)
         paths = dict(BASE=root / 'opt', CONFIG=root / 'etc', NETWORK_DIR=root / 'etc' / 'network', INVITATION=root / 'etc' / 'network.pocol.json',
-                     UNIT=root / 'observer.service', BACKUPS=root / 'backups', GATEWAY_NETWORK=root / 'gw' / 'network.json')
+                     UNIT=root / 'observer.service', BACKUPS=root / 'backups', GATEWAY_NETWORK=root / 'gw' / 'network.json',
+                     REPO_IDENTITY=root / 'repo' / 'site-identity.json')
+        # The repository's pinned identity: the test invitation's network unless a test says otherwise.
+        (root / 'repo').mkdir()
+        if pinned is not False:
+            paths['REPO_IDENTITY'].write_text(json.dumps(pinned or {'chainId': 777963, 'genesisHash': GENESIS}))
         if gateway_network is not None:
             (root / 'gw').mkdir(); paths['GATEWAY_NETWORK'].write_text(json.dumps(gateway_network))
         if existing:
@@ -202,6 +207,21 @@ class InstallTests(unittest.TestCase):
         self.assertEqual((root / 'opt' / 'pocold').read_bytes(), b'old')
         self.assertEqual((root / 'observer.service').read_text(), old_unit)
         self.assertEqual(commands[-1], ('systemctl', 'restart', observer.SERVICE))
+
+    def test_an_invitation_of_another_network_than_the_repository_pins_is_refused(self):
+        """Final review (2026-11-22): a valid invitation with a matching operator-supplied digest, but of another
+        network than site-identity.json pins, installs nothing unless --other-network says so."""
+        other = {'chainId': 4242, 'genesisHash': '0x' + '66' * 32}
+        root, commands, _, error = self.run_install(pinned=other)
+        self.assertIn('not the network this repository pins', error or '')
+        self.assertFalse((root / 'opt').exists()); self.assertEqual(commands, [])
+        root, commands, _, error = self.run_install(pinned=False)
+        self.assertIn('is missing', error or ''); self.assertFalse((root / 'opt').exists())
+        root, commands, _, error = self.run_install(extra=('--other-network',), pinned=other)
+        self.assertIsNone(error); self.assertTrue((root / 'opt' / 'pocold').is_file())
+        repo = Path(__file__).resolve().parents[1] / 'websites' / 'site-identity.json'
+        declared = json.loads(repo.read_text())
+        self.assertEqual(observer.pinned_identity(repo), (declared['chainId'], declared['genesisHash']), 'the installer reads the pin the websites use')
 
     def test_usage(self):
         full = ['--invitation', 'x', '--invitation-sha256', '1' * 64, '--pocold', 'y', '--pocold-sha256', '0' * 64]

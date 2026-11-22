@@ -12,8 +12,11 @@ upload in any case. This packager makes the store upload from the same dist/:
   - it runs every check of scripts/package-release.py first (check_release: the release name, MV3 at package.json's
     version, the exact permissions, host permissions, content scripts, background, sandbox and CSPs, no network
     placeholder, no retired network, the committed owner key), so it refuses whatever that packager refuses;
-  - the zip holds exactly the release zip's members with the same bytes, except manifest.json, which is the release
-    manifest without "key" (the other fields and their order unchanged, written as build.mjs writes it);
+  - the zip holds the release zip's members with the same bytes, except manifest.json, which is the release manifest
+    without "key" (the other fields and their order unchanged, written as build.mjs writes it), and except the
+    side-loading material (EXT-10, final review 2026-11-22): the wallet export helpers under tools/ and
+    README-STUDIO.md are left out, and README-EN.md and README-AR.md are store/install/'s store-install texts instead
+    of the Developer-mode ("Load unpacked") instructions. Settings hides its helper links when tools/ is absent;
   - the archive metadata is the release zip's (scripts/package-release.py write_release_zip), so the store zip is
     reproducible too, and its `<zip>.sha256` (integrity only) is written beside it.
 
@@ -51,6 +54,37 @@ REQUIRED = ['lib/forks.js', 'lib/rp.js', 'lib/refdec.js', 'lib/studio-network.js
             'vendor/ethers-LICENSE.md']
 
 
+# EXT-10: what a store user is never told to do (side-load, bypass PowerShell's policy), and the helpers it needs not.
+STORE_OMIT = frozenset({'tools/Export-Studio-Wallet.ps1', 'tools/export-studio-wallet.py', 'README-STUDIO.md'})
+STORE_TEXTS = {'README-EN.md': 'store/install/README-EN.md', 'README-AR.md': 'store/install/README-AR.md'}
+STORE_FORBIDDEN = ('Load unpacked', 'Developer mode', 'ExecutionPolicy Bypass')
+
+
+def store_members(dist, root):
+    """(name, bytes) of the store zip: the release members without STORE_OMIT, with STORE_TEXTS' files in place of the
+    READMEs and manifest.json without "key". Refuses a text member that still tells the user to side-load."""
+    members = []
+    for name, path in release.release_members(dist):
+        if name in STORE_OMIT:
+            continue
+        if name == 'manifest.json':
+            data = store_manifest(path.read_bytes())
+        elif name in STORE_TEXTS:
+            data = (Path(root) / STORE_TEXTS[name]).read_bytes()
+        else:
+            data = path.read_bytes()
+        if name.endswith(('.md', '.html', '.txt')):
+            text = data.decode('utf-8')
+            for phrase in STORE_FORBIDDEN:
+                if phrase in text:
+                    raise SystemExit(f'Refusing to package for the store: {name} says "{phrase}"')
+        members.append((name, data))
+    missing = sorted(set(STORE_TEXTS) - {name for name, _ in members})
+    if missing:
+        raise SystemExit('Refusing to package for the store: the build has no ' + ', '.join(missing))
+    return members
+
+
 def store_manifest(data):
     """The release manifest.json bytes without its "key" field, in build.mjs's form (JSON.stringify(m, null, 2) + LF)."""
     manifest = json.loads(data.decode('utf-8'))
@@ -71,14 +105,13 @@ def public_key_of(pem):
     return base64.b64encode(out.stdout).decode('ascii')
 
 
-def write_store_zip(dist, output, key_pem=None):
-    """Write the store zip of dist/ (release members, manifest.json without "key", plus key.pem when given) with the
-    release zip's fixed metadata; return its SHA-256. A zip without key.pem also gets its `<zip>.sha256`."""
+def write_store_zip(dist, output, key_pem=None, root=None):
+    """Write the store zip of dist/ (store_members, plus key.pem when given) with the release zip's fixed metadata;
+    return its SHA-256. A zip without key.pem also gets its `<zip>.sha256`."""
     dist, output = Path(dist), Path(output)
     if dist.resolve() in output.resolve().parents:
         raise SystemExit('Refusing to package for the store: the zip must be written outside dist/')
-    members = [(name, store_manifest(path.read_bytes()) if name == 'manifest.json' else path.read_bytes())
-               for name, path in release.release_members(dist)]
+    members = store_members(dist, root or HERE.parent)
     if key_pem is not None:
         if any(name == 'key.pem' for name, _ in members):
             raise SystemExit('Refusing to package for the store: dist/ already holds a key.pem')
@@ -123,14 +156,15 @@ def main(argv):
                              'release/manifest-key.pub, so the store item would not get the published extension id')
     stem = f'PoCol-Studio-IDE-Viewer-{version}-chrome-web-store'
     output = args.output or root / 'releases' / (stem + ('-first-upload.zip' if args.first_upload_key else '.zip'))
-    digest = write_store_zip(dist, output, args.first_upload_key)
+    digest = write_store_zip(dist, output, args.first_upload_key, root)
     print(f'{output}\nSHA-256 {digest}\n{output.stat().st_size} bytes\nextension id {release_id} (the side-loaded release\'s; the store item has it '
           f'only with the key.pem method, otherwise note the id the dashboard assigns)')
     if args.first_upload_key:
         print('CONTAINS THE PRIVATE KEY (key.pem): upload it once as the first upload, then delete it; never publish, sign or commit it')
     else:
-        print('Chrome Web Store upload: manifest.json without "key"; every other file is the release build. The store assigns the '
-              'item id at the first upload unless the owner chose the unofficial key.pem method (store/README.md)')
+        print('Chrome Web Store upload: manifest.json without "key", the store-install READMEs and no export helpers; every other '
+              'file is the release build. The store assigns the item id at the first upload unless the owner chose the unofficial '
+              'key.pem method (store/README.md)')
 
 
 if __name__ == '__main__':

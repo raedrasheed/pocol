@@ -29,6 +29,13 @@ const POCOL_SUMMARY_DEADLINE = 15;
 const POCOL_SUMMARY_BUSY_RETRIES = 2;
 const POCOL_SUMMARY_BUSY_WAIT_MAX = 3.0;
 
+// Final review (2026-11-22): the chain's tip can reorganise between the head read and the 20-block read (more likely
+// since a busy refusal waits 1 to 3 s between them). The whole snapshot (head, then blocks) is read again once, within
+// the same deadline, instead of failing the refresh; a second inconsistent snapshot fails it.
+const POCOL_SUMMARY_REORG_RETRIES = 1;
+/** The 20 blocks read are not the chain of the head read (a reorganisation in between). */
+final class PocolSummaryReorg extends RuntimeException {}
+
 /** The gateway refused a request as busy (HTTP 429): `wait` is its Retry-After in seconds (0 when it sent none). */
 final class PocolSummaryBusy extends RuntimeException {
     public function __construct(public readonly float $wait) { parent::__construct('Data service busy.'); }
@@ -183,8 +190,19 @@ function pocol_summary_deadline(callable $rpc, float $seconds = POCOL_SUMMARY_DE
     };
 }
 
-/** The injectable transport is only a PHP function argument, never a request parameter. */
+/** The injectable transport is only a PHP function argument, never a request parameter. A snapshot whose blocks do
+ * not follow its head (PocolSummaryReorg) is read again, at most POCOL_SUMMARY_REORG_RETRIES times. */
 function pocol_network_summary(callable $rpc, ?int $now = null): array {
+    for ($retry = 0; ; $retry++) {
+        try { return pocol_network_snapshot($rpc, $now); }
+        catch (PocolSummaryReorg $reorg) {
+            if ($retry >= POCOL_SUMMARY_REORG_RETRIES) throw new RuntimeException('Inconsistent chain snapshot.');
+        }
+    }
+}
+
+/** One snapshot: [status, params, counts], then the 20 blocks from the head down, which must be one chain. */
+function pocol_network_snapshot(callable $rpc, ?int $now = null): array {
     $initial = $rpc([
         pocol_summary_call(1, 'pocol_status'),
         pocol_summary_call(2, 'pocol_getParams'),
@@ -213,7 +231,7 @@ function pocol_network_summary(callable $rpc, ?int $now = null): array {
     foreach ($blocks as $i => $block) {
         if (!is_object($block) || pocol_summary_quantity($block->number ?? null) !== $height - $i
             || pocol_summary_hash($block->hash ?? null) !== $expectedHash) {
-            throw new RuntimeException('Inconsistent chain snapshot.');
+            throw new PocolSummaryReorg('Inconsistent chain snapshot.');
         }
         $timestamps[] = pocol_summary_quantity($block->timestamp ?? null);
         $expectedHash = pocol_summary_hash($block->parentHash ?? null);

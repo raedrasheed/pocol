@@ -21,6 +21,7 @@ const rel = build({ out: join(root, 'release') }).dist;
 const tree = join(root, 'tree');
 mkdirSync(join(tree, 'scripts'), { recursive: true });
 for (const f of ['package-release.py', 'package-store.py']) cpSync(join(EXT, 'scripts', f), join(tree, 'scripts', f));
+cpSync(join(EXT, 'store', 'install'), join(tree, 'store', 'install'), { recursive: true });
 writeFileSync(join(tree, 'package.json'), readFileSync(join(EXT, 'package.json')));
 // A throwaway RSA manifest key (Chrome's key type) in the tree's slot, with its private key for the first upload.
 const pair = (bits) => generateKeyPairSync('rsa', { modulusLength: bits });
@@ -79,8 +80,11 @@ test('the store zip is the release build with manifest.json without "key", repro
   assert.ok(readFileSync(a).equals(readFileSync(b)), 'two store zips of the same dist/ differ');
   assert.equal(readFileSync(a + '.sha256', 'utf8'), `${sha(readFileSync(a))}  store.zip\n`);
   const { members, manifest } = unzip(a), dist = join(tree, 'dist');
-  assert.deepEqual(Object.keys(members).sort(), names(dist), 'the store zip lists exactly the dist/ files');
-  for (const n of names(dist)) if (n !== 'manifest.json') assert.equal(members[n], sha(readFileSync(join(dist, n))), n);
+  // EXT-10: the store zip leaves out the side-loading material and carries the store-install READMEs.
+  const OMIT = ['README-STUDIO.md', 'tools/Export-Studio-Wallet.ps1', 'tools/export-studio-wallet.py'], TEXTS = { 'README-EN.md': 'README-EN.md', 'README-AR.md': 'README-AR.md' };
+  assert.deepEqual(Object.keys(members).sort(), names(dist).filter((n) => !OMIT.includes(n)), 'the store zip lists the dist/ files without the side-loading material');
+  for (const n of names(dist)) if (n !== 'manifest.json' && !OMIT.includes(n) && !TEXTS[n]) assert.equal(members[n], sha(readFileSync(join(dist, n))), n);
+  for (const [n, f] of Object.entries(TEXTS)) assert.equal(members[n], sha(readFileSync(join(EXT, 'store', 'install', f))), n + ' is the store-install text');
   const released = JSON.parse(readFileSync(join(dist, 'manifest.json'), 'utf8'));
   assert.equal(released.key, TEST_KEY);
   const { key: _, ...expected } = released;
@@ -90,6 +94,31 @@ test('the store zip is the release build with manifest.json without "key", repro
   const r = spawnSync('python3', ['-B', join(tree, 'scripts', 'package-release.py'), join(root, 'release.zip'), '--retired', RETIRED], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(JSON.parse(unzip(join(root, 'release.zip')).manifest).key, TEST_KEY);
+});
+
+// EXT-10 (final review, 2026-11-22): a Chrome Web Store user is never told to side-load the extension or to bypass
+// PowerShell's execution policy, and the store zip ships no export helper; the side-loaded release keeps all of them.
+test('EXT-10: the store zip has no tools/ member and no text that says Load unpacked, Developer mode or ExecutionPolicy Bypass', () => {
+  prepare();
+  const out = join(root, 'ext10.zip'), r = store([out]); assert.equal(r.status, 0, r.stderr);
+  const texts = spawnSync('python3', ['-B', '-c', `import json,sys,zipfile
+z=zipfile.ZipFile(sys.argv[1])
+print(json.dumps({i.filename:z.read(i).decode('utf-8','replace') for i in z.infolist() if i.filename.endswith(('.md','.html','.txt')) or i.filename=='options.js'}))`, out], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  assert.equal(texts.status, 0, texts.stderr);
+  const files = JSON.parse(texts.stdout);
+  assert.equal(Object.keys(unzip(out).members).some((n) => n.startsWith('tools/')), false, 'no tools/ member');
+  for (const [n, t] of Object.entries(files)) if (!n.endsWith('.js')) for (const phrase of ['Load unpacked', 'Developer mode', 'ExecutionPolicy Bypass']) assert.equal(t.includes(phrase), false, `${n} says ${phrase}`);
+  assert.match(files['options.js'], /hideMissingHelpers/, 'Settings hides the helper links the store zip leaves out');
+  assert.match(files['README-EN.md'], /Download encrypted backup/); assert.match(files['README-AR.md'], /Download encrypted backup/);
+  // The side-loaded release zip is unchanged: it keeps the helpers and the Developer-mode instructions.
+  const rel = spawnSync('python3', ['-B', join(tree, 'scripts', 'package-release.py'), join(root, 'ext10-release.zip'), '--retired', RETIRED], { encoding: 'utf8' });
+  assert.equal(rel.status, 0, rel.stderr);
+  const relMembers = Object.keys(unzip(join(root, 'ext10-release.zip')).members);
+  for (const n of ['tools/Export-Studio-Wallet.ps1', 'tools/export-studio-wallet.py', 'README-STUDIO.md']) assert.ok(relMembers.includes(n), n);
+  // A store text that tells the user to side-load is refused.
+  const bad = join(tree, 'store', 'install', 'README-EN.md'), keep = readFileSync(bad);
+  try { writeFileSync(bad, keep.toString() + '\nEnable Developer mode, choose Load unpacked.\n'); const x = store([join(root, 'ext10-bad.zip')]); assert.notEqual(x.status, 0); assert.match(x.stderr, /README-EN\.md says/); }
+  finally { writeFileSync(bad, keep); }
 });
 
 test('a build that the release packager refuses is refused for the store too', () => {
@@ -118,7 +147,7 @@ test('the first upload adds the matching private key as key.pem, and only the ma
   assert.match(r.stdout, /CONTAINS THE PRIVATE KEY \(key\.pem\)/);
   assert.equal(existsSync(first + '.sha256'), false, 'no .sha256 for a zip that holds a private key');
   const { members, modes, manifest } = unzip(first);
-  assert.deepEqual(Object.keys(members).sort(), [...names(join(tree, 'dist')), 'key.pem'].sort());
+  assert.deepEqual(Object.keys(members).sort(), [...names(join(tree, 'dist')).filter((n) => !['README-STUDIO.md', 'tools/Export-Studio-Wallet.ps1', 'tools/export-studio-wallet.py'].includes(n)), 'key.pem'].sort());
   assert.equal(members['key.pem'], sha(readFileSync(KEY_PEM)));
   assert.equal(modes['key.pem'], '0o100600');
   assert.equal('key' in JSON.parse(manifest), false);
