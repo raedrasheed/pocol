@@ -21,6 +21,13 @@
 // Overview count the page's Held and Earning bond members, and the Overview lists the latest transactions by hash. A devnet of three miners cannot fill the member set, so the
 // replacement itself reverts (the set is not full): what is checked is the decoding of the included call and the
 // victim read, the same for a successful one (the vm test covers an exited victim's label).
+// Production readiness (2026-11-22): the gateway runs with the transaction index (POCOL_TX_DB, pocol_transactions.py):
+// /api/transactions.php lists the devnet's transactions newest first and the Transactions tab shows them in that order
+// with the index's status; the Miner map says miner locations are not available (no GeoIP module: the network records
+// none, and peers are not placed by IP address). At 390 and 1366 px the Overview, Blocks, Transactions, Miners and
+// Miner map tabs and the block, transaction and account views have no horizontal scroll (screenshots in the work
+// directory); the Overview's head moves without a reload (automatic refresh); with the gateway stopped the page says
+// "Data delayed" and returns to "Connected" when it is back; no page shows the test-fixture banner.
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, cpSync, readFileSync, writeFileSync, rmSync, existsSync, statSync, createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -122,7 +129,9 @@ async function main() {
     ok('explorer_site.py validates the switched static copy (its files without SHA256SUMS.txt) and writes the loopback Caddy site', conf.status === 0 && existsSync(caddyfile), (conf.stderr || conf.stdout).slice(-300));
     const block = readFileSync(caddyfile, 'utf8');
     writeFileSync(join(work, 'v3-network.json'), JSON.stringify({ chainId: info.chainId, genesisHash, specVersion: 2, v3: true }));
-    const egw = spawnLogged('explorer-gateway', 'python3', ['-B', join(ROOT, 'deploy', 'rewards', 'gateway.py'), '--port', String(EXPLORER_GW), '--rpc-port', '8540', '--v3-network', join(work, 'v3-network.json'), '--site-origin', `http://127.0.0.1:${FRONT}`]);
+    const gatewayArgs = ['-B', join(ROOT, 'deploy', 'rewards', 'gateway.py'), '--port', String(EXPLORER_GW), '--rpc-port', '8540', '--v3-network', join(work, 'v3-network.json'), '--site-origin', `http://127.0.0.1:${FRONT}`];
+    const gatewayEnv = { env: { ...process.env, POCOL_TX_DB: join(work, 'transactions.sqlite3') } };
+    let egw = spawnLogged('explorer-gateway', 'python3', gatewayArgs, gatewayEnv);
     await wait(async () => (await rpc(EXPLORER_GW, 'eth_blockNumber', [], '/rpc')) !== undefined, 30000, 'explorer gateway').catch((e) => { throw new Error(e.message + ' ' + egw.out.slice(-300)); });
     // ---- W7: an ACCRUING newcomer (e, with a quarter of B_reg) and a registerReplacing call naming a miner (f) ----
     // B_reg is the Registry's (the gateway's pocol_getMember reads it from the CAPS contract), never assumed here; the
@@ -178,8 +187,15 @@ async function main() {
     ok('a batch of 21 is 400 (lib.php\'s bound)', batch21.status === 400);
     const reward = await post(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'pocol_getBlockReward', params: [] }));
     ok('/api/rpc.php refuses a method outside the explorer allow-list that /rpc accepts (400)', reward.status === 400);
-    const geo = await fetch(`${base}/api/miner-locations.php`), txs = await fetch(`${base}/api/transactions.php?page=1&size=25&order=newest&q=`), badTx = await fetch(`${base}/api/transactions.php?page=0`);
-    ok('without the optional GeoIP and transaction index modules, miner-locations and transactions answer 503 with their messages; a bad query is 400', geo.status === 503 && /GeoIP/.test((await geo.json()).error) && txs.status === 503 && /Transaction history/.test((await txs.json()).error) && badTx.status === 400, `${geo.status} ${txs.status} ${badTx.status}`);
+    const geo = await fetch(`${base}/api/miner-locations.php`), badTx = await fetch(`${base}/api/transactions.php?page=0`);
+    ok('without a GeoIP module miner-locations answers 503 with its message; a bad transaction query is 400', geo.status === 503 && /GeoIP/.test((await geo.json()).error) && badTx.status === 400, `${geo.status} ${badTx.status}`);
+    // The transaction index: the devnet's only transactions are the two Registry calls, newest (block, position) first.
+    const newestFirst = [[registered, receipts[0]], [replacing, receipts[1]]].sort(([, a], [, b]) => Number(b.blockNumber) - Number(a.blockNumber) || Number(b.transactionIndex) - Number(a.transactionIndex)).map(([h]) => h);
+    const txPage = await wait(async () => { const r = await fetch(`${base}/api/transactions.php?page=1&size=25&order=newest&q=`); const v = r.status === 200 && (await r.json()).data;
+      return v && v.index.height >= Math.max(...receipts.map((x) => Number(x.blockNumber))) && v; }, 60000, 'the transaction index').catch((e) => ({ error: e.message }));
+    ok('/api/transactions.php lists the two Registry calls newest first from the transaction index (schema pocol-transactions-v1, a snapshot, the index state)',
+      txPage.schema === 'pocol-transactions-v1' && JSON.stringify(txPage.rows.map((r) => r.hash)) === JSON.stringify(newestFirst) && txPage.rows.every((r) => r.kind === 'Contract call') && txPage.snapshot && ['ready', 'syncing'].includes(txPage.index.state),
+      JSON.stringify(txPage).slice(0, 300));
     const hidden = {}, bare = {};
     for (const path of ['/api/config.php', '/api/lib.php', '/api/', '/.htaccess', '/SHA256SUMS.txt', '/site-identity.json', '/index.php', '/assets/index.js.map', '/assets/', '/missing.html']) {
       const r = await fetch(base + path); hidden[path] = r.status; await r.arrayBuffer();
@@ -253,6 +269,16 @@ async function main() {
       await page.selectOption('select[aria-label="Member state"]', 'Earning bond');
       const filtered = await wait(async () => { const rows = await rowsOf(); return rows.length === 1 && rows; }, 10000, 'the filter').catch(() => []);
       ok('the Miners filter "Earning bond" keeps only the newcomer', filtered.length === 1 && filtered[0].includes(short(newcomer)), JSON.stringify(filtered));
+      // ---- the Transactions tab (the transaction index) and the Miner map (no locations) ----
+      await page.click('nav button:has-text("Transactions")');
+      const history = await wait(async () => { const t = await text(); const rows = await rowsOf(); return /History indexed through block #|Indexing chain history/.test(t) && rows.length >= 2 && { t, rows }; }, 60000, 'the transaction history').catch((e) => ({ t: e.message, rows: [] }));
+      ok('the Transactions tab lists the Registry calls newest first, with the index status and "Contract call"',
+        history.rows.length === 2 && history.rows[0].includes(newestFirst[0].slice(0, 8)) && history.rows[1].includes(newestFirst[1].slice(0, 8)) && history.rows.every((r) => r.includes('Contract call')),
+        JSON.stringify(history.rows).slice(0, 400) + ' ' + String(history.t).slice(String(history.t).indexOf('History'), String(history.t).indexOf('History') + 120));
+      await page.click('nav button:has-text("Miner map")');
+      const map = await wait(async () => { const t = await text(); return /Miner locations unavailable/.test(t) && t; }, 30000, 'the Miner map').catch((e) => e.message);
+      ok('the Miner map says miner locations are unavailable and that peers are not placed by IP address, with no GeoIP installer named',
+        /Miner locations are not published: the network does not record them\./.test(map) && /not used to place them/.test(map) && !/GeoIP\.sh|GeoIP gateway update/.test(map), String(map).slice(String(map).indexOf('Miner locations'), String(map).indexOf('Miner locations') + 300));
       await page.click('nav button:has-text("Overview")');
       await sleep(16000); // past one 15 s refresh of the overview and the transaction history
       const biggest = Math.max(0, ...answers.map((a) => a.bytes));
@@ -269,7 +295,45 @@ async function main() {
       ok('the explorer raised no uncaught error', errors.length === 0, errors.join(' | '));
       ok('the explorer ran under its CSP without a violation', csp.length === 0, csp.join(' | '));
       writeFileSync(join(work, 'explorer-text.txt'), String(shown).slice(0, 20000));
+      ok('no page shows the test-fixture banner or synthetic data', !/Test fixture|TEST FIXTURE|Synthetic data/i.test(await text()));
       await page.close();
+
+      // ---- 390 and 1366 px: no horizontal scroll on any tab or view (screenshots kept with the work directory) ----
+      const overflow = {}, lateErrors = [];
+      for (const [width, height] of [[390, 844], [1366, 900]]) {
+        const p2 = await ctx.newPage(); await p2.setViewportSize({ width, height }); p2.on('pageerror', (e) => lateErrors.push(`${width}px: ${e.message}`));
+        await p2.goto(`http://127.0.0.1:${FRONT}/`);
+        await wait(async () => /Latest block\s+[\d,]+/.test(await p2.evaluate(() => document.body.innerText)), 60000, `the page at ${width} px`);
+        const wide = async (what) => { const w = await p2.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]); if (w[0] > w[1] + 1) overflow[`${width}px ${what}`] = w; await p2.screenshot({ path: join(work, `explorer-${width}-${what.replace(/\W+/g, '-')}.png`), fullPage: false }); };
+        const menu = async (name) => { const nav = p2.locator(`nav button:has-text("${name}")`); if (!(await nav.first().isVisible())) { const toggle = p2.locator('button[aria-label="Open navigation"]'); if (await toggle.count()) await toggle.first().click(); } await nav.first().click(); await sleep(1500); };
+        await wide('overview');
+        for (const tab of ['Blocks', 'Transactions', 'Miners', 'Miner map']) { await menu(tab); await wide(tab); }
+        await menu('Overview');
+        for (const [what, q] of [['block', String(Number(receipts[1].blockNumber))], ['transaction', replacing], ['account', newcomer]]) {
+          await p2.fill('input[aria-label="Search block, transaction or address"]', q); await p2.press('input[aria-label="Search block, transaction or address"]', 'Enter');
+          await wait(async () => { const t = await p2.evaluate(() => document.querySelector('dialog.detail-dialog')?.innerText || ''); return t && !/Looking up network data/.test(t) && t; }, 60000, `the ${what} view at ${width} px`);
+          const inner = await p2.evaluate(() => { const d = document.querySelector('dialog.detail-dialog'); return d ? [d.scrollWidth, d.clientWidth] : [0, 0]; });
+          if (inner[0] > inner[1] + 1) overflow[`${width}px ${what} view`] = inner;
+          await wide(what + '-view');
+          await p2.click('button[aria-label="Close details"]'); await sleep(500);
+        }
+        await p2.close();
+      }
+      ok('at 390 and 1366 px no tab and no block, transaction or account view scrolls horizontally', Object.keys(overflow).length === 0, JSON.stringify(overflow));
+
+      // ---- automatic refresh, and the error state while the gateway is stopped ----
+      const p3 = await ctx.newPage(); await p3.goto(`http://127.0.0.1:${FRONT}/`);
+      const latestOf = async () => Number((/Latest block\s+([\d,]+)/.exec(await p3.evaluate(() => document.body.innerText)) || [0, '-1'])[1].replace(/,/g, ''));
+      const h0 = await wait(async () => { const h = await latestOf(); return h >= 0 && h + 1; }, 60000, 'the head') - 1;
+      const h1 = await wait(async () => { const h = await latestOf(); return h > h0 && h; }, 40000, 'the head moves without a reload').catch(() => h0);
+      ok('the Overview\'s head moves without a reload (automatic refresh)', h1 > h0, `${h0} -> ${h1}`);
+      egw.kill('SIGTERM'); await sleep(1000);
+      const delayed = await wait(async () => /Data delayed/.test(await p3.evaluate(() => document.body.innerText)), 60000, '"Data delayed"').catch(() => false);
+      egw = spawnLogged('explorer-gateway-2', 'python3', gatewayArgs, gatewayEnv);
+      const back = await wait(async () => /\bConnected\b/.test(await p3.evaluate(() => document.body.innerText)) && (await latestOf()) > h1, 90000, 'Connected again').catch(() => false);
+      ok('with the gateway stopped the page says "Data delayed", and "Connected" with a newer head once it is back', delayed && back, `delayed=${delayed} back=${back}`);
+      await p3.close();
+      ok('the pages at 390 and 1366 px raised no uncaught error', lateErrors.length === 0, lateErrors.join(' | '));
 
       await ctx.close();
     } finally { await browser.close(); }

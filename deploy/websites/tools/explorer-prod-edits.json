@@ -52,5 +52,11 @@
   "old": "t===`Miner map`?`Automatic country estimates from observed network connections.`:",
   "new": "t===`Miner map`?`Miner locations are not published: the network does not record them.`:",
   "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "(0,N.jsx)(`div`,{className:`table-wrap`,\"aria-busy\":s,children:",
+  "new": "(0,N.jsx)(`div`,{className:`table-wrap`,\"aria-busy\":s,style:{position:`relative`},children:",
+  "count": 1
  }
 ]

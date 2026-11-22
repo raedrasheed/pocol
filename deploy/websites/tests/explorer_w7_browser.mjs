@@ -15,6 +15,8 @@
 //    refused transaction read of 1 is sent three times), and the transaction view of a registerReplacing call whose
 //    receipt read the node first answers busy (-32021, as its heavy lane does under load) still shows the decoded
 //    call and the named member: explorer_smoke.mjs's registerReplacing check on a v3 devnet failed that way.
+// 6. The Transactions tab with rows at 390 px has no horizontal page scroll: the wide history table scrolls inside its
+//    own box (its screen-reader "Details" label, absolutely positioned, made the page 727 px wide before the fix).
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -104,6 +106,11 @@ async function serve(state) {
       }
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }); return res.end(JSON.stringify(calls.map((c) => answer(state, c))));
     }
+    if (path === '/api/transactions.php' && state.txPage) {
+      const q = new URL(req.url, 'http://localhost').searchParams;
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+      return res.end(JSON.stringify({ data: state.txPage(q) }));
+    }
     if (path.startsWith('/api/')) { res.writeHead(503, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'Unavailable in this test' })); }
     try {
       const file = resolve(SITE, '.' + decodeURIComponent(path));
@@ -184,6 +191,23 @@ async function txView(busy) {
     return { text, receiptBusy: state.receiptBusy || 0, receiptReads: state.batches.filter((b) => b.includes('eth_getTransactionReceipt')).length, errors };
   } finally { await context.close(); await server.close(); }
 }
+// 6. The Transactions tab with two rows at `width` px: the page's scroll width and the rows shown.
+async function historyAt(width) {
+  const state = { chain: chain({}), busyTxRead: false, batches: [], head: HEAD, full: [] };
+  state.txPage = (q) => ({ schema: 'pocol-transactions-v1', chainId: DECLARED.chainId, genesisHash: DECLARED.genesisHash, page: Number(q.get('page')), size: Number(q.get('size')),
+    order: q.get('order'), q: q.get('q'), total: 2, index: { height: HEAD, head: HEAD, from: 0, updatedAt: NOW, state: 'ready' }, snapshot: { height: HEAD, hash: hash('b', HEAD) },
+    rows: [1, 0].map((i) => ({ hash: hash('d' + i, HEAD - 1), blockHash: hash('b', HEAD - 1), blockNumber: hex(HEAD - 1), transactionIndex: hex(i), timestamp: hex(NOW), value: '0x4563918244f40000', kind: 'Contract call', from: address(5), to: REGISTRY })) });
+  const server = await serve(state), context = await browser.newContext({ viewport: { width, height: 844 } });
+  try {
+    await context.route('**/*', (route) => (new URL(route.request().url()).origin === server.origin ? route.continue() : route.abort()));
+    const page = await context.newPage(), errors = []; page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(server.origin + '/#page=Transactions');
+    let rows = [];
+    for (const end = Date.now() + 20000; Date.now() < end && rows.length < 2;) { rows = await page.evaluate(() => [...document.querySelectorAll('table.history-table tbody tr')].map((r) => r.innerText.replace(/\s+/g, ' '))); await new Promise((r) => setTimeout(r, 200)); }
+    const [scroll, inner] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+    return { rows, scroll, inner, errors };
+  } finally { await context.close(); await server.close(); }
+}
 const tx = (n, i) => { const h = hash('c' + i, n); return h.slice(0, 8) + '…' + h.slice(-6); }; // the Overview's short hash
 const atx = (n, i) => { const h = hash('c' + i, n); return h.slice(0, 9) + '…' + h.slice(-7); }; // the account view's
 
@@ -231,6 +255,10 @@ try {
   const stuck = await txView(3);
   check('a receipt read answered busy three times in a row is reported as unavailable (two retries, no more)',
     /Unable to load this result/.test(stuck.text) && /busy/.test(stuck.text) && stuck.receiptReads === 3, `${stuck.receiptReads} reads: ` + stuck.text.replace(/\s+/g, ' ').slice(0, 300));
-  check('no uncaught error in the other scenarios', view.errors.length === 0 && stuck.errors.length === 0 && down.errors.length === 0 && answered.errors.length === 0 && empty.errors.length === 0 && acct.errors.length === 0 && stale.errors.length === 0, [...down.errors, ...answered.errors, ...empty.errors, ...acct.errors, ...stale.errors].join(' | '));
+  // 6. No horizontal page scroll with history rows on a phone.
+  const phone = await historyAt(390);
+  check('the Transactions tab with rows at 390 px has no horizontal page scroll (the table scrolls in its own box), rows newest first',
+    phone.rows.length === 2 && phone.rows[0].includes('Position 2') && phone.rows[1].includes('Position 1') && phone.scroll <= phone.inner, `scroll ${phone.scroll} / ${phone.inner}: ${JSON.stringify(phone.rows)}`);
+  check('no uncaught error in the other scenarios', view.errors.length === 0 && stuck.errors.length === 0 && phone.errors.length === 0 && down.errors.length === 0 && answered.errors.length === 0 && empty.errors.length === 0 && acct.errors.length === 0 && stale.errors.length === 0, [...down.errors, ...answered.errors, ...empty.errors, ...acct.errors, ...stale.errors].join(' | '));
 } finally { await browser.close(); }
 console.log(`explorer W7 browser checks: ${checks} passed`);
