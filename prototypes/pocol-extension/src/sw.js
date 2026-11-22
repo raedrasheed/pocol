@@ -46,6 +46,14 @@ export const walletSalt = (p) => p.netKey;
 // The built-in profile's fork schedule is pinned by this release: [[1,"0"]], what the fresh network's genesis metadata
 // carries (pocold testnet.rs and main.rs write "forks":[[1,0]]; lib.rs maps a missing forks key to [(1,0)]). Neither
 // storage nor RPC can change it. A cap raise ([[1,"0"],[2,H'],[3,H]]) ships as an extension release with the node release.
+// EXT-01 (2026-11-22): the viewer seed wallet (`wallet.*`, D14) has no export and no import, and chrome.storage.local is
+// deleted with the extension, so a key it holds is lost on uninstall or an extension-id change. It therefore serves local
+// networks only: never the built-in public profile (trust level RN) nor a custom profile of the public network's
+// identity (the same netKey), so it never shows or signs for an address on the public PoCol network. The PoCol wallet
+// (`account.*`, the exportable `studio:wallet` vault) is the wallet of the public network.
+export const PUBLIC_NET_KEY = netKeyOf(NETWORK.chainId, fromHex(NETWORK.genesisHash));
+export const seedWalletAllowed = (p) => !!p && p.trustLevel !== 'RN' && p.netKey !== PUBLIC_NET_KEY;
+const SEED_LOCAL_ONLY = 'The viewer wallet is for local networks only: it cannot be exported, so it never holds an address on the public PoCol network';
 export const PUBLIC_FORK_SCHEDULE = Object.freeze(normalizeForkSchedule([[1, '0']]).map((entry) => Object.freeze(entry)));
 const publicProfile = () => ({ ...NETWORK, forkSchedule: PUBLIC_FORK_SCHEDULE });
 const storedProfiles = async () => {
@@ -144,6 +152,7 @@ async function signEligible(sess, ep) {
   const c = changed(sess, ep); if (c) return c;
   if (!cur || cur.invalid || !sameProfile(cur, sess.profile)) return E(4901, 'network profile changed');
   if (cur.conflict) return E(4100, 'conflicting network profile is read-only');
+  if (!seedWalletAllowed(cur)) return E(4100, SEED_LOCAL_ONLY);
   if (!isUnlocked()) return E(4100, 'wallet locked');
   if (sess.trust.level === 'RP' && !(sess.trust.ok && sess.trust.head >= 1)) return E(4100, 'RP window not established');
   return null;
@@ -326,6 +335,8 @@ async function walletKey(sess) { return isUnlocked() ? networkKey(unlocked.seed,
 const touchWallet = () => { if (unlocked) unlocked.until = Date.now() + LOCK_MS; };
 async function wallet(sess, m, ask) {
   if (m.method === 'eth_chainId') return { result: '0x' + sess.profile.chainId.toString(16) };
+  // EXT-01: no account, dialog or signature on the public network from the seed wallet.
+  if (!seedWalletAllowed(sess.profile)) return m.method === 'eth_accounts' ? { result: [] } : E(4100, SEED_LOCAL_ONLY);
   const ep = epochs();
   const key = await walletKey(sess);
   let err = changed(sess, ep); if (err) return err;
@@ -613,7 +624,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
         walletChanged('wallet unlocked again'); unlocked = { seed, until: Date.now() + LOCK_MS }; return { ok: true }; }
       case 'wallet.lock': lockWallet('wallet locked'); return { ok: true };
       case 'wallet.status': return { ok: true, exists: !!(await store.get('wallet')).wallet, unlocked: isUnlocked() };
-      case 'wallet.address': { const p = (await profiles()).find((x) => x.name === msg.name); if (!p || p.invalid || !isUnlocked()) return { ok: false }; const seed = unlocked.seed; return { ok: true, address: addressOf(await networkKey(seed, walletSalt(p))) }; }
+      case 'wallet.address': { const p = (await profiles()).find((x) => x.name === msg.name); if (!p || p.invalid || !isUnlocked()) return { ok: false }; if (!seedWalletAllowed(p)) return { ok: false, error: SEED_LOCAL_ONLY }; const seed = unlocked.seed; return { ok: true, address: addressOf(await networkKey(seed, walletSalt(p))) }; }
       default: return { ok: false, error: 'unknown message' };
     }
   })().then(reply, (e) => reply({ ok: false, error: { code: e.code || -32603, message: String(e.message || e) } }));
