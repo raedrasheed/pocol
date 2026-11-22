@@ -624,7 +624,7 @@ class GatewayMembershipTests(unittest.TestCase):
 
     def test_requests_are_charged_by_method_cost(self):
         service = gateway.Gateway(network=NET); costs = []
-        service.charge = lambda cost: costs.append(cost) or False
+        service.charge = lambda cost, client=None, reserve=0.0: costs.append((cost, client, reserve)) or False
         server = gateway.Server(('127.0.0.1', 0), service)
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
         try:
@@ -636,7 +636,8 @@ class GatewayMembershipTests(unittest.TestCase):
             self.assertEqual(conn.getresponse().status, 429); conn.close()
         finally:
             server.shutdown(); server.server_close(); thread.join()
-        self.assertEqual(costs, [20 + 5 + 10 + 1])
+        # Charged to the caller (a loopback caller without X-Forwarded-For is itself) and kept above the /api reserve.
+        self.assertEqual(costs, [(20 + 5 + 10 + 1, '127.0.0.1', gateway.API_RESERVE)])
 
 
 class ForkVersionBoundTests(unittest.TestCase):

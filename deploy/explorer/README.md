@@ -117,7 +117,12 @@ these handlers' answers). Where an in-process answer cannot be the PHP one, the 
   answers stay exact (PHP re-encoded them as floats);
 - wrong methods on the four paths get the PHP 405 and `Allow` header (not a 501), other `/api` paths are 404.
 
-The budget is the gateway's: one global token bucket (80 tokens, 20 per second) shared by `/rpc`, the `/api` reads,
-pocol.net's summary and the reward page, as it was behind the PHP relays, plus four relay slots shared by the `/api`
-reads (PHP's four lock slots). A connection beyond the gateway's 16 request slots gets the same JSON busy answer (429,
+The budget is the gateway's (deploy/rewards/gateway.py `charge`, tested by `test_gateway_limits.py`). The node's
+bucket (80 tokens, 20 per second) is shared by `/rpc`, the `/api` reads, pocol.net's summary and the reward page, as
+it was behind the PHP relays. Inside it, each client has its own bucket (40 tokens, 10 per second, at most 4096 clients
+remembered). Behind Caddy, the client is the last `X-Forwarded-For` hop, which is the address Caddy appends; the
+gateway trusts the header only from a loopback peer, and an IPv6 client counts by its /64. Public `/rpc` reads cannot
+take the node's bucket below 30 tokens. That share is kept for the explorer site's `/api` reads and pocol.net's
+summary, so one client, or a flood of `/rpc` reads, cannot make the explorer busy for everyone. Four relay slots are
+also shared by the `/api` reads (PHP's four lock slots). A connection beyond the gateway's 16 request slots gets the same JSON busy answer (429,
 `Retry-After: 3`), which Caddy passes on, not an empty 502.
