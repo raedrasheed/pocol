@@ -118,6 +118,11 @@ jobs:
         run: |
           set -o pipefail
           node deploy/websites/tests/explorer_smoke.mjs 2>&1 | tee evidence/explorer-smoke.log
+      - name: Explorer gateway host on a devnet (observer node without a miner, transaction index, reorganization)
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          set -o pipefail
+          python3 -B deploy/explorer/e2e_explorer_devnet.py "$RUNNER_TEMP/explorer-e2e" 2>&1 | tee evidence/explorer-devnet-e2e.log
       - name: Website browser security checks
         if: always() && steps.build.outcome == 'success'
         run: |

@@ -49,7 +49,7 @@ def wait(pred, seconds, what):
                 return value
         except Exception as error:  # noqa: BLE001 (the condition is retried until the deadline)
             last = error
-        time.sleep(0.5)
+        time.sleep(1)
     raise RuntimeError(f'timeout: {what}' + (f' ({last})' if last else ''))
 
 
@@ -64,11 +64,18 @@ def rpc(port, method, params=None, path='/'):
 
 
 def get(path):
-    try:
-        with urllib.request.urlopen(f'http://127.0.0.1:{GW}{path}', timeout=15) as r:
-            return r.status, json.load(r)
-    except urllib.error.HTTPError as e:
-        return e.code, json.loads(e.read() or b'null')
+    """GET on the gateway. This test is one client of the gateway's budget (10 tokens a second, a history page costs
+    5): a busy answer (429, or 503 while the budget is spent) is retried after a second, up to 20 times."""
+    for attempt in range(20):
+        try:
+            with urllib.request.urlopen(f'http://127.0.0.1:{GW}{path}', timeout=15) as r:
+                return r.status, json.load(r)
+        except urllib.error.HTTPError as e:
+            status, value = e.code, json.loads(e.read() or b'null')
+            if status in (429, 503) and attempt < 19 and path.startswith('/api/transactions.php') or status == 429 and attempt < 19:
+                time.sleep(1)
+                continue
+            return status, value
 
 
 def spawn(name, args, work, env=None):
@@ -166,7 +173,7 @@ def main():
         sent.append(send('g', 0, None, 0, '0x600160005260206000f3', 200000))                              # a contract creation
         receipts = wait(lambda: all(rpc(8540, 'eth_getTransactionReceipt', [h]) for h in sent) and [rpc(8540, 'eth_getTransactionReceipt', [h]) for h in sent], 120, 'the transactions are included')
         target = max(int(r['blockNumber'], 16) for r in receipts)
-        wait(lambda: get('/api/transactions.php')[0] == 200 and get('/api/transactions.php')[1]['data']['index']['height'] >= target + 1, 60, 'the index passes the last transaction')
+        wait(lambda: (lambda st, v: st == 200 and v['data']['index']['height'] >= target)(*get('/api/transactions.php')), 90, 'the index passes the last transaction')
         rows, first = indexed()
         expected, _ = canonical(OBS_RPC)
         expected = [r for r in expected if r[0] <= first['snapshot']['height']]
@@ -239,13 +246,16 @@ def main():
         reorgs_after = rpc(OBS_RPC, 'pocol_status')['stats']['reorgs']
         ok('the observer reorganized onto a and b\'s chain', reorgs_after > reorgs_before, f'reorgs {reorgs_before} -> {reorgs_after}')
         def settled():
+            # The index equals the canonical chain up to its snapshot, and the snapshot is past the blocks that hold
+            # a and b's transaction and, when the new chain included it again, the isolated one.
             rows3, data = indexed()
             exp, _ = canonical(OBS_RPC)
             exp = [r for r in exp if r[0] <= data['snapshot']['height']]
-            return rows3 == exp and (rows3, data)
-        rows3, data = wait(settled, 120, 'the index equals the new canonical chain')
+            receipts = [rpc(OBS_RPC, 'eth_getTransactionReceipt', [h]) for h in (ab, lone)]
+            need = max(int(r['blockNumber'], 16) for r in receipts if r) if any(receipts) else 0
+            return rows3 == exp and data['snapshot']['height'] >= need and (rows3, data, receipts[1])
+        rows3, data, lone_receipt = wait(settled, 120, 'the index equals the new canonical chain')
         hashes = {r[2] for r in rows3}
-        lone_receipt = rpc(OBS_RPC, 'eth_getTransactionReceipt', [lone])
         row_of = {r['hash']: r for r in get('/api/transactions.php?size=100')[1]['data']['rows']}
         ok('after the reorganization the index equals the canonical chain: a and b\'s transaction is listed; the isolated one only where the new chain included it',
            ab in hashes and ((lone in hashes) == bool(lone_receipt))
