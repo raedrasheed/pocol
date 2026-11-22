@@ -81,6 +81,79 @@ try{
           check('privacy page '+lang+' footer links the policy',await page.locator('footer a[data-i18n="privacyLink"]').count()===1);
           await page.setViewportSize({width:1280,height:720});
         }
+        // The block reward panel (F-74): api/reward.php's v3 summary, stubbed on this origin. The pinned identity is read
+        // from reward.js (site_identity.py anchors it there), so this test names none.
+        {
+          const rewardJs=await readFile(resolve(root,'deploy/websites/pocol.net/reward.js'),'utf8');
+          const chainId=Number(rewardJs.match(/\n  const CHAIN_ID = (\d+);/)[1]),genesisHash=rewardJs.match(/\n  const GENESIS = '(0x[0-9a-f]{64})';/)[1];
+          const miner='0x'+'cd'.repeat(20),payee='0x'+'6c'.repeat(20);
+          const v3=()=>({schema:'pocol-block-reward-v3',chainId,genesisHash,specVersion:2,source:'https://explorer.pocol.net',
+            fetchedAt:new Date().toISOString(),blockHeight:32,blockHash:'0x'+'1d'.repeat(32),final:false,settlementHeight:36,
+            issuedWei:'4000000000000000000',tipsWei:'174450000000000',tipShareWei:'87225000000000',carryInWei:'0',
+            grossRewardWei:'4000087225000000000',projectedPaidWei:'706265400664062500',projectedBurnedWei:'0',
+            projectedBondWei:'0',projectedCarryWei:'3293821824335937500',winnerAccruing:false,beneficiaryCount:1,status:'pending',
+            shareCount:1,closing:null,beneficiaries:[{minerId:miner,rewardAddress:payee,amountWei:'706265400664062500'}]});
+          let answer={status:200,body:v3()};
+          const rewards=await browser.newContext();
+          try{
+            await rewards.route('**/*',route=>{
+              const url=new URL(route.request().url());
+              if(url.origin===server.origin&&url.pathname==='/api/reward.php')return route.fulfill({status:answer.status,
+                contentType:'application/json',body:JSON.stringify(answer.body)});
+              if(url.origin===server.origin)return route.continue();
+              blocked++;return route.abort('blockedbyclient');
+            });
+            const view=await rewards.newPage(),viewErrors=[];
+            view.on('pageerror',error=>viewErrors.push(String(error)));
+            const panel=async()=>{await view.waitForFunction(()=>document.querySelector('#block-reward')?.dataset.state!=='loading');
+              return view.evaluate(()=>({state:document.querySelector('#block-reward').dataset.state,
+                status:document.querySelector('#reward-status').textContent,amount:document.querySelector('#reward-amount').textContent,
+                miners:document.querySelector('#reward-miners').textContent,payout:document.querySelector('#reward-payout').textContent,
+                settlement:document.querySelector('#reward-settlement').textContent,settlementHidden:document.querySelector('#reward-settlement').hidden,
+                block:document.querySelector('#reward-block').textContent}));};
+            await view.goto(server.origin+'/?lang=en',{waitUntil:'networkidle'});
+            let shown=await panel();
+            check('reward panel shows the v3 pot of the block',shown.state==='ready'&&shown.status==='Pending settlement'
+              &&shown.amount==='4.000087225'&&shown.miners==='1'&&/Block #32/.test(shown.block));
+            check('reward panel shows the pot, the projected split and the carry',
+              shown.payout.includes('4 PCOL issued + 0.00017445 PCOL fees − 0.000087225 PCOL proposer fee share + 0 PCOL carried in')
+              &&shown.payout.includes('Projected to miners: 0.7062654006640625 PCOL · Projected burn: 0 PCOL · Carried to the next pot: 3.2938218243359375 PCOL')
+              &&!shown.payout.includes('bonds')&&shown.settlement.startsWith('Expected settlement at block #36.'));
+            await view.setViewportSize({width:390,height:844});
+            await view.goto(server.origin+'/?lang=ar',{waitUntil:'networkidle'});
+            shown=await panel();
+            check('reward panel in Arabic, right to left, without horizontal scroll at 390 px',shown.state==='ready'&&shown.status==='قيد التسوية'
+              &&shown.payout.includes('المُرحَّل إلى المكافأة التالية')&&await view.evaluate(()=>document.documentElement.dir==='rtl'
+              &&document.documentElement.scrollWidth<=window.innerWidth));
+            await view.setViewportSize({width:1280,height:720});
+            answer={status:200,body:{...v3(),beneficiaries:[{minerId:miner,rewardAddress:payee,amountWei:'606265400664062500',bondAccruedWei:'100000000000000000'}],
+              projectedBondWei:'100000000000000000',closing:{closeHeight:30,cursorDone:false,earliestFinalHeight:34,settlementMayBeFinal:true}}};
+            await view.goto(server.origin+'/?lang=en',{waitUntil:'networkidle'});
+            shown=await panel();
+            check('reward panel names the bond fills and a closing network',shown.state==='ready'
+              &&shown.payout.includes('0.1 PCOL fills miners’ bonds')&&shown.settlement.includes('The network is closing'));
+            answer={status:200,body:{...v3(),final:true,settlementHeight:null,issuedWei:'0',tipShareWei:'0',carryInWei:'5',grossRewardWei:'0',
+              projectedPaidWei:'0',projectedCarryWei:'0',beneficiaryCount:0,beneficiaries:[],closing:{closeHeight:30,cursorDone:true}}};
+            await view.goto(server.origin+'/?lang=en',{waitUntil:'networkidle'});
+            shown=await panel();
+            check('reward panel shows the final block as opening no pot',shown.state==='ready'&&shown.status==='Final block'
+              &&shown.payout==='Final block of the network: it opens no new reward pot.'&&shown.settlementHidden);
+            for(const [label,body] of [['the retired v1 schema',{...v3(),schema:'pocol-block-reward-v1'}],
+              ['an unbalanced split',{...v3(),projectedCarryWei:'3293821824335937501'}],
+              ['a pot that is not issuance + fees - share + carry',{...v3(),carryInWei:'1'}],
+              ['another chain',{...v3(),chainId:chainId+1}]]){
+              answer={status:200,body};
+              await view.goto(server.origin+'/?lang=en',{waitUntil:'networkidle'});
+              shown=await panel();
+              check('reward panel refuses '+label,shown.state==='offline'&&shown.status==='Unavailable'&&shown.amount==='—'
+                &&shown.payout==='Reward data is temporarily unavailable. Reload the page to try again.');
+            }
+            answer={status:503,body:{schema:'pocol-block-reward-v3',error:'Reward data is temporarily unavailable.',code:'reward_unavailable'}};
+            await view.goto(server.origin+'/?lang=en',{waitUntil:'networkidle'});
+            check('reward panel shows the proxy refusal as unavailable',(await panel()).state==='offline');
+            check('reward panel has no page errors',viewErrors.length===0);
+          }finally{await rewards.close();}
+        }
         await page.goto(server.origin+'/faucet.html?lang=ar',{waitUntil:'networkidle'});
         check('faucet page Arabic language, direction and title',await page.evaluate(()=>document.documentElement.lang==='ar'
           &&document.documentElement.dir==='rtl'&&document.title==='احصل على رسومك الأولى · PoCol'));
