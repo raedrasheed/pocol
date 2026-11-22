@@ -11,6 +11,10 @@
 // 4. An open account view follows the loaded window (accountFollowsWindow).
 // 3. The map's summary counts the loaded members page ("256 members on the loaded page"), not "registered miners",
 //    beside "Active members 300".
+// 5. Production readiness (tools/explorer-prod-edits.json): a refused read is retried twice before it is reported (the
+//    refused transaction read of 1 is sent three times), and the transaction view of a registerReplacing call whose
+//    receipt read the node first answers busy (-32021, as its heavy lane does under load) still shows the decoded
+//    call and the named member: explorer_smoke.mjs's registerReplacing check on a v3 devnet failed that way.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -23,6 +27,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const SITE = resolve(ROOT, 'deploy/websites/explorer.pocol.net');
 const DECLARED = JSON.parse(readFileSync(resolve(ROOT, 'deploy/websites/site-identity.json'), 'utf8'));
 const BUSY = 'The data service is busy. Please retry shortly.'; // deploy/rewards/explorer_api.py BUSY
+const NODE_BUSY = { code: -32021, message: 'busy', data: { reason: 'busy', retryAfterMs: 250 } }; // pocold rpc.rs busy()
+const REGISTRY = '0x0000000000000000000000000000000000c0c001', VICTIM = '0x' + '86'.repeat(20);
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' };
 const HEAD = 40, ACTIVE = 300, NOW = Math.floor(Date.now() / 1000);
 const hex = (n) => '0x' + n.toString(16);
@@ -66,7 +72,8 @@ function answer(state, call) {
     case 'eth_getBalance': return ok('0x0');
     case 'eth_getTransactionCount': return ok('0x0');
     case 'eth_getCode': return ok('0x');
-    case 'pocol_getMember': return ok(null);
+    case 'pocol_getMember': return ok(params[0] === VICTIM ? { address: VICTIM, exists: true, status: 1, tomb: false, bondState: 1, bondWei: '20000000000000000000', bondTargetWei: '20000000000000000000', proposerEligible: true, rewardAddress: address(6), removalLabel: 'SET_NOT_FULL', registeredAt: 0, lastShare: HEAD - 1, height: state.head } : null);
+    case 'eth_getTransactionReceipt': return ok(state.chain.txs.has(params[0]) ? { transactionHash: params[0], status: '0x0', gasUsed: '0x7530', effectiveGasPrice: '0x3b9aca00', logs: [], blockNumber: state.chain.txs.get(params[0]).blockNumber, blockHash: state.chain.txs.get(params[0]).blockHash } : null);
     default: return { jsonrpc: '2.0', id: call.id, error: { code: -32601, message: 'Method not found' } };
   }
 }
@@ -83,6 +90,12 @@ async function serve(state) {
       if (state.failFull && calls.some((c) => c.method === 'eth_getBlockByNumber' && c.params?.[1] === true)) {
         state.full.push(...calls.map((c) => Number(c.params[0])));
         res.writeHead(503, { 'content-type': 'application/json; charset=utf-8' }); return res.end('{}');
+      }
+      // txView: the node answers the receipt read busy (relayed by the gateway as that member's error) `busyReceipt` times.
+      if (state.busyReceipt > 0 && calls.some((c) => c.method === 'eth_getTransactionReceipt')) {
+        state.busyReceipt--; state.receiptBusy = (state.receiptBusy || 0) + 1;
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify(calls.map((c) => (c.method === 'eth_getTransactionReceipt' ? { jsonrpc: '2.0', id: c.id, error: NODE_BUSY } : answer(state, c)))));
       }
       if (state.busyTxRead && calls.every((c) => c.method === 'eth_getTransactionByHash')) {
         // 'down': a 503 without an error field, which the bundle reports as "Data source unavailable" (no period).
@@ -114,7 +127,8 @@ async function overview(txBlocks, busyTxRead) {
     const latest = page.locator('section.panel', { has: page.locator('h2', { hasText: 'Latest transactions' }) });
     // The first refresh is done once its last request (the transaction read, when the window has transactions) is
     // answered and the page shows the head; then one render more.
-    const requests = Object.keys(txBlocks).length ? 3 : 2, deadline = Date.now() + 30000; let text = '';
+    // A refused transaction read is sent three times (two retries, 1.5 s and 3 s later) before it is reported.
+    const requests = Object.keys(txBlocks).length ? (busyTxRead ? 5 : 3) : 2, deadline = Date.now() + 30000; let text = '';
     while (Date.now() < deadline) {
       text = await page.evaluate(() => document.body.innerText);
       if (/Latest block\s+40\b/.test(text) && state.batches.length >= requests && !/Miner registry loading/.test(text)) break;
@@ -149,6 +163,27 @@ async function accountFollowsWindow(txBlocks, failAfterMove = false) {
     return { first, second, fullFirst, fullAfter: state.full.slice(fullFirst.length), errors };
   } finally { await context.close(); await server.close(); }
 }
+// 5. The transaction view of a registerReplacing call whose receipt read is answered busy `busy` times first.
+async function txView(busy) {
+  const state = { chain: chain({ [HEAD - 1]: 1 }), busyTxRead: false, batches: [], head: HEAD, full: [], busyReceipt: busy };
+  const word = (a) => '0'.repeat(24) + a.slice(2);
+  const rtx = '0x' + 'ee'.repeat(32);
+  state.chain.txs.set(rtx, { hash: rtx, blockNumber: hex(HEAD - 1), blockHash: hash('b', HEAD - 1), from: address(5), to: REGISTRY, value: '0x0', nonce: '0x0', gas: '0x7a120', gasPrice: '0x3b9aca00', input: '0x5326ca0b' + word(address(5)) + word(VICTIM) });
+  const server = await serve(state), context = await browser.newContext();
+  try {
+    await context.route('**/*', (route) => (new URL(route.request().url()).origin === server.origin ? route.continue() : route.abort()));
+    const page = await context.newPage(), errors = []; page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(server.origin + '/');
+    const dialog = () => page.evaluate(() => document.querySelector('dialog.detail-dialog')?.innerText || '');
+    const box = 'input[aria-label="Search block, transaction or address"]';
+    for (let t = Date.now(); Date.now() - t < 30000 && !/Latest block\s+40\b/.test(await page.evaluate(() => document.body.innerText));) await new Promise((r) => setTimeout(r, 200));
+    await page.fill(box, rtx); await page.press(box, 'Enter');
+    let text = '';
+    for (const end = Date.now() + 30000; Date.now() < end;) { text = await dialog(); if (/Registry call\s+registerReplacing/.test(text) || /Unable to load this result/.test(text)) break; await new Promise((r) => setTimeout(r, 200)); }
+    await new Promise((r) => setTimeout(r, 300)); text = await dialog();
+    return { text, receiptBusy: state.receiptBusy || 0, receiptReads: state.batches.filter((b) => b.includes('eth_getTransactionReceipt')).length, errors };
+  } finally { await context.close(); await server.close(); }
+}
 const tx = (n, i) => { const h = hash('c' + i, n); return h.slice(0, 8) + '…' + h.slice(-6); }; // the Overview's short hash
 const atx = (n, i) => { const h = hash('c' + i, n); return h.slice(0, 9) + '…' + h.slice(-7); }; // the account view's
 
@@ -156,8 +191,8 @@ try {
   // 1. The third request of the refresh refused (429, the gateway's busy answer).
   const busy = await overview({ [HEAD]: 2, [HEAD - 3]: 1 }, true);
   check('the fake relay serves the explorer: the Overview shows the head and "Active members 300"', /Latest block\s+40\b/.test(busy.text) && /Active members\s+300\b/.test(busy.text), busy.text.slice(0, 400));
-  check('the refresh sent the status batch, the light blocks, then the transaction read (refused)',
-    busy.batches.some((b) => b.includes('pocol_getMembers')) && busy.batches.some((b) => b.length === 3 && b.every((m) => m === 'eth_getTransactionByHash')), JSON.stringify(busy.batches.slice(0, 4)));
+  check('the refresh sent the status batch, the light blocks, then the transaction read (refused), retried twice',
+    busy.batches.some((b) => b.includes('pocol_getMembers')) && busy.batches.filter((b) => b.length === 3 && b.every((m) => m === 'eth_getTransactionByHash')).length >= 3, JSON.stringify(busy.batches.slice(0, 6)));
   check('a refused transaction read shows "Latest transactions unavailable" with the gateway\'s message, not an empty window',
     busy.panel.includes('Latest transactions unavailable') && busy.panel.includes(`reading them failed: ${BUSY} The next update reads them again.`) && !busy.panel.includes('No transactions in this window') && !busy.panel.includes('Empty blocks are valid'), busy.panel.replace(/\s+/g, ' '));
   check('the map\'s summary counts the loaded members page: "256 members on the loaded page", never "registered miners"',
@@ -187,6 +222,15 @@ try {
     stale.second.includes('These are the last transactions read; reading the latest blocks failed: Data source unavailable. They may be out of date until the next update reads them again.')
       && [atx(HEAD, 0), atx(HEAD, 1)].every((s) => stale.second.includes(s)) && !stale.second.includes(atx(HEAD + 1, 0)) && stale.second.indexOf('These are the last') < stale.second.indexOf(atx(HEAD, 0)),
     stale.second.slice(0, 500).replace(/\s+/g, ' '));
-  check('no uncaught error in the other scenarios', down.errors.length === 0 && answered.errors.length === 0 && empty.errors.length === 0 && acct.errors.length === 0 && stale.errors.length === 0, [...down.errors, ...answered.errors, ...empty.errors, ...acct.errors, ...stale.errors].join(' | '));
+  // 5. The transaction view with the receipt read answered busy once by the node, then answered.
+  const view = await txView(1);
+  check('a registerReplacing view whose receipt read is first answered busy shows the decoded call and the named member (read again 1.5 s later)',
+    /Registry call\s+registerReplacing/.test(view.text) && view.text.toLowerCase().includes(VICTIM) && /Named member now\s+Held/.test(view.text) && /Reverted/.test(view.text)
+      && !/Unable to load this result/.test(view.text) && view.receiptBusy === 1 && view.receiptReads === 2, `${view.receiptBusy} busy, ${view.receiptReads} reads: ` + view.text.replace(/\s+/g, ' ').slice(0, 400));
+  // Busy three times in a row: the view reports the node's answer after the two retries.
+  const stuck = await txView(3);
+  check('a receipt read answered busy three times in a row is reported as unavailable (two retries, no more)',
+    /Unable to load this result/.test(stuck.text) && /busy/.test(stuck.text) && stuck.receiptReads === 3, `${stuck.receiptReads} reads: ` + stuck.text.replace(/\s+/g, ' ').slice(0, 300));
+  check('no uncaught error in the other scenarios', view.errors.length === 0 && stuck.errors.length === 0 && down.errors.length === 0 && answered.errors.length === 0 && empty.errors.length === 0 && acct.errors.length === 0 && stale.errors.length === 0, [...down.errors, ...answered.errors, ...empty.errors, ...acct.errors, ...stale.errors].join(' | '));
 } finally { await browser.close(); }
 console.log(`explorer W7 browser checks: ${checks} passed`);

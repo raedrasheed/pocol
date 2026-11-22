@@ -10,6 +10,7 @@ php deploy/websites/tests/api_security.php
 python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v   # the explorer's /api reads (Sites W8)
 python3 -B -m unittest discover -s deploy/explorer -v                         # the explorer gateway host's Caddy site
 node --test deploy/websites/tests/explorer_w7.test.mjs                        # the explorer's W7 edits and helpers
+node --test deploy/websites/tests/explorer_prod.test.mjs                      # the explorer's production-readiness edits
 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
   POCOL_CHROMIUM=/path/to/chromium node deploy/websites/tests/browser_security.mjs
 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
@@ -36,6 +37,24 @@ members page ("256 members on the loaded page"); and an account view left open f
 moves on, the account's new transaction appears, one that left the latest 20 blocks goes, and only the new block is
 read in full (the activity caches each block's matches by hash); when that read is refused, the last list stays with a
 warning above it that it may be out of date.
+
+## Explorer production readiness (2026-11-22)
+
+`tools/explorer-prod-edits.json` holds anchored edits applied after W7 and the site-truth edits (same tool, same
+rules), checked by `explorer_prod.test.mjs`: undone in reverse they leave no `PocolP1` name and redone they give the
+served bundle byte for byte. The bundle's relay read (`it`, every `/api/rpc.php` request) retries a transient refusal
+twice, 1.5 s and then 3 s later: the relay's busy or failure answer (HTTP 429, 502, 503) and a read that the node or
+gateway answered busy or temporarily unavailable (-32021, -32000). Any other answer is reported at once, as before. The
+test runs the read in `node:vm` with a scripted fetch. The cause was `explorer_smoke.mjs`'s registerReplacing check,
+which failed in CI (run 44985665129, the dialog never showed the decoded call). The transaction view's receipt read is
+heavy on v3, and a node whose heavy lane is full answers it -32021 busy. The view reported that as final ("Unable to
+load this result: busy"), so the smoke waited its 60 s and failed. `explorer_w7_browser.mjs` scenario 5 reproduces
+this with a fake relay: the receipt read answered busy once now shows the decoded call and the named member, and busy
+three times in a row is reported after two retries. On a failure the smoke now prints what the dialog showed. The same
+edits add two texts. The Transactions tab names the first block the gateway's transaction index still keeps
+(`pocol_transactions.py` `index.from`) once older blocks have been removed. The Miner map says that the network records
+no miner location and that peers are not placed by their IP addresses; it no longer points to a GeoIP installer that
+does not exist.
 
 ## Site texts and download checks (Sites W14)
 

@@ -239,9 +239,10 @@ async function main() {
         inWindow ? account.includes(short(registered)) : account.includes('No matching transactions in the loaded window.'), `block ${Number(receipts[0].blockNumber)} head ${loadedHead}`);
       await close();
       await search(replacing);
-      const decoded = await wait(async () => { const t = await dialog(); return /Registry call\s+registerReplacing/.test(t) && /Named member now/.test(t) && t; }, 60000, 'the decoded registerReplacing').catch((e) => e.message);
+      // On a timeout the detail is what the dialog showed (an error answer, a loading state), not only the timeout.
+      const decoded = await wait(async () => { const t = await dialog(); return /Registry call\s+registerReplacing/.test(t) && /Named member now/.test(t) && t; }, 60000, 'the decoded registerReplacing').catch(async (e) => e.message + ' | dialog: ' + (await dialog()));
       ok('the transaction view decodes registerReplacing (reward address, the replaced miner) and shows that miner\'s record ("Held") read at the head, not at the transaction\'s height',
-        /Reward address\s+0x/i.test(decoded) && new RegExp(`replaced member\\s+${victim}`).test(decoded.toLowerCase()) && /Named member now\s+Held · read at the head \(block \d+\), not at this transaction's height/.test(decoded) && /Reverted/.test(decoded), String(decoded).slice(String(decoded).indexOf('Registry call')).replace(/\s+/g, ' '));
+        /Reward address\s+0x/i.test(decoded) && new RegExp(`replaced member\\s+${victim}`).test(decoded.toLowerCase()) && /Named member now\s+Held · read at the head \(block \d+\), not at this transaction's height/.test(decoded) && /Reverted/.test(decoded), String(decoded).slice(Math.max(0, String(decoded).indexOf('Registry call'))).replace(/\s+/g, ' '));
       await close();
       await page.click('nav button:has-text("Miners")');
       const rowsOf = () => page.evaluate(() => [...document.querySelectorAll('table tbody tr')].map((r) => r.innerText.replace(/\s+/g, ' ')));
