@@ -70,6 +70,17 @@ try{
         check('faucet claim shows the unreachable message when blocked',
           /could not be reached/.test(await page.locator('#faucet-message').innerText())
           &&await page.locator('#faucet-result').isHidden());
+        // The privacy policy (2026-11-22): English and Arabic, rendered as text, no horizontal scroll on a phone.
+        for(const [lang,dir,title,heading] of [['en','ltr','Privacy policy · PoCol','Privacy policy'],['ar','rtl','سياسة الخصوصية · PoCol','سياسة الخصوصية']]){
+          await page.setViewportSize({width:390,height:844});
+          await page.goto(server.origin+'/privacy.html?lang='+lang,{waitUntil:'networkidle'});
+          check('privacy page '+lang+' language, direction, title and sections',await page.evaluate(([l,d,t,h])=>document.documentElement.lang===l
+            &&document.documentElement.dir===d&&document.title===t&&document.querySelector('#privacy-heading').textContent===h
+            &&document.querySelectorAll('#privacy-body .privacy-section li').length>=15,[lang,dir,title,heading]));
+          check('privacy page '+lang+' has no horizontal scroll at 390 px',await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
+          check('privacy page '+lang+' footer links the policy',await page.locator('footer a[data-i18n="privacyLink"]').count()===1);
+          await page.setViewportSize({width:1280,height:720});
+        }
         await page.goto(server.origin+'/faucet.html?lang=ar',{waitUntil:'networkidle'});
         check('faucet page Arabic language, direction and title',await page.evaluate(()=>document.documentElement.lang==='ar'
           &&document.documentElement.dir==='rtl'&&document.title==='احصل على رسومك الأولى · PoCol'));

@@ -54,6 +54,15 @@ while linked), `--download` (kept-out lines written, superseded ones dropped, a 
 `keptOut` list (only its lines are carried, so a deleted tracked `.sha256` fails `--check`) and
 that the W14 edits, undone on a copy, give back every served file byte for byte.
 
+## Download links and privacy policy (2026-11-22)
+
+`test_downloads.py` checks that every pocol.net `downloads/` link names a file of the snapshot, a `keptOut` file or a
+`LEGACY_NATIVE` package, that the retired network's packages are only linked with a label saying so (English and
+Arabic), and that the "MAINNET EDITION" buttons offer no package before the signed release. `test_privacy_page.py`
+checks `privacy.html` against `privacy.js` (English static text, Arabic for every entry, text-only rendering, the footer
+link on every page) and each statement of the policy against the code it describes. `browser_security.mjs` renders the
+policy in both languages at 390 px. `api_security.php` counts HELD (1) and ACCRUING (4) members as eligible miners.
+
 ## Site truth (owner decision 4, 2026-11-18)
 
 `test_launch_decisions.py` (`LaunchTexts`) refuses the removed launch-blocking and retired-network texts in every

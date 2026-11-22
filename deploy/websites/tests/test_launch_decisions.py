@@ -3,7 +3,8 @@
 decision 3) and the explorer gateway host (explorer.pocol.net, decision 9). Decision 8 (no faucet on mainnet) was
 superseded on 2026-11-18: the fee faucet runs on mainnet. Outside the tests and READMEs, the sites name it only in
 pocol.net's claim page (faucet.html, faucet.js, faucet.css), the home page's Get started card link and its locales.js keys,
-and SHA256SUMS.txt; the only faucet URLs are https://explorer.pocol.net/faucet/claim and /faucet/status.
+SHA256SUMS.txt and the privacy policy (privacy.html, privacy.js); the only faucet URLs are
+https://explorer.pocol.net/faucet/claim and /faucet/status.
 Gate Q1's unresolved-finding ledger and public limitations (development/public-network/FINDINGS.md, owner decisions
 4 and 7 of 2026-11-18): every link and cited path exists, every F-NN id is unique."""
 import html, json, re, unittest
@@ -139,6 +140,9 @@ class FaucetPage(unittest.TestCase):
              'client_limit', 'signer_failed', 'node_refused', 'node_unavailable', 'unknown_outcome', 'wrong_network',
              'over_float', 'empty'}
     PAGE_FILES = {'faucet.html', 'faucet.js', 'faucet.css'}
+    # The privacy policy (privacy.html and its text in privacy.js, 2026-11-22) describes what the faucet records; it
+    # names no faucet URL or route (the checks above still apply to it).
+    POLICY_FILES = {'privacy.html', 'privacy.js'}
 
     def script(self):
         return (MAIN / 'faucet.js').read_text(encoding='utf-8')
@@ -213,7 +217,7 @@ class FaucetPage(unittest.TestCase):
                     self.assertIn(url, endpoints, name)
                 for route in re.findall(r'/faucet[\w/.-]*', text, re.I):
                     self.assertIn(route, {'/faucet/status', '/faucet/claim'}, name)
-                if path.name in self.PAGE_FILES:
+                if path.name in self.PAGE_FILES | self.POLICY_FILES:
                     continue
                 if path.name == 'SHA256SUMS.txt':
                     lines = [line for line in text.splitlines() if re.search(r'faucet', line, re.I)]

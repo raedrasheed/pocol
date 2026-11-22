@@ -123,7 +123,8 @@ function pocol_network_summary(callable $rpc, ?int $now = null): array {
         if (!is_object($miner) || !is_bool($miner->tomb ?? null)) throw new RuntimeException('Invalid miner.');
         pocol_summary_integer($miner->status ?? null);
         pocol_summary_integer($miner->bondState ?? null);
-        if ($miner->status === 1 && $miner->tomb === false && $miner->bondState === 1) $eligible++;
+        // A HELD (1) or ACCRUING (4) active record mines, as the node counts it (prototypes/pocold/src/wallet.rs status).
+        if ($miner->status === 1 && $miner->tomb === false && ($miner->bondState === 1 || $miner->bondState === 4)) $eligible++;
     }
     $count = min(20, $height + 1);
     $requests = [];

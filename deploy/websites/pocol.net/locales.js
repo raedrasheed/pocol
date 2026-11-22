@@ -100,7 +100,8 @@ window.POCOL_LOCALES = {
     "networkUpdated": "آخر تحديث: {time}",
     "networkUnavailable": "بيانات الشبكة الحية غير متاحة مؤقتًا. تجري إعادة المحاولة تلقائيًا.",
     "networkSeconds": "{value} ثانية",
-    "networkTestnet": "شبكة PoCol الرئيسية"
+    "networkTestnet": "شبكة PoCol الرئيسية",
+    "privacyLink": "سياسة الخصوصية"
   },
   "en": {
     "t01": "Skip to content",
@@ -203,6 +204,7 @@ window.POCOL_LOCALES = {
     "networkUpdated": "Updated {time}",
     "networkUnavailable": "Live network data is temporarily unavailable. Retrying automatically.",
     "networkSeconds": "{value} sec",
-    "networkTestnet": "PoCol Mainnet"
+    "networkTestnet": "PoCol Mainnet",
+    "privacyLink": "Privacy policy"
   }
 };

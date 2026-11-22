@@ -47,10 +47,23 @@ files that remain. Until the rebuild, pages that link the removed invitation or 
   Answers over 16 KiB are not read to the end and count as unreadable.
   `tests/test_launch_decisions.py` (`FaucetPage`) checks that, tests and READMEs aside, the only files under
   `deploy/websites` and `prototypes/pocol-studio/dist` that name the faucet are the claim page files, the home page (its card link and keys),
-  `locales.js` (the card keys) and `SHA256SUMS.txt` (the three page files), and that the only faucet URLs are those two
+  `locales.js` (the card keys), `SHA256SUMS.txt` (the three page files) and the privacy policy (`privacy.html`,
+  `privacy.js`, which name no faucet URL), and that the only faucet URLs are those two
   routes (the IDE's third-party bundle is checked for faucet links only); `tests/browser_security.mjs` runs the page against stubbed answers.
   If the pocol.net host sends a Content-Security-Policy (none is in this repository), its `connect-src` must allow
   `https://explorer.pocol.net`, or every claim fails as unreachable.
+
+- **Privacy policy (2026-11-22).** `pocol.net/privacy.html` (English static text, Arabic through `privacy.js`, like the
+  faucet page; `privacy.css`) is the privacy policy of the Chrome extension and the four sites; the Chrome Web Store
+  listing links it (`prototypes/pocol-extension/store/listing.md`), and every page's footer links it (`privacyLink` in
+  `locales.js`). It states only what the repository's code does: keys and password stay in the extension; the extension
+  contacts only `https://explorer.pocol.net/studio/rpc` or a loopback node; the faucet keeps address, day and
+  transaction, and counts claims per IP (IPv6 /64) in memory for the current UTC day; the gateway, the Studio relay and
+  the faucet write no request log and the Caddy sites enable no access log; the explorer loads Google Fonts; the shared
+  host may keep its own access logs. `tests/test_privacy_page.py` checks the page against `privacy.js` and each of those
+  statements against the code it describes (a change there fails the test until the policy follows), and
+  `tests/browser_security.mjs` renders it in both languages at phone width. The owner reviews the text before the page
+  is published.
 
 Left out of Git and kept in the release asset:
 - the download archives (`*.zip`): the old native packages and the extension packages;
@@ -115,7 +128,14 @@ network's upgrade, migration and Android-update texts are replaced: nothing carr
 static source lists are the guide's, and the README, V3 program and CP links pin main at `4db2652`. The 0.5.0
 download links and names, the published extension ID and key fingerprint, and the IDE's "0.4.0 or later" messages
 change with the signed release (W16). Until then the links beside "Coming from the retired network?" (home page and
-tools page) are labelled as the retired network's 0.4.0 Windows package; W16 replaces or removes them.
+tools page) are labelled as the retired network's 0.4.0 Windows package; W16 replaces or removes them. No other page
+offers a native package before W16 (2026-11-22): the home page's "MAINNET EDITION" buttons
+(`wallet-downloads.js`) show "No release available", and the tools page and the guide no longer offer the 0.4.0
+Windows and Linux packages as PoCol Mainnet applications, the removed invitation (`downloads/network.pocol.json`, the
+retired network's) or `downloads/PoCol-Apps-README.txt` (never in the snapshot). `tests/test_downloads.py` checks that
+every `downloads/` link is a file of the snapshot, a `keptOut` file or a `LEGACY_NATIVE` package labelled as the
+retired network's. `api/network.php` counts a HELD (1) or ACCRUING (4) active record as an eligible miner, as the node
+does.
 `tests/test_launch_decisions.py` (`LaunchTexts`) refuses the removed texts.
 
 A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` and `index.html` follows, as does the

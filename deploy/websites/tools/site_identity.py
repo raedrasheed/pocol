@@ -164,10 +164,12 @@ LABELS = [re.compile(prefix + _SEMVER) for prefix in (
 OR_LATER = re.compile(r'\s+(?:or later|or newer|أو أحدث|أو ما بعده)')
 # Native package names (assemble_release.py's, at package.py's version).
 NATIVE = re.compile(r'PoCol-Mainnet-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_-]+(?:\.[A-Za-z0-9]+)+')
-# The retired network's native packages that pocol.net still links (wallet-downloads.js, index.html, pocol-tools.html,
-# guide-content.js) until the signed release moves those links (W16, PR F). --check fails once none links one of them,
-# so the exemption leaves with the last link.
-LEGACY_NATIVE = frozenset({'PoCol-Mainnet-0.4.0-Windows.zip', 'PoCol-Mainnet-0.4.0-Linux.zip'})
+# The retired network's native package that pocol.net still links, labelled as the retired network's, beside "Coming
+# from the retired network?" (index.html, pocol-tools.html, guide-content.js) until the signed release moves those links
+# (W16, PR F). The Linux package and the unlabelled "MAINNET EDITION" and tools-page links were removed on 2026-11-22:
+# they offered the retired network's 0.4.0 packages as PoCol Mainnet applications. --check fails
+# once no page links a name listed here, so the exemption leaves with the last link.
+LEGACY_NATIVE = frozenset({'PoCol-Mainnet-0.4.0-Windows.zip'})
 VERSIONED = re.compile(r'(?<![0-9A-Za-z_.:/-])(/?[A-Za-z0-9_][A-Za-z0-9_./-]*)\?v=([0-9a-f]{12})(?![0-9A-Za-z])')
 # The explorer snapshot is static (Sites W8): its /api paths are the gateway's (deploy/rewards/explorer_api.py) and its
 # headers are the Caddy site's (deploy/explorer/explorer_site.py), so no server code or hidden file may be in it.

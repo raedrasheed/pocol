@@ -39,7 +39,10 @@ $rpc = static function(array $requests) use ($hash): array {
         return [(object)['chainId'=>POCOL_SUMMARY_CHAIN,'genesisHash'=>POCOL_SUMMARY_GENESIS,
             'head'=>(object)['height'=>3,'hash'=>$hash(3)],'pool'=>2],
             (object)['chainId'=>POCOL_SUMMARY_CHAIN,'genesisHash'=>POCOL_SUMMARY_GENESIS],
-            [(object)['status'=>1,'tomb'=>false,'bondState'=>1],(object)['status'=>2,'tomb'=>false,'bondState'=>1]]];
+            [(object)['status'=>1,'tomb'=>false,'bondState'=>1],(object)['status'=>2,'tomb'=>false,'bondState'=>1],
+             // ACCRUING (4) mines on probation; NONE (0) and a tomb do not.
+             (object)['status'=>1,'tomb'=>false,'bondState'=>4],(object)['status'=>1,'tomb'=>false,'bondState'=>0],
+             (object)['status'=>1,'tomb'=>true,'bondState'=>1]]];
     }
     return array_map(static function(array $r) use ($hash): object {
         $h=hexdec($r['params'][0]);
@@ -47,7 +50,7 @@ $rpc = static function(array $requests) use ($hash): array {
     },$requests);
 };
 $summary = pocol_network_summary($rpc,$now);
-check('summary identity and branch-consistent metrics', $summary['metrics']['eligibleMiners']===1 && $summary['metrics']['blockHeight']===3 && $summary['metrics']['averageBlockTime']==4);
+check('summary identity and branch-consistent metrics', $summary['metrics']['eligibleMiners']===2 && $summary['metrics']['blockHeight']===3 && $summary['metrics']['averageBlockTime']==4);
 $mixed = static function(array $requests) use ($rpc): array {
     $values=$rpc($requests);
     if($requests[0]['method']==='eth_getBlockByNumber')$values[1]->hash='0x'.str_repeat('ff',32);
