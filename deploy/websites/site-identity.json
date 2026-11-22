@@ -21,11 +21,10 @@
   "keptOut": {
     "explorer.pocol.net": [],
     "ide.pocol.net": [
-      "downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip"
+      "downloads/PoCol-Studio-IDE-Viewer-0.5.0.zip"
     ],
     "pocol.net": [
-      "downloads/PoCol-Studio-Chrome.zip",
-      "downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip"
+      "downloads/PoCol-Studio-IDE-Viewer-0.5.0.zip"
     ]
   }
 }

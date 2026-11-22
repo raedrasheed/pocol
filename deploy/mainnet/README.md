@@ -159,9 +159,11 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
   network reports `publicLaunchApproved` true only when its booted admission matches the pin exactly (otherwise
   `admission-mismatch`, naming the fields that differ), and its `technicalReadiness` still lists `admission-scope`,
   each `admission-condition-*` and `admission-waiver-*`, and every open gate. The launcher boots nothing: it reports
-  the pin's approval reference and keeps `admission-not-booted`. The tree pins a retired network today, so the list is
-  empty and every network reports `network-not-release-pinned` and `launch-not-approved` (and, in the launcher,
-  `admission-not-booted`). The report is node-local: it never stops a node from running, mining or serving sites.
+  the pin's approval reference and keeps `admission-not-booted`. Since step 7 the tree pins PoCol Mainnet (chain
+  2656089850, genesis `0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e`), so the list holds its one
+  public-network entry; every other network reports `network-not-release-pinned` and `launch-not-approved` (and, in
+  the launcher, `admission-not-booted`). Live nodes report the pin only once they run a release built from the switched
+  tree. The report is node-local: it never stops a node from running, mining or serving sites.
 - `v3-profile.json`, `v3-rehearsal-profile.json`: the fresh network's mainnet profile and the rehearsal profile,
   which is kept only as a test and devnet profile (FN-4; OWNER-DECISIONS-2026-11-20). They differ only in the chain ID
   and the launch second. `test_v3_profiles.py` checks them; `pocold`'s
@@ -169,8 +171,8 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
 - `retired-networks.json`: the identities the clients were switched away from, append-only. Every switch adds
   its `--from` network, and the tool refuses a listed network as `--to` (swapped `--from`/`--to` included):
   a rollback is a `git revert` of the switch commit, not a reversed run. `--allow-revert` switches back to a
-  retired network on purpose. Its first entry is the network retired on 2026-11-13, which the clients still pin
-  until the new genesis exists.
+  retired network on purpose (step 7 never uses it). Its first entry is the network retired on 2026-11-13, which the
+  clients pinned until step 7 switched them to PoCol Mainnet.
 
 The tests (`test_set_network_identity.py`) also guard the tree: every tracked file that pins the current
 identity is in `FILES` or kept on purpose; once the tree pins a network that is not retired, no tracked file

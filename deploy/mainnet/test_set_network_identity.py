@@ -47,6 +47,8 @@ def anywhere(identities, keep_chain=None):
             for a in ((() if chain == keep_chain else (re.escape(f'{chain}'), re.escape(f'{chain:_}'), f'{chain:x}')) + (genesis[:8],))]
     return re.compile('(?i)' + '|'.join(alts)) if alts else None
 CUR_ANYWHERE = anywhere([(CUR_CHAIN, CUR_GENESIS)])
+# The current genesis hash alone (the check of the files that name the public network chain on purpose).
+CUR_GENESIS_ANYWHERE = anywhere([(CUR_CHAIN, CUR_GENESIS)], keep_chain=CUR_CHAIN)
 # The retired identities (read independently of the tool), and those the tree no longer pins: no tracked file outside
 # the kept ones may hold one of those, FILES included, so no copy of an earlier network outlives its switch.
 RETIRED = [(e['chainId'], e['genesisHash'][2:]) for e in json.loads((ni.ROOT / ni.RETIRED).read_text(encoding='utf-8'))['retired']]
@@ -262,15 +264,20 @@ def profiles(root):
     line = next(l for l in text.splitlines() if l.startswith('pub const NETWORK_PROFILES:'))
     return entries_of(line)
 
-def unaccounted(files, current=CUR_ANYWHERE, gone=GONE_ANYWHERE, named=None):
-    """Paths among (path, text) pairs outside the kept ones that pin the current identity without being listed (a file
-    in `named`, MAINNET_NAMED once the tree pins the public network chain, names it on purpose), or pin a retired
-    identity the tree no longer pins (listed, named or not)."""
+def unaccounted(files, current=CUR_ANYWHERE, gone=GONE_ANYWHERE, named=None, current_genesis=CUR_GENESIS_ANYWHERE):
+    """Paths among (path, text) pairs outside the kept ones that pin the current identity without being listed, or
+    pin a retired identity the tree no longer pins (listed, named or not). A file in `named` (MAINNET_NAMED once the tree
+    pins the public network chain) names the chain ID on purpose, so only the current genesis hash (`current_genesis`)
+    is flagged in it: a named file never carries a second copy of the network's genesis."""
     named = NAMED if named is None else named
+    def pins_current(rel, text):
+        if rel in ni.FILES:
+            return False
+        found = current_genesis if rel in named else current
+        return found is not None and found.search(without_profiles(rel, text))
     return [rel for rel, text in files
             if not rel.startswith(tuple(KEPT_PREFIXES)) and rel not in KEPT
-            and ((rel not in ni.FILES and rel not in named and current.search(without_profiles(rel, text)))
-                 or (gone is not None and gone.search(text)))]
+            and (pins_current(rel, text) or (gone is not None and gone.search(text)))]
 
 def without_profiles(rel, text):
     """The text the current-identity guard searches: in ni.PROFILES only the NETWORK_PROFILES declaration's body is
@@ -307,6 +314,12 @@ class SetNetworkIdentity(unittest.TestCase):
 
     def run_tool(self, root, *extra, source='cur.json', target='a.json'):
         return ni.main(['--from', str(root / source), '--to', str(root / target), '--root', str(root), *extra])
+
+    def published(self, root, target):
+        """The --expect-* arguments a switch to `target` needs when its chain is a public network chain (the tree's own
+        network once the identity switch has pinned PoCol Mainnet), else none: a test that switches to such a network
+        for another purpose gives the published values, so it is refused only for the reason it tests."""
+        return expects(root / target) if ni.invitation_identity(root / target)[0] in PUBLIC else []
 
     def snapshot(self, root):
         return {rel: hashlib.sha256((root / rel).read_bytes()).hexdigest() for rel in TRACKED}
@@ -480,9 +493,9 @@ class SetNetworkIdentity(unittest.TestCase):
         # And back, on purpose only: the original network is retired (listed before, or by the first switch).
         before = self.snapshot(root)
         with self.assertRaises(SystemExit):
-            self.run_tool(root, source='b.json', target='cur.json')
+            self.run_tool(root, *self.published(root, 'cur.json'), source='b.json', target='cur.json')
         self.assertEqual(before, self.snapshot(root), 'a refused revert writes nothing')
-        self.assertEqual(self.run_tool(root, '--allow-revert', source='b.json', target='cur.json'), 0)
+        self.assertEqual(self.run_tool(root, '--allow-revert', *self.published(root, 'cur.json'), source='b.json', target='cur.json'), 0)
         after, original = self.snapshot(root), self.snapshot(ni.ROOT)
         # The built-in profile placeholder (D1) is replaced for good: switching back pins the original network there.
         kept = {ni.RETIRED} | {rel for rel in ni.PLACEHOLDER_FILES if ni.PLACEHOLDER_MARK in (ni.ROOT / rel).read_text(encoding='utf-8')}
@@ -755,7 +768,7 @@ class SetNetworkIdentity(unittest.TestCase):
                 self.run_tool(root, target=name)
         # The same network on both sides, and target chain IDs that are never a target.
         with self.assertRaises(SystemExit):
-            self.run_tool(root, target='cur.json')
+            self.run_tool(root, *self.published(root, 'cur.json'), target='cur.json')
         for chain in (777001, 2**53):
             spec = make_spec(chain=chain, flip=4)
             (root / f'chain-{chain}.json').write_text(invitation(spec), encoding='utf-8')
@@ -997,13 +1010,13 @@ class SetNetworkIdentity(unittest.TestCase):
         self.assertEqual(self.run_tool(root), 0)
         self.assertEqual(self.run_tool(root, source='a.json', target='b.json'), 0)
         self.assertNotEqual((root / ni.PROFILES).read_bytes(), original)
-        self.assertEqual(self.run_tool(root, '--allow-revert', source='b.json', target='cur.json'), 0)
+        self.assertEqual(self.run_tool(root, '--allow-revert', *self.published(root, 'cur.json'), source='b.json', target='cur.json'), 0)
         if SWITCHED:
             # The reverted-to network was retired by the first switch: its entry is not written back.
             self.assertEqual(profiles(root), [])
         else:
             self.assertEqual((root / ni.PROFILES).read_bytes(), original)
-        self.assertEqual(self.run_tool(root, '--check', '--allow-revert', source='b.json', target='cur.json'), 0)
+        self.assertEqual(self.run_tool(root, '--check', '--allow-revert', *self.published(root, 'cur.json'), source='b.json', target='cur.json'), 0)
 
     def test_the_guard_flags_planted_copies(self):
         planted = [('a.py', f'X = {CUR_CHAIN}n'), ('b.rs', f'const X: u64 = {CUR_CHAIN:_};'), ('c.js', f"c='0x{CUR_CHAIN:X}'"),
@@ -1015,10 +1028,16 @@ class SetNetworkIdentity(unittest.TestCase):
         # In readiness.rs only the NETWORK_PROFILES entry is exempt; a copy anywhere else in that file is flagged.
         entry = ni.PROFILES_DECL + ni.profiles_text([(CUR_CHAIN, CUR_GENESIS)], PUBLIC) + '];\n'
         self.assertEqual(unaccounted([(ni.PROFILES, entry)]), [])
-        for stray in (f'// chain {CUR_CHAIN}\n', f'const G:&str="{CUR_GENESIS}";\n'):
+        # readiness.rs names the public network chain in its own tests (MAINNET_NAMED), so once the tree pins that chain a
+        # stray chain ID there is not taken for a pin; a stray genesis hash is flagged whatever the tree pins.
+        chain_flagged = [] if ni.PROFILES in NAMED else [ni.PROFILES]
+        for stray, flagged in ((f'// chain {CUR_CHAIN}\n', chain_flagged), (f'const G:&str="{CUR_GENESIS}";\n', [ni.PROFILES]),
+                               (f'const G:&str="0x{CUR_GENESIS.upper()}";\n', [ni.PROFILES])):
             with self.subTest(stray=stray):
-                self.assertEqual(unaccounted([(ni.PROFILES, entry + stray)]), [ni.PROFILES])
-                self.assertEqual(unaccounted([(ni.PROFILES, ni.PROFILES_DECL + '];\n' + stray)]), [ni.PROFILES])
+                self.assertEqual(unaccounted([(ni.PROFILES, entry + stray)]), flagged)
+                self.assertEqual(unaccounted([(ni.PROFILES, ni.PROFILES_DECL + '];\n' + stray)]), flagged)
+        # In a file outside FILES and outside MAINNET_NAMED the current chain ID alone is a pin, whatever the tree pins.
+        self.assertEqual(unaccounted([('z.rs', f'// chain {CUR_CHAIN}\n')]), ['z.rs'])
         # A retired identity the tree no longer pins: flagged everywhere outside the kept files, FILES included.
         gone_chain, gone_genesis = NEW_CHAIN, HASH_A[2:]
         gone = anywhere([(gone_chain, gone_genesis)])
@@ -1041,7 +1060,7 @@ class SetNetworkIdentity(unittest.TestCase):
         switched tree passes the guard (its chain ID pins are the current network's, not the retired one's)."""
         root = self.copy()
         (root / 'same.json').write_text(invitation(make_spec(chain=CUR_CHAIN, flip=1)), encoding='utf-8')
-        self.assertEqual(self.run_tool(root, target='same.json'), 0)
+        self.assertEqual(self.run_tool(root, *self.published(root, 'same.json'), target='same.json'), 0)
         chain, genesis, _ = ni.current_identity(root)
         self.assertEqual(chain, CUR_CHAIN)
         retired = ni.read_retired((root / ni.RETIRED).read_bytes())   # (chain ID, genesis hex without 0x)
@@ -1049,7 +1068,7 @@ class SetNetworkIdentity(unittest.TestCase):
         gone = anywhere([r for r in retired if r != (chain, genesis)], keep_chain=chain)
         files = [(rel, (root / rel).read_text(encoding='utf-8')) for rel in TRACKED]
         self.assertEqual(unaccounted(files, current=anywhere([(chain, genesis)]), gone=gone), [])
-        self.assertEqual(self.run_tool(root, '--check', target='same.json'), 0)
+        self.assertEqual(self.run_tool(root, '--check', *self.published(root, 'same.json'), target='same.json'), 0)
 
     def test_every_tracked_file_that_pins_the_current_identity_is_listed_or_kept(self):
         try:
@@ -1096,6 +1115,10 @@ class SetNetworkIdentity(unittest.TestCase):
         self.assertEqual(unaccounted([(rel, f'chain {MAINNET_CHAIN}')], current=chain_anywhere(MAINNET_CHAIN), named=set(MAINNET_NAMED)), [])
         self.assertEqual(unaccounted([(rel, f'chain {MAINNET_CHAIN}')], current=chain_anywhere(MAINNET_CHAIN), named=set()), [rel])
         self.assertEqual(unaccounted([(rel, f'chain {NEW_CHAIN}')], gone=anywhere([(NEW_CHAIN, HASH_A[2:])]), named=set(MAINNET_NAMED)), [rel])
+        # A named file holding the genesis hash of the network on that chain is flagged: it names the chain, never pins it.
+        genesis = HASH_A[2:]
+        self.assertEqual(unaccounted([(rel, f'genesis 0x{genesis}')], current=anywhere([(MAINNET_CHAIN, genesis)]), named=set(MAINNET_NAMED),
+                                     current_genesis=anywhere([(MAINNET_CHAIN, genesis)], keep_chain=MAINNET_CHAIN)), [rel])
 
     def test_the_retired_release_texts_go_with_the_switch(self):
         held = [rel for rel, old in STEP3.items() if old.search((ni.ROOT / rel).read_text(encoding='utf-8'))]

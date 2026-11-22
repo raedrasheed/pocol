@@ -14,7 +14,7 @@ PoCol IDE — دليل النشر على ide.pocol.net
 - assets/ بالكامل، بما فيه ملفات JavaScript وCSS وعمال المتصفح والصور.
 - compiler/worker.js
 - compiler/soljson.js
-- downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip
+- downloads/PoCol-Studio-IDE-Viewer-0.5.0.zip
 - licenses/ وTHIRD-PARTY-NOTICES.txt
 - أي ملفات إعداد للاستضافة مرفقة بالنسخة، بما فيها الملفات المخفية إن وجدت.
 
@@ -43,8 +43,8 @@ https://ide.pocol.net/compiler/soljson.js
 
 4. الاتصال بمحفظة PoCol والنشر على الشبكة
 
-المسار الأساسي هو إضافة PoCol المرفقة مع هذه النسخة. اسم الحزمة PoCol-Studio-IDE-Viewer-0.4.1.zip، ورابطها بعد نشر الموقع:
-https://ide.pocol.net/downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip
+المسار الأساسي هو إضافة PoCol المرفقة مع هذه النسخة. اسم الحزمة PoCol-Studio-IDE-Viewer-0.5.0.zip، ورابطها بعد نشر الموقع:
+https://ide.pocol.net/downloads/PoCol-Studio-IDE-Viewer-0.5.0.zip
 
 يمكن استخدام محفظة خارجية متوافقة مع EIP-1193 اختيارياً.
 
