@@ -7,6 +7,8 @@ synthetic data. They do not call the live PoCol network or use an existing walle
 python3 -B -m unittest discover -s deploy/websites/tests -p 'test_*.py' -v
 python3 -B deploy/websites/tools/site_identity.py --check
 php deploy/websites/tests/api_security.php
+PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
+  POCOL_CHROMIUM=/path/to/chromium node deploy/websites/tests/site_pages.mjs        # every page: width, RTL, links, CSP
 python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v   # the explorer's /api reads (Sites W8)
 python3 -B -m unittest discover -s deploy/explorer -v                         # the explorer gateway host's Caddy site
 node --test deploy/websites/tests/explorer_w7.test.mjs                        # the explorer's W7 edits and helpers
@@ -78,9 +80,12 @@ The Python tests (`test_site_identity.py`) switch a temporary copy of the snapsh
 every `--check` refusal, and guard `config.php`: none is tracked, `.gitignore` ignores it, the tool never reads one.
 They also check that the explorer snapshot is static (Sites W8): no `api/`, `.php` or dotfile, which `--check` refuses.
 
-The PHP test needs PHP 8, curl and POSIX functions on Linux. Its 26 checks exercise pocol.net's network summary and
-reward page (`pocol.net/api/network.php`, `reward.php`): pinned summary identity/branch consistency, exact reward
-arithmetic and private cache/lock handling with injectable transports. It does not start a PHP web server or validate
+The PHP test needs PHP 8, curl and POSIX functions on Linux. Its 52 checks exercise pocol.net's network summary and
+reward page (`pocol.net/api/network.php`, `reward.php`): pinned summary identity/branch consistency, the paged
+`pocol_getMembers` reads (600 and 10,000 members, a page at another block, a short page, a changed count, over 10,000),
+the v3 reward summary (pot = issued + fees - fee share + carry in; paid + burned + carried; bond fills; final and
+closing blocks; v1, spec-1, a foreign source and stale answers refused; the six snapshots of
+`deploy/rewards/testdata/v3-devnet-tape.json`) and private cache/lock handling with injectable transports. It does not start a PHP web server or validate
 the production host configuration. The explorer relay's 43 checks (the request/response validators of the retired
 `explorer.pocol.net/api/lib.php`, including the v3 membership and finality reads and their bounds) are in
 `deploy/rewards/test_explorer_api.py`, against the gateway handlers that replace it, with tests of every handler over
@@ -104,9 +109,32 @@ transfer that may exist, the figures aligned with their labels in Arabic, the Ar
 `unknown_outcome` (with a server message that is never rendered as HTML), and a disabled button when no transfer is
 left today. The real faucet and gateway route are not contacted.
 
-These 35 browser checks use no browser extension. They do not establish extension
+The reward panel is loaded with stubbed `/api/reward.php` summaries (English and Arabic at 390 px; the bond-fill,
+closing and final-block texts; v1, an unbalanced split, a wrong pot and another chain shown as unavailable), and the
+download section empty and filled the way `tools/release_page.py` fills it (no horizontal scroll at 390 px in Arabic;
+non-https links refused).
+
+These 57 browser checks use no browser extension. They do not establish extension
 viewer isolation, signing authorization, production HTTP headers (the explorer smoke checks the explorer's), compatibility on
 other browsers or equivalence between this local EVM and PoCol consensus.
+
+## Pages, links and headers (2026-11-22)
+
+```bash
+PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs POCOL_CHROMIUM=/path/to/chromium node deploy/websites/tests/site_pages.mjs
+```
+
+`site_pages.mjs` serves pocol.net, Studio and the IDE with their own `.htaccess` headers and loads every page at
+390x844 and 1366x900, in English and Arabic (the IDE in English): no horizontal scroll, `dir="rtl"` in Arabic, no page
+error, no CSP violation, and every rendered link resolves (a snapshot or kept-out file, a rendered `#fragment`, an
+explorer snapshot file, a pinned GitHub path at its commit in the local history; other links are listed, not fetched).
+A missing path answers the bilingual 404 page. Links inside Studio's dialogs are not rendered at load and so not
+checked there (`prototypes/pocol-studio/tests/model.test.mjs` checks the install dialog's).
+
+`test_guide_pages.py` checks that each guide page's static English is `guide-content.js`'s render (sections, intro,
+description and table of contents) and that each in-page link has its target. `test_host_files.py` checks
+`tools/host_files.py` with synthetic host listings. `test_release_page.py` signs a synthetic release with a throwaway
+ed25519 key in a temporary copy and checks `tools/release_page.py` (needs `ssh-keygen`).
 
 ## Explorer smoke on a v3 devnet (Sites W11, W8)
 

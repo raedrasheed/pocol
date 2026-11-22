@@ -103,10 +103,12 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    (`deploy/release/README.md`, owner procedure). This is the first signed release; no package is signed before it.
    The switch writes the release pin with the approval reference "OWNER-DECISIONS-2026-11-20 D1", so a node of this
    release booted on PoCol Mainnet reports `publicLaunchApproved` and `publicLaunchReady` true while its
-   `technicalReadiness` still lists what is open. The same PR publishes on the
-   pocol.net extension and download pages the two values users compare: the extension ID
-   `gggcoflmedlhlkcdhebmoepmggdnafmp` (`prototypes/pocol-extension/release/manifest-key.pub`) and the release key
-   fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` (`deploy/release/allowed_signers`).
+   `technicalReadiness` still lists what is open. The two values users compare are already published on the
+   pocol.net extension page and in its download section (2026-11-22, SITE-03; they do not depend on the invitation):
+   the extension ID `gggcoflmedlhlkcdhebmoepmggdnafmp` (`prototypes/pocol-extension/release/manifest-key.pub`) and the
+   release key fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` (`deploy/release/allowed_signers`);
+   `deploy/websites/tests/test_downloads.py` derives both from those files. After the signed release,
+   `deploy/websites/tools/release_page.py RELEASE_DIR` fills pocol.net's download buttons from the verified release.
 8. **Public launch.** Before the network is opened to the public, the disk monitor is active on the three founder
    servers and a real test notification from each has been received (D7 of 2026-11-21): on each server
    `--test-alert` delivered and received on every configured channel, a `--simulate-usage 96` alert received,

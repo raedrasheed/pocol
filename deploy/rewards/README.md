@@ -254,7 +254,10 @@ configured chain ID and genesis hash.
 **Operator step at deployment.** The explorer service unit is written by `deploy/explorer/install_explorer_gateway.py`
 (with `--v3-network`, and `--fork-schedule` when `forks.json` exists); the network file must exist before it runs. A
 hand-made unit with only the old arguments fails at startup. The pocol.net reward page
-(`deploy/websites/pocol.net/api/reward.php`, `reward.js`) still validates the retired `pocol-block-reward-v1` answer and is switched to `pocol-block-reward-v3` separately.
+(`deploy/websites/pocol.net/api/reward.php`, `reward.js`) validates this `pocol-block-reward-v3` answer (F-74, 2026-11-22)
+and shows its summary: pot h, its projected split (paid with bond fills, burned, carried), the projected beneficiaries,
+the closing note and the final block; `deploy/websites/tests/api_security.php` checks it on the recorded
+`testdata/v3-devnet-tape.json` snapshots.
 
 The explorer's `pocol_getParams` sanitizer retains the public fields `forkSchedule`, `capRaise`,
 `effectiveNonceMode`, `nextBlockNonceMode` and `consensusCompatibilitySha256`. The public RPC method allowlist is
