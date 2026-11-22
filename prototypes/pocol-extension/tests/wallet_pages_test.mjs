@@ -1,10 +1,10 @@
 // The wallet pages in the build (2026-11-22, EXT-02/06): the toolbar popup is the manifest's action popup, the popup,
 // Send and Settings pages load only packaged scripts, never touch the vault or the network themselves (only the worker
-// does), and the extension-page CSP forbids workers (worker-src 'none'), the same string the release packager requires.
+// does), no extension code starts a Web Worker, and the extension-page CSP is the string the release packager requires.
 // The real-browser evidence for these pages is tests/wallet_ui_browser.mjs.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,13 +26,15 @@ test('the toolbar button opens the wallet popup, and every wallet page is in the
   assert.equal(manifest.optional_permissions, undefined); assert.equal(manifest.web_accessible_resources, undefined); assert.equal(manifest.externally_connectable, undefined);
 });
 
-test('EXT-06: the extension pages forbid workers; the packager requires the same CSP', () => {
-  assert.equal(manifest.content_security_policy.extension_pages, "script-src 'self'; object-src 'self'; worker-src 'none'");
+test('EXT-06: no extension page starts a worker, and the packager requires the build\'s extension-page CSP', () => {
+  // worker-src 'none' is not used: Chrome does not apply it to extension pages (build.mjs, tests/wallet_ui_browser.mjs).
+  assert.equal(manifest.content_security_policy.extension_pages, "script-src 'self'; object-src 'self'");
   assert.equal(EXTENSION_PAGES_CSP, manifest.content_security_policy.extension_pages);
   const py = spawnSync('python3', ['-B', '-c', `import importlib.util,sys;s=importlib.util.spec_from_file_location('p',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print(m.EXTENSION_PAGES_CSP,end='')`, join(EXT, 'scripts', 'package-release.py')], { encoding: 'utf8' });
   assert.equal(py.status, 0, py.stderr); assert.equal(py.stdout, EXTENSION_PAGES_CSP);
-  // No extension page or library starts a worker (the CSP would refuse it; tests/wallet_ui_browser.mjs shows it does).
-  for (const f of ['popup.js', 'send.js', 'options.js', 'viewer.js', 'publisher-ui.js', 'contract-ui.js', 'sw.js']) assert.doesNotMatch(read(f), /new (Shared)?Worker\(/, f);
+  // No extension page, library or vendored module starts a worker.
+  const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
+  for (const f of walk(dist).filter((f) => f.endsWith('.js'))) assert.doesNotMatch(readFileSync(f, 'utf8'), /new (Shared)?Worker\(|serviceWorker\.register\(/, f);
 });
 
 test('the popup, Send and Settings pages load only their own packaged module, and hold no key, vault or network access', () => {

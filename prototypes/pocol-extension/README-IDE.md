@@ -15,6 +15,7 @@ The toolbar button opens the PoCol wallet. It has one account: the same encrypte
 - **Transactions:** the transfers sent from this extension, with their status from receipts (pending, included, failed, dropped, rejected, unknown). It is not the address's full history: for PoCol Mainnet the wallet links to the address on explorer.pocol.net.
 - **Connected sites:** Studio and IDE never receive the key or address on their own; each operation opens the extension's confirmation. A website opened in the viewer gets an account only after you approve it there, for that tab only, and Settings lists and ends these grants. The extension has no general provider for other websites.
 - **One account:** Studio, IDE and the publication jobs use the one saved wallet, so the wallet has one account per browser profile. To use another account, back up the current one and import the other.
+- **Checks:** `tests/account_test.mjs` (the built worker with mocked Chrome and RPC), `tests/wallet_pages_test.mjs` (the built pages), and `npm run test:wallet-browser` (`tests/wallet_ui_browser.mjs`: real Chromium against a local three-node pocold devnet with a throwaway key: import, status, balance, backup and restore into a fresh profile, Send included on the devnet, a wrong-genesis endpoint refused). None of them uses PoCol Mainnet.
 
 ## Upgrade from 0.4.1 or earlier
 

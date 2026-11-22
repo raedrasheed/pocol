@@ -64,9 +64,12 @@ export function inlineModscan(loader, modscan) {
   const body = modscan.replace(/^export (?=const |function |class )/gm, '');
   return loader.replace('/*@modscan*/null', () => `(() => {\n${body}\nreturn Object.freeze({ ${names.join(', ')} });\n})()`);
 }
-// The extension pages' CSP (EXT-06): no page of the extension starts a Web Worker, so worker-src 'none' (Chrome's
-// extension-page default allows blob: workers). scripts/package-release.py requires exactly this string.
-export const EXTENSION_PAGES_CSP = "script-src 'self'; object-src 'self'; worker-src 'none'";
+// The extension pages' CSP; scripts/package-release.py requires exactly this string. EXT-06 (2026-11-22): no extension
+// page starts a Web Worker (tests/wallet_pages_test.mjs), but `worker-src 'none'` is not added: in Chrome for Testing
+// 153.0.8010.12 it does not stop a worker in an extension page (neither a blob: nor a packaged worker script started;
+// tests/wallet_ui_browser.mjs records it), so it would only claim a protection Chrome does not give. Extension pages run
+// only the extension's own scripts (script-src 'self'), so no other code can start one.
+export const EXTENSION_PAGES_CSP = "script-src 'self'; object-src 'self'";
 export const SANDBOX_CSP = (hash, open) => open
   ? `sandbox allow-scripts allow-forms; script-src 'sha256-${hash}' blob:; style-src * blob: 'unsafe-inline'; img-src * blob: data:; font-src * blob:; media-src * blob:; connect-src *; frame-src *`
   : `sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-${hash}' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;

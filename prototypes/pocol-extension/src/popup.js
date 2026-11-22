@@ -14,7 +14,9 @@ async function loadNetworks() {
   const r = await call({ type: 'profiles.list' });
   const list = (r.profiles || []).filter((p) => !p.invalid);
   const builtIn = status?.network || 'pocol-public';
-  let saved = null; try { saved = localStorage.getItem('pocol:popup:network'); } catch { /* storage may be unavailable */ }
+  // The profile list is read on every refresh (a profile added or removed in Settings shows at once); the choice is
+  // kept while its profile exists.
+  let saved = selected; if (saved === null) try { saved = localStorage.getItem('pocol:popup:network'); } catch { /* storage may be unavailable */ }
   selected = list.some((p) => p.name === saved) ? saved : builtIn;
   $('network').replaceChildren(...list.map((p) => Object.assign(document.createElement('option'), { value: p.name, textContent: `${p.name === builtIn ? 'PoCol Mainnet (built-in)' : p.name} · chain ${p.chainId}`, selected: p.name === selected })));
 }
@@ -72,7 +74,7 @@ function formatWei(v) {
 
 async function refresh(refreshTxs = false) {
   status = await call({ type: 'account.status' });
-  if (selected === null) await loadNetworks();
+  await loadNetworks();
   const net = status.disclosureAccepted ? await renderNetwork() : (() => { dot('warn'); $('netText').textContent = 'Waiting for your agreement below'; return null; })();
   await renderAccount(net);
   await renderTxs(refreshTxs && status.disclosureAccepted);
