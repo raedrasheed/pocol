@@ -59,7 +59,7 @@ async function renderAccount(net, gen) {
   $('lockHint').hidden = !status.exists || !!status.unlocked;
   if (!status.exists) return;
   $('address').textContent = status.address;
-  $('note').textContent = '';
+  $('note').textContent = ''; $('note').className = 'error';
   if (!status.disclosureAccepted) { $('balance').textContent = '—'; return; }
   const b = await call({ type: 'account.balance', name: selected });
   if (!current(gen)) return;
@@ -116,6 +116,7 @@ $('lock').onclick = async () => {
   const r = await call({ type: 'account.lock' });
   await refresh();
   $('note').textContent = r.ok ? 'Locked. Open Studio publisher and IDE contract tabs lock too.' : errText(r);
+  $('note').className = r.ok ? '' : 'error'; // a confirmation, not an error
 };
 $('refresh').onclick = () => refresh(true);
 $('send').onclick = () => chrome.tabs.create({ url: chrome.runtime.getURL('send.html') + '#' + encodeURIComponent(selected) });
