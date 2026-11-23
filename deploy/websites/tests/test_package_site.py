@@ -15,7 +15,7 @@ sys.path.insert(0, str(HERE.parent / 'tools'))
 sys.path.insert(0, str(HERE))
 import package_site as ps  # noqa: E402
 import host_files as hf  # noqa: E402
-from test_downloads import DownloadLinks  # noqa: E402  (the stale-file sentence of the owner's upload guides)
+import test_downloads  # noqa: E402  (the stale-file sentence of the owner's upload guides; its tests are not re-run here)
 
 SITE = 'deploy/websites/pocol.net'
 GIT_ENV = {'GIT_AUTHOR_NAME': 'test', 'GIT_AUTHOR_EMAIL': 'test@example.invalid', 'GIT_COMMITTER_NAME': 'test',
@@ -219,7 +219,7 @@ class Guides(unittest.TestCase):
                            '"genesisHash":"{{GENESIS}}"', 'PHP {{PHP_RECOMMENDED}}', '`curl`', '{{GATEWAY}}'):
                 self.assertIn(needed, text)
         # The stale-file sentence of the earlier pocol.net/README-AR.txt (test_downloads.STALE_FILE_NOTE) moved here.
-        self.assertIn(DownloadLinks.STALE_FILE_NOTE, ' '.join(ar.split()))
+        self.assertIn(test_downloads.DownloadLinks.STALE_FILE_NOTE, ' '.join(ar.split()))
 
     def test_the_files_the_guides_name_for_deletion_are_delete_rows(self):
         # Each downloads/ or top-level file the guides expect host_files.py to mark DELETE is not in the snapshot, and
