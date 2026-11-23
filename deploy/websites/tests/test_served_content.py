@@ -6,7 +6,10 @@
 - the retired network is only named where that is true and needed: the migration warnings (balances do not carry over,
   move the old wallet folder aside, the earlier Android app is not updated, an old wallet home cannot be used) and the
   404 page's note that an address may have belonged to it;
-- sitemap.xml lists exactly the served pages (404.html aside), each a file of the snapshot, and robots.txt names it.
+- sitemap.xml lists exactly the served pages, each a file of the snapshot, and robots.txt names it. 404.html is not a
+  page to index, and the faucet claim page faucet.html is left out on purpose: test_launch_decisions.FaucetPage keeps
+  the files that name the faucet to the claim page, the home page (which links it), locales.js, SHA256SUMS.txt and the
+  privacy policy, and that rule stays.
 The files are the tracked ones (git ls-files), so an ignored or untracked file in a checkout is not judged."""
 import re, subprocess, unittest
 from pathlib import Path
@@ -72,7 +75,7 @@ class ServedContent(unittest.TestCase):
         self.assertGreater(seen, 10)
 
     def test_the_sitemap_lists_exactly_the_served_pages(self):
-        pages = {rel for rel in tracked() if rel.endswith('.html') and rel != '404.html'}
+        pages = {rel for rel in tracked() if rel.endswith('.html') and rel not in ('404.html', 'faucet.html')}
         sitemap = (MAIN / 'sitemap.xml').read_text(encoding='utf-8')
         locs = re.findall(r'<loc>([^<]+)</loc>', sitemap)
         self.assertEqual(len(locs), len(set(locs)), 'a page is listed twice')

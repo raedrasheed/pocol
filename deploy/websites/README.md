@@ -207,7 +207,8 @@ does.
   are `networkName`, `appsEdition` and `appsEditionNote`; the unused design-preview strings `walletTitle`, `walletBody`,
   `nodeTitle` and `nodeBody` ("will be published here when ready") left `locales.js`; the status page and its guide
   topic say that PoCol Mainnet launched on 2026-11-21 (genesis time 20:20:56 UTC, `development/public-network/
-  GENESIS-RECORD-2026-11-21.md`) instead of "launches"; and `sitemap.xml` lists `faucet.html`.
+  GENESIS-RECORD-2026-11-21.md`) instead of "launches". `sitemap.xml` lists every page but `404.html` and the faucet
+  claim page (which only the files `FaucetPage` allows may name; the home page links it).
   `tests/test_served_content.py` checks each.
 - **Headers, 404, robots (SITE-06, SITE-07).** `pocol.net/.htaccess` sets nosniff, the referrer and permissions
   policies, `X-Frame-Options DENY` and a `'self'` CSP (`connect-src` adds `https://explorer.pocol.net`; style

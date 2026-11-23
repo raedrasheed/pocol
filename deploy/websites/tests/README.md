@@ -109,7 +109,8 @@ PoCol Mainnet): no served file names a test network ("Testnet", "test net", in E
 included; the keys `networkTestnet`, `appsTestnet` and `appsTestnetNote` were renamed `networkName`, `appsEdition` and
 `appsEditionNote` with unchanged values) or a release below 0.5.0, the retired network is named only in sentences of
 its true notices (the migration warnings and the 404 note), and `sitemap.xml` lists exactly the served pages but
-`404.html` (it lacked `faucet.html`).
+`404.html` and `faucet.html` (the faucet page stays out of it so that `FaucetPage`'s list of the files that name the
+faucet is unchanged; the home page links it).
 
 ## Site truth (owner decision 4, 2026-11-18)
 
