@@ -12,11 +12,11 @@
     "108.165.128.91:30300"
   ],
   "links": {
-    "source": "https://github.com/raedrasheed/pocol/tree/27f98e5e27313aa204f540c3819d3c97f66acde6",
-    "rpc": "https://github.com/raedrasheed/pocol/blob/27f98e5e27313aa204f540c3819d3c97f66acde6/prototypes/pocold/src/rpc.rs",
-    "network": "https://github.com/raedrasheed/pocol/tree/27f98e5e27313aa204f540c3819d3c97f66acde6/prototypes/pocold",
-    "studioSite": "https://github.com/raedrasheed/pocol/blob/27f98e5e27313aa204f540c3819d3c97f66acde6/prototypes/pocold/src/site.rs",
-    "studioExtension": "https://github.com/raedrasheed/pocol/tree/27f98e5e27313aa204f540c3819d3c97f66acde6/prototypes/pocol-extension"
+    "source": "https://github.com/raedrasheed/pocol/tree/0a96068737655614ca714437f4569524f875962e",
+    "rpc": "https://github.com/raedrasheed/pocol/blob/0a96068737655614ca714437f4569524f875962e/prototypes/pocold/src/rpc.rs",
+    "network": "https://github.com/raedrasheed/pocol/tree/0a96068737655614ca714437f4569524f875962e/prototypes/pocold",
+    "studioSite": "https://github.com/raedrasheed/pocol/blob/0a96068737655614ca714437f4569524f875962e/prototypes/pocold/src/site.rs",
+    "studioExtension": "https://github.com/raedrasheed/pocol/tree/0a96068737655614ca714437f4569524f875962e/prototypes/pocol-extension"
   },
   "keptOut": {
     "explorer.pocol.net": [],
