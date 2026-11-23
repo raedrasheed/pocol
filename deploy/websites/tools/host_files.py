@@ -30,6 +30,10 @@ listing is made on the host by the owner, for example in cPanel's Terminal from 
 
     python3 deploy/websites/tools/host_files.py --site pocol.net --listing pocol.net-files.txt
 
+If another domain's document root lies inside this one (cPanel > Domains; for example public_html/ide), leave it out
+of the listing (`find . -path ./ide -prune -o -type f -print0 | ...`) or pass `--keep-dir ide`: otherwise every file of
+that site is listed as DELETE.
+
 The snapshot of a site with a SHA256SUMS.txt (pocol.net, ide.pocol.net) is that file's lines plus SHA256SUMS.txt
 itself; studio.pocol.net (prototypes/pocol-studio/dist) is the hash of every file there. Each SHA256SUMS
 line is checked against the tracked file first (deploy/websites/tools/site_identity.py --check keeps them equal).
@@ -126,17 +130,29 @@ def snapshot_file(site, path, root=None):
     base = Path(root) / SITES[site].relative_to(ROOT) if root else SITES[site]
     return (base / path).read_bytes()
 
-def compare(site, listing, keep=(), root=None, host_copies=None):
+def compare(site, listing, keep=(), root=None, host_copies=None, keep_dirs=()):
     """The report rows (kind, path, detail) of a host listing against `site`'s snapshot, sorted by kind and path.
-    `host_copies` maps a listed path to the bytes of a copy of the host's file (a merged .htaccess)."""
+    `host_copies` maps a listed path to the bytes of a copy of the host's file (a merged .htaccess). `keep_dirs` names
+    folders of the document root that are another site's document root (cPanel lets a subdomain's root sit inside the
+    main domain's, for example public_html/ide): every file under one is KEEP. A folder that holds a snapshot path, or is
+    one, is refused."""
     want, kept_out = expected(site, root)
     host_copies = host_copies or {}
+    for folder in keep_dirs:
+        if folder in ('', '.'):
+            raise Refused('--keep-dir: name a folder inside the document root, not the root itself')
+        clash = sorted(p for p in want if p == folder or p.startswith(folder + '/'))
+        if clash:
+            raise Refused(f'--keep-dir {folder}: the snapshot has files there ({clash[:3]}); it is not another site\'s root')
     for path in host_copies:
         if path not in listing:
             raise Refused(f'--host-copy {path}: the listing has no such file')
     rows = []
     for path, digest in listing.items():
-        if path in want:
+        nested = next((f for f in keep_dirs if path.startswith(f + '/')), None)
+        if nested:
+            rows.append(('KEEP', path, f'another document root nested here (--keep-dir {nested}), not this site\'s'))
+        elif path in want:
             if want[path] != digest and HTACCESS.search(path):
                 copy = host_copies.get(path)
                 if copy is None:
@@ -170,6 +186,8 @@ def main(argv=None):
     p.add_argument('--site', required=True, choices=sorted(SITES))
     p.add_argument('--listing', required=True, type=Path, help='the host listing (sha256sum format)')
     p.add_argument('--keep', action='append', default=[], metavar='PATH', help='another host file to keep (repeatable)')
+    p.add_argument('--keep-dir', action='append', default=[], metavar='DIR',
+                   help="a folder that is another site's document root inside this one, kept whole (repeatable)")
     p.add_argument('--host-copy', action='append', default=[], metavar='PATH=FILE',
                    help="a local copy of the host's file PATH (a merged .htaccess; repeatable)")
     a = p.parse_args(argv)
@@ -181,7 +199,8 @@ def main(argv=None):
             if not sep or not file:
                 raise Refused(f'--host-copy {item!r}: PATH=FILE')
             copies[norm(path)] = Path(file).read_bytes()
-        rows = compare(a.site, listing, {norm(k) for k in a.keep}, host_copies=copies)
+        rows = compare(a.site, listing, {norm(k) for k in a.keep}, host_copies=copies,
+                       keep_dirs=tuple(sorted({norm(d.rstrip('/\\')) for d in a.keep_dir})))
     except (OSError, UnicodeDecodeError, Refused) as e:
         print('FAIL', e, file=sys.stderr)
         return 2

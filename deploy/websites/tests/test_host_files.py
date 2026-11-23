@@ -161,6 +161,28 @@ class HostFiles(unittest.TestCase):
         rc, out, _ = self.run_main('pocol.net', text(dict(listing_of('pocol.net'), **{'robots.txt': '0' * 64})))
         self.assertIn('DIFFERS  robots.txt', out)
 
+    def test_a_nested_document_root_is_kept_whole_with_keep_dir(self):
+        # 2026-11-23 review: cPanel lets a subdomain's document root sit inside pocol.net's (the IDE's guide suggests
+        # public_html/ide). Without --keep-dir every file of that site is DELETE, and deleting them would take it down.
+        listing = dict(listing_of('pocol.net'), **{'ide/index.html': '1' * 64, 'ide/assets/a.js': '2' * 64,
+                                                   'studio/index.html': '3' * 64, 'idea.html': '4' * 64})
+        rc, out, _ = self.run_main('pocol.net', text(listing))
+        self.assertEqual(rc, 1)
+        self.assertIn('DELETE   ide/index.html  (not in the snapshot)', out)
+        rc, out, _ = self.run_main('pocol.net', text(listing), '--keep-dir', 'ide', '--keep-dir', 'studio/')
+        self.assertEqual(rc, 1, out)
+        for path in ('ide/index.html', 'ide/assets/a.js', 'studio/index.html'):
+            self.assertIn(f'KEEP     {path}  (another document root nested here (--keep-dir ', out)
+        # Only that folder: a file whose name merely begins with it is still to delete.
+        self.assertIn('DELETE   idea.html  (not in the snapshot)', out)
+        self.assertIn('delete 1, differs 0, merge 0, missing 0, keep 3', out)
+        # A folder that holds snapshot files, or the root itself, is refused.
+        for bad in ('api', 'assets', '.', '../x', '/home/user/public_html/ide'):
+            with self.subTest(bad=bad):
+                rc, _, err = self.run_main('pocol.net', text(listing), '--keep-dir', bad)
+                self.assertEqual(rc, 2, bad)
+                self.assertIn('FAIL', err)
+
     def test_malformed_listings_are_refused(self):
         good = 'a' * 64
         for bad in (f'{good}  /etc/passwd\n', f'{good}  ../x\n', f'{good}  a/../../x\n', 'not a line\n',
