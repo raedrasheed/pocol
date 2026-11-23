@@ -71,10 +71,6 @@ window.POCOL_LOCALES = {
     "collaborate": "تعاون",
     "buildTogether": "نبني معًا",
     "togetherPower": "قوة التعاون",
-    "walletTitle": "محفظة PoCol",
-    "walletBody": "ستُضاف روابط التنزيل الرسمية وتعليمات إنشاء المحفظة بعد اعتماد إصدارات التطبيقات للنشر عبر الموقع. هذه معاينة لتصميم الموقع.",
-    "nodeTitle": "شارك في الشبكة",
-    "nodeBody": "سيضم هذا المسار متطلبات تشغيل العقدة، إعداد الاتصال بالشبكة، وخطوات المشاركة بالتعدين. سيُنشر دليل التشغيل المعتمد هنا عند تجهيزه.",
     "devTitle": "للمطورين",
     "devBody": "سيضم هذا القسم توثيق البروتوكول وواجهات التكامل وأمثلة الاستخدام بعد مراجعتها وربطها بالموقع.",
     "explorerLink": "مستكشف الشبكة ↗",
@@ -100,7 +96,7 @@ window.POCOL_LOCALES = {
     "networkUpdated": "آخر تحديث: {time}",
     "networkUnavailable": "بيانات الشبكة الحية غير متاحة مؤقتًا. تجري إعادة المحاولة تلقائيًا.",
     "networkSeconds": "{value} ثانية",
-    "networkTestnet": "شبكة PoCol الرئيسية",
+    "networkName": "شبكة PoCol الرئيسية",
     "privacyLink": "سياسة الخصوصية"
   },
   "en": {
@@ -175,10 +171,6 @@ window.POCOL_LOCALES = {
     "collaborate": "COLLABORATE",
     "buildTogether": "BUILD TOGETHER",
     "togetherPower": "THE POWER OF TOGETHER",
-    "walletTitle": "PoCol wallet",
-    "walletBody": "Official downloads and wallet setup instructions will be added after the application releases are approved for this website. This is a website design preview.",
-    "nodeTitle": "Join the network",
-    "nodeBody": "This path will cover node requirements, network configuration, and mining participation. Verified setup instructions will be published here when ready.",
     "devTitle": "For developers",
     "devBody": "This section will include reviewed protocol documentation, integration interfaces, and examples once connected to the website.",
     "explorerLink": "Network explorer ↗",
@@ -204,7 +196,7 @@ window.POCOL_LOCALES = {
     "networkUpdated": "Updated {time}",
     "networkUnavailable": "Live network data is temporarily unavailable. Retrying automatically.",
     "networkSeconds": "{value} sec",
-    "networkTestnet": "PoCol Mainnet",
+    "networkName": "PoCol Mainnet",
     "privacyLink": "Privacy policy"
   }
 };

@@ -201,6 +201,14 @@ does.
   to 15 s. `tests/network_budget.py` replays them through the real `Gateway.charge`. The gateway that serves
   `pocol_getMemberCounts` must be installed before this snapshot is uploaded; with an older gateway the summary
   answers "temporarily unavailable".
+- **Deployment content (2026-11-23).** For the owner's request of 2026-11-23 (the pocol.net cPanel deployment of
+  PoCol Mainnet, item 4: no Testnet and no 0.4.x release in the deployment content), besides the retired Windows package
+  above: the i18n keys `networkTestnet`, `appsTestnet` and `appsTestnetNote`, whose values already said PoCol Mainnet,
+  are `networkName`, `appsEdition` and `appsEditionNote`; the unused design-preview strings `walletTitle`, `walletBody`,
+  `nodeTitle` and `nodeBody` ("will be published here when ready") left `locales.js`; the status page and its guide
+  topic say that PoCol Mainnet launched on 2026-11-21 (genesis time 20:20:56 UTC, `development/public-network/
+  GENESIS-RECORD-2026-11-21.md`) instead of "launches"; and `sitemap.xml` lists `faucet.html`.
+  `tests/test_served_content.py` checks each.
 - **Headers, 404, robots (SITE-06, SITE-07).** `pocol.net/.htaccess` sets nosniff, the referrer and permissions
   policies, `X-Frame-Options DENY` and a `'self'` CSP (`connect-src` adds `https://explorer.pocol.net`; style
   attributes are allowed for the guide's illustration), refuses directory listings and `config.php`, and serves the

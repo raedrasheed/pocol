@@ -345,7 +345,10 @@ class LaunchTexts(unittest.TestCase):
             self.assertRegex(sample, self.CLAIMS[what], what)
         # The status texts that replaced them are not refused.
         for sample in ('It launches from a fresh genesis under the v3 rule set by the owner\'s decision of 2026-11-20, without a separate rehearsal,',
-                       'دون تجربة إطلاق منفصلة (rehearsal)، بينما ما زالت بواباتها التقنية مفتوحة.'):
+                       'دون تجربة إطلاق منفصلة (rehearsal)، بينما ما زالت بواباتها التقنية مفتوحة.',
+                       # The status page's wording since the launch on 2026-11-21 (2026-11-23).
+                       "It launched from a fresh genesis on 2026-11-21 (genesis time 20:20:56 UTC) under the v3 rule set, by the owner's decision of 2026-11-20 and without a separate rehearsal;",
+                       'بقرار المالك المؤرخ 2026-11-20 ودون تجربة إطلاق منفصلة (rehearsal)، وما زالت بواباتها التقنية مفتوحة.'):
             for what, rx in self.CLAIMS.items():
                 self.assertNotRegex(sample, rx, what)
 

@@ -102,6 +102,15 @@ refill rate: no request of either may be refused. The paged summary it replaces 
 failed it. `api_security.php` checks the counts (one block, live + tomb and the bond states add up, eligible within
 live, HELD and ACCRUING) and the 15 s deadline of a refresh across its requests.
 
+## pocol.net deployment content (2026-11-23)
+
+`test_served_content.py` reads pocol.net's tracked files for the owner's request of 2026-11-23 (the cPanel deployment of
+PoCol Mainnet): no served file names a test network ("Testnet", "test net", in English or Arabic, hidden i18n keys
+included; the keys `networkTestnet`, `appsTestnet` and `appsTestnetNote` were renamed `networkName`, `appsEdition` and
+`appsEditionNote` with unchanged values) or a release below 0.5.0, the retired network is named only in sentences of
+its true notices (the migration warnings and the 404 note), and `sitemap.xml` lists exactly the served pages but
+`404.html` (it lacked `faucet.html`).
+
 ## Site truth (owner decision 4, 2026-11-18)
 
 `test_launch_decisions.py` (`LaunchTexts`) refuses the removed launch-blocking and retired-network texts in every
