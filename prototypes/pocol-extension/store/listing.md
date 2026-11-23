@@ -42,7 +42,7 @@ Your PoCol wallet
   network does not answer with the expected chain ID and genesis.
 - The transfers you sent from this extension are listed with their status (pending, included, failed, dropped,
   rejected, or unknown while the network's answer is unclear); an included transfer is checked again until its block is
-  64 blocks deep. On PoCol Mainnet the wallet links to the address on explorer.pocol.net, which shows its balance and
+  64 blocks deep, and a dropped one until the transaction that used its nonce is. On PoCol Mainnet the wallet links to the address on explorer.pocol.net, which shows its balance and
   the activity of recent blocks. Neither is a complete history of the address.
 - Back up the wallet at any time (after entering its password): an encrypted file that you can import again, also in
   another browser or after reinstalling.

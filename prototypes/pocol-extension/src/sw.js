@@ -776,19 +776,24 @@ async function confirmTransfer(msg, sender) {
  *  chain), failed, or dropped when the account's nonce moved past it without a receipt. A receipt is not finality: an
  *  included or failed transfer is read again on every refresh until its block is SETTLE_DEPTH blocks below the head
  *  ("settled"), and goes back to pending when its receipt or its block leaves the canonical chain (a reorganization),
- *  as the publisher re-reads a saved receipt against the canonical block (lib/publisher.js). */
+ *  as the publisher re-reads a saved receipt against the canonical block (lib/publisher.js). A dropped transfer is not
+ *  final either (Codex review, PR #114): it is read again until the account's nonce at SETTLE_DEPTH blocks below the
+ *  head is past its nonce, becomes included or failed when its receipt appears, and goes back to pending when the
+ *  nonce is free again (a reorganization removed the other transaction). A node that cannot answer the nonce at that
+ *  depth (its retained state window) bounds the watch to DROPPED_WATCH blocks after the drop was seen. */
 const OPEN_STATES = ['sending', 'pending', 'unknown'], RECHECK_STATES = ['included', 'failed'];
 // Deeper than pocold's reorganization alarm (node.rs K_ALARM = 60 blocks) and its `safe` depth (K_SAFE = 6).
-export const SETTLE_DEPTH = 64n;
+export const SETTLE_DEPTH = 64n, DROPPED_WATCH = 4n * SETTLE_DEPTH;
 async function refreshHistory() {
   await requireDisclosure();
   const list = await profiles(); const checked = new Map(), heads = new Map();
   const profileOf = (t) => list.find((x) => x.name === t.network && !x.invalid && x.chainId === t.chainId && x.genesisHash === t.genesisHash);
   // Entries whose profile is gone or is the placeholder are skipped before the bound, so they never crowd out the rest.
-  const open = (await readHistory()).filter((x) => (OPEN_STATES.includes(x.status) || (RECHECK_STATES.includes(x.status) && !x.settled)) && profileOf(x) && !isPlaceholder(profileOf(x))).slice(0, REFRESH_MAX);
+  const open = (await readHistory()).filter((x) => (OPEN_STATES.includes(x.status) || ((RECHECK_STATES.includes(x.status) || x.status === 'dropped') && !x.settled)) && profileOf(x) && !isPlaceholder(profileOf(x))).slice(0, REFRESH_MAX);
   for (const t of open) {
     const p = profileOf(t);
     const rpc = rpcFor(p, pools.trust, null, http.inflight, { attempts: 2, deadlineMs: 15000 });
+    const headOf = () => { if (!heads.has(p.name)) heads.set(p.name, rpc('eth_getBlockByNumber', ['latest', false]).then((h) => quantity(h?.number, 'block number'))); return heads.get(p.name); };
     try {
       if (!checked.has(p.name)) checked.set(p.name, checkNetwork(p, rpc).then(() => true, () => false));
       if (!(await checked.get(p.name))) continue;
@@ -798,10 +803,9 @@ async function refreshHistory() {
         const b = await rpc('eth_getBlockByNumber', [rc.blockNumber, false]);
         if (b && String(b.hash).toLowerCase() === String(rc.blockHash).toLowerCase()) {
           const at = quantity(rc.blockNumber, 'block number');
-          if (!heads.has(p.name)) heads.set(p.name, rpc('eth_getBlockByNumber', ['latest', false]).then((h) => quantity(h?.number, 'block number')));
-          const head = await heads.get(p.name);
+          const head = await headOf();
           await updateHistory(t.hash, { status: rc.status === '0x1' ? 'included' : 'failed', blockNumber: Number(at), blockHash: String(rc.blockHash).toLowerCase(), gasUsed: String(quantity(rc.gasUsed, 'gas used')),
-            settled: head >= at && head - at >= SETTLE_DEPTH, note: undefined });
+            settled: head >= at && head - at >= SETTLE_DEPTH, droppedAt: undefined, note: undefined });
           continue;
         }
       }
@@ -809,9 +813,18 @@ async function refreshHistory() {
       if (RECHECK_STATES.includes(t.status))
         await updateHistory(t.hash, { status: 'pending', blockNumber: undefined, blockHash: undefined, gasUsed: undefined, settled: undefined, note: 'Its block is no longer on the canonical chain (a reorganization); waiting for it to be included again' });
       if (mine) continue; // a receipt in a block that is not canonical (yet): read it again next time
-      if (quantity(await rpc('eth_getTransactionCount', [t.from, 'latest']), 'nonce') > BigInt(t.nonce) && !(await rpc('eth_getTransactionReceipt', [t.hash]))) {
+      const used = quantity(await rpc('eth_getTransactionCount', [t.from, 'latest']), 'nonce') > BigInt(t.nonce);
+      if (t.status === 'dropped') {
+        if (!used) { await updateHistory(t.hash, { status: 'pending', droppedAt: undefined, note: 'The transaction that used its nonce is no longer on the canonical chain (a reorganization); waiting for this one' }); continue; }
+        const head = await headOf(), since = t.droppedAt === undefined ? null : BigInt(t.droppedAt);
+        if (since === null) { await updateHistory(t.hash, { droppedAt: Number(head) }); continue; }
+        if (head >= since + DROPPED_WATCH || (head >= SETTLE_DEPTH && quantity(await rpc('eth_getTransactionCount', [t.from, '0x' + (head - SETTLE_DEPTH).toString(16)]), 'nonce') > BigInt(t.nonce)))
+          await updateHistory(t.hash, { settled: true });
+        continue;
+      }
+      if (used && !(await rpc('eth_getTransactionReceipt', [t.hash]))) {
         // Asked again after the nonce read, so a transaction included between the two reads is not called dropped.
-        await updateHistory(t.hash, { status: 'dropped', note: 'Another transaction used this nonce; this one was not included' });
+        await updateHistory(t.hash, { status: 'dropped', droppedAt: Number(await headOf()), note: 'Another transaction used this nonce; this one was not included' });
       }
     } catch { /* stays open; the next refresh tries again */ }
   }

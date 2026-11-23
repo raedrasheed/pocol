@@ -48,7 +48,9 @@ async function world({ disclosure = true, extra = {}, from = dist } = {}) {
   const log = installFetchMock({ ...fx.handlers,
     eth_chainId: () => (env.down ? { __raw: () => 'down' } : hex(env.chainId)), pocol_status: () => ({ genesisHash: env.genesis }),
     eth_getBlockByNumber: ([tag]) => (tag === 'latest' ? { number: hex(env.height), timestamp: hex(env.ts), baseFeePerGas: hex(env.base), gasUsed: '0x0', gasLimit: '0x7a1200', hash: '0x' + 'b1'.repeat(32) } : { number: tag, hash: '0x' + 'b2'.repeat(32) }),
-    eth_getBalance: () => hex(env.balance), eth_getTransactionCount: ([, tag]) => hex(tag === 'pending' ? env.nonce : env.latestNonce),
+    eth_getBalance: () => hex(env.balance),
+    // env.nonceAt(height), when set, answers a read at a block number (the nonce at that depth); else the latest nonce.
+    eth_getTransactionCount: ([, tag]) => { if (tag === 'pending') return hex(env.nonce); if (env.nonceAt && /^0x/.test(tag)) { const v = env.nonceAt(Number(tag)); return typeof v === 'object' ? v : hex(v); } return hex(env.latestNonce); },
     eth_maxPriorityFeePerGas: () => hex(1000000000n), eth_gasPrice: () => hex(env.base + 1000000000n), eth_feeHistory: () => ({ baseFeePerGas: [hex(env.base)] }),
     eth_estimateGas: () => '0x5208',
     eth_sendRawTransaction: ([raw]) => { if (env.sendError) return { __error: env.sendError }; env.sent = raw; return H.toHex(C.keccak(H.fromHex(raw))); },
@@ -343,6 +345,56 @@ test('history: an included transfer is re-read until it is settled, and goes bac
   t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'included'); assert.equal(t.settled, true);
   reads = w.count('eth_getTransactionReceipt'); w.env.receipts.delete(c.hash);
   t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(w.count('eth_getTransactionReceipt'), reads, 'a settled entry is not read'); assert.equal(t.status, 'included');
+});
+
+// Codex review (PR #114): a transfer called dropped because another transaction used its nonce near the head stays
+// under observation; a reorganization that removes the other transaction can still let this one be included.
+test('history: a dropped transfer is read again, and goes back to pending, then included, when a reorganization removes the transaction that used its nonce', async () => {
+  const w = await world();
+  const p = await prepared(w), c = await w.send({ type: 'send.confirm', id: p.id }); assert.equal(c.status, 'pending');
+  w.env.latestNonce = 1n; // a same-nonce replacement is included at the head (block 42)
+  let t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'dropped'); assert.notEqual(t.settled, true, 'not final near the head');
+  // A reorganization removes the replacement: the nonce is free again.
+  w.env.latestNonce = 0n; let reads = w.count('eth_getTransactionReceipt');
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0];
+  assert.ok(w.count('eth_getTransactionReceipt') > reads, 'a dropped entry is read again');
+  assert.equal(t.status, 'pending'); assert.match(t.note, /reorganization/);
+  // The original is then included.
+  w.env.receipts.set(c.hash, { transactionHash: c.hash, status: '0x1', blockNumber: '0x2b', blockHash: '0x' + 'b2'.repeat(32), gasUsed: '0x5208' }); w.env.latestNonce = 1n; w.env.height = 43;
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'included'); assert.equal(t.blockNumber, 43); assert.equal(t.note, undefined); assert.equal(t.droppedAt, undefined);
+  // A dropped entry whose receipt appears directly (the replacement reorganized out between two refreshes) is included too.
+  const p2 = await prepared(w, { amount: '2' }), c2 = await w.send({ type: 'send.confirm', id: p2.id }); w.env.latestNonce = 2n;
+  t = (await w.popup({ type: 'txs.refresh' })).transactions.find((x) => x.hash === c2.hash); assert.equal(t.status, 'dropped');
+  w.env.receipts.set(c2.hash, { transactionHash: c2.hash, status: '0x1', blockNumber: '0x2c', blockHash: '0x' + 'b2'.repeat(32), gasUsed: '0x5208' }); w.env.height = 44;
+  t = (await w.popup({ type: 'txs.refresh' })).transactions.find((x) => x.hash === c2.hash); assert.equal(t.status, 'included'); assert.equal(t.blockNumber, 44);
+});
+
+test('history: a dropped transfer becomes final once the nonce it lost is used SETTLE_DEPTH blocks below the head, and is then no longer read', async () => {
+  const w = await world();
+  const p = await prepared(w), c = await w.send({ type: 'send.confirm', id: p.id }); assert.equal(c.status, 'pending');
+  w.env.latestNonce = 1n; w.env.nonceAt = (h) => (h >= 42 ? 1n : 0n); // the replacement is in block 42
+  let t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'dropped');
+  w.env.height = 42 + 63; let reads = w.count('eth_getTransactionReceipt');
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.ok(w.count('eth_getTransactionReceipt') > reads, 'read again while the replacement is 63 blocks deep');
+  assert.equal(t.status, 'dropped'); assert.notEqual(t.settled, true);
+  w.env.height = 42 + 64;
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'dropped'); assert.equal(t.settled, true);
+  reads = w.count('eth_getTransactionReceipt'); const nonces = w.count('eth_getTransactionCount'); w.env.latestNonce = 0n;
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0];
+  assert.equal(w.count('eth_getTransactionReceipt'), reads, 'a final dropped entry is not read'); assert.equal(w.count('eth_getTransactionCount'), nonces); assert.equal(t.status, 'dropped');
+});
+
+test('history: a dropped transfer is watched for a bounded window when the node cannot answer the nonce at settlement depth', async () => {
+  const w = await world();
+  const p = await prepared(w), c = await w.send({ type: 'send.confirm', id: p.id }); assert.equal(c.status, 'pending');
+  w.env.latestNonce = 1n; w.env.nonceAt = () => ({ __error: { code: -32017, message: 'state outside the retained trie window (K_hist)' } });
+  let t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'dropped');
+  w.env.height = 42 + 255;
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'dropped'); assert.notEqual(t.settled, true);
+  w.env.height = 42 + 256;
+  t = (await w.popup({ type: 'txs.refresh' })).transactions[0]; assert.equal(t.status, 'dropped'); assert.equal(t.settled, true, 'final after the bounded window');
+  const reads = w.count('eth_getTransactionReceipt');
+  await w.popup({ type: 'txs.refresh' }); assert.equal(w.count('eth_getTransactionReceipt'), reads, 'no longer read');
 });
 
 test('EXT-03: a site\'s account grant is listed and revocable in Settings; after revoking it gets no account until it asks again', async () => {

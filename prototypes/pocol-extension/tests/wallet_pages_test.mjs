@@ -120,3 +120,42 @@ test('final review: a late answer for the profile no longer selected never overw
   assert.match(elements.get('netText').textContent, /^Connected/, 'the late answer for pocol-public did not overwrite the devnet status');
   assert.equal(elements.get('balance').textContent, '2 PCOL');
 });
+
+// Codex review (PR #114): the Studio publisher and IDE contract pages decrypt their own copy of the key, so the worker
+// can be locked while such a tab still holds one. The toolbar's Lock (which signals those tabs, lib/vault-guard.js)
+// stays available whatever the worker's state, and the badge says only what the popup knows: its own wallet's state.
+test('Codex review: the toolbar Lock stays available while the worker is locked, and its label does not claim that signing tabs are locked', async () => {
+  const vm = await import('node:vm');
+  const html = read('popup.html'), source = read('popup.js');
+  const make = (id) => ({ id, textContent: '', title: '', hidden: false, disabled: false, value: '', className: '', href: '', children: [], replaceChildren(...c) { this.children = c; } });
+  const run = async (unlocked) => {
+    const elements = new Map([...html.matchAll(/id="([^"]+)"/g)].map((m) => [m[1], make(m[1])])), sent = [];
+    const answers = {
+      'account.status': () => ({ ok: true, exists: true, unlocked, address: '0x' + '11'.repeat(20), disclosureAccepted: true }),
+      'profiles.list': () => ({ ok: true, profiles: [{ name: 'pocol-public', chainId: 1 }] }),
+      'net.status': () => ({ ok: true, chainId: 1, endpoint: 'https://x', genesisHash: '0x' + '33'.repeat(32), reachable: true, chainOk: true, genesisOk: true, head: { height: 7, ageSec: 3 } }),
+      'account.balance': () => ({ ok: true, pcol: '1 PCOL' }), 'account.lock': () => ({ ok: true }),
+      'txs.list': () => ({ ok: true, transactions: [] }), 'txs.refresh': () => ({ ok: true, transactions: [] }),
+    };
+    const context = vm.createContext({ console, Object, Promise, BigInt, String, Number,
+      document: { getElementById: (id) => elements.get(id), createElement: () => make('x') },
+      localStorage: { getItem: () => null, setItem() {} },
+      chrome: { runtime: { sendMessage: async (m) => { sent.push(m.type); return answers[m.type](m); }, getURL: (p) => p, openOptionsPage() {} }, tabs: { create() {} } } });
+    vm.runInContext(source, context);
+    const settle = async () => { for (let i = 0; i < 30; i++) await new Promise((r) => setImmediate(r)); };
+    await settle();
+    return { el: (id) => elements.get(id), sent, settle };
+  };
+  const locked = await run(false);
+  assert.equal(locked.el('lock').hidden, false, 'Lock is shown while the worker is locked');
+  assert.equal(locked.el('lock').textContent, 'Lock all tabs');
+  assert.notEqual(locked.el('lockState').textContent, 'Locked', 'a bare "Locked" would claim that the signing tabs are locked too');
+  assert.equal(locked.el('lockState').textContent, 'Locked here');
+  assert.equal(locked.el('lockHint').hidden, false); assert.match(html, /<p id="lockHint"[^>]*>Studio publisher and IDE contract tabs unlock their own copy of the wallet; “Lock all tabs” locks them too\.<\/p>/);
+  await locked.el('lock').onclick(); await locked.settle();
+  assert.ok(locked.sent.includes('account.lock'), 'the click sends the lock that the signing tabs obey');
+  assert.match(locked.el('note').textContent, /tabs/);
+  const open = await run(true);
+  assert.equal(open.el('lock').hidden, false); assert.equal(open.el('lock').textContent, 'Lock');
+  assert.equal(open.el('lockState').textContent, 'Unlocked'); assert.equal(open.el('lockHint').hidden, true);
+});

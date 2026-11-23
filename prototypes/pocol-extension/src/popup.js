@@ -48,10 +48,15 @@ async function renderAccount(net, gen) {
   status = st;
   $('disclosure').hidden = !!status.disclosureAccepted;
   $('noWallet').hidden = !!status.exists; $('haveWallet').hidden = !status.exists;
-  $('lockState').textContent = !status.exists ? 'No wallet' : status.unlocked ? 'Unlocked' : 'Locked';
+  // Codex review (PR #114): the Studio publisher and IDE contract tabs decrypt their own copy of the key, so the worker
+  // can be locked while such a tab is not. The popup knows only its own wallet's state ("Locked here"), and its Lock,
+  // which signals those tabs (sw.js account.lock, lib/vault-guard.js), stays available whatever that state is.
+  $('lockState').textContent = !status.exists ? 'No wallet' : status.unlocked ? 'Unlocked' : 'Locked here';
   $('lockState').className = 'badge' + (status.unlocked ? ' unlocked' : '');
   $('unlockBox').hidden = !status.exists || !!status.unlocked;
-  $('lock').hidden = !status.unlocked;
+  $('lock').hidden = !status.exists;
+  $('lock').textContent = status.unlocked ? 'Lock' : 'Lock all tabs';
+  $('lockHint').hidden = !status.exists || !!status.unlocked;
   if (!status.exists) return;
   $('address').textContent = status.address;
   $('note').textContent = '';
@@ -107,7 +112,11 @@ $('unlock').onclick = async () => {
   refresh();
 };
 $('password').onkeydown = (e) => { if (e.key === 'Enter') $('unlock').click(); };
-$('lock').onclick = async () => { await call({ type: 'account.lock' }); refresh(); };
+$('lock').onclick = async () => {
+  const r = await call({ type: 'account.lock' });
+  await refresh();
+  $('note').textContent = r.ok ? 'Locked. Open Studio publisher and IDE contract tabs lock too.' : errText(r);
+};
 $('refresh').onclick = () => refresh(true);
 $('send').onclick = () => chrome.tabs.create({ url: chrome.runtime.getURL('send.html') + '#' + encodeURIComponent(selected) });
 refresh(true);
