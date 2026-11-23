@@ -3,6 +3,10 @@
 // click on "Confirm and send" after the consent box asks the worker to sign it (send.confirm, once, within two minutes);
 // the worker re-checks the network identity and the nonce, signs, submits with eth_sendRawTransaction to the profile
 // endpoint and records the hash, and this page then follows the receipt. No key or password is kept here.
+// "Not sent" is shown only for a refusal the worker marks outcome 'not-sent' (proven before the broadcast, or refused by
+// the node). Any other answer, including a lost one (the message channel closed) and 'sent-unknown' (an error after the
+// broadcast), is an unknown outcome: no immediate resend is offered, and the page reconciles it with the worker's
+// transfer history (txs.refresh), by its hash or, without one, by its sender, chain ID, nonce, recipient and amount.
 const $ = (id) => document.getElementById(id);
 const call = async (msg) => { try { return (await chrome.runtime.sendMessage(msg)) || { ok: false, error: { message: 'No answer from the extension' } }; } catch (e) { return { ok: false, error: { message: String(e?.message || e) } }; } };
 const errText = (r) => String(r?.error?.message || r?.error || 'Unknown error');
@@ -59,24 +63,38 @@ $('cancel').onclick = async () => { if (review) await call({ type: 'send.cancel'
 $('confirm').onclick = async (e) => {
   // Only the user's own click on this page signs (an extension page; no site script runs here).
   if (!e.isTrusted || !review || !$('consent').checked) return;
-  const id = review.id; review = null; $('confirm').disabled = true; $('cancel').disabled = true;
-  const r = await call({ type: 'send.confirm', id });
+  const sent = review, since = Date.now(); review = null; $('confirm').disabled = true; $('cancel').disabled = true;
+  const r = await call({ type: 'send.confirm', id: sent.id });
   $('cancel').disabled = false; show('resultBox');
-  // "Not sent" only for a refusal the worker proved (ok:false); an ambiguous node answer comes back as status unknown.
-  if (!r.ok) { $('resultText').textContent = 'Not sent: ' + errText(r); $('resultHash').textContent = r.error?.hash || ''; return; }
-  $('resultHash').textContent = r.hash;
-  $('resultText').textContent = r.status === 'pending' ? 'Sent to the network. Waiting for it to be included in a block…'
-    : 'The node gave no clear answer; the transfer may have been sent. Do not send it again until its status below is known.' + (r.note ? ' (' + r.note + ')' : '');
-  track(r.hash);
+  if (!r.ok && r.error?.outcome === 'not-sent') { $('resultText').textContent = 'Not sent: ' + errText(r); $('resultHash').textContent = r.error?.hash || ''; $('again').disabled = false; return; }
+  const hash = r.ok ? r.hash : r.error?.hash || null, known = r.ok && r.status === 'pending';
+  $('resultHash').textContent = hash || ''; $('again').disabled = !known;
+  $('resultText').textContent = known ? SENT
+    : r.ok ? 'The node gave no clear answer; the transfer may have been sent. ' + WAIT + (r.note ? ' (' + r.note + ')' : '')
+      : 'The extension gave no clear answer; the transfer may have been sent. ' + WAIT + ' (' + errText(r) + ')';
+  track({ hash, from: sent.from, chainId: sent.chainId, nonce: sent.nonce, to: sent.to, value: sent.value, since }, !known);
 };
+const SENT = 'Sent to the network. Waiting for it to be included in a block…', WAIT = 'Do not send it again until its status below is known.';
 const WORDS = { included: 'Included in block', failed: 'Included but failed (reverted) in block', dropped: 'Dropped: another transaction used its nonce; it was not included.', rejected: 'Rejected by the node.' };
-function track(hash) {
+/** Follows the transfer in the worker's history: by its hash, or (an answer that was lost) by the entry the worker
+ *  recorded for this review since the click. While `unknown`, a resend stays disabled until the history shows it. */
+function track(ref, unknown) {
   clearInterval(tracking); const until = Date.now() + 10 * 60 * 1000;
+  const done = (text) => { clearInterval(tracking); $('resultText').textContent = text; $('again').disabled = false; };
   const tick = async () => {
-    const r = await call({ type: 'txs.refresh' }); const t = (r.transactions || []).find((x) => x.hash === hash);
+    const r = await call({ type: 'txs.refresh' }), list = r.transactions || [];
+    const t = ref.hash ? list.find((x) => x.hash === ref.hash)
+      : list.find((x) => x.from === ref.from && x.chainId === ref.chainId && x.nonce === ref.nonce && x.to === ref.to && x.value === ref.value && x.updatedAt >= ref.since);
+    if (t && !ref.hash) { ref.hash = t.hash; $('resultHash').textContent = t.hash; }
     if (t?.explorer) { $('explorer').href = t.explorer; $('explorer').hidden = false; }
-    if (t && WORDS[t.status]) { clearInterval(tracking); $('resultText').textContent = WORDS[t.status] + (t.blockNumber !== undefined && ['included', 'failed'].includes(t.status) ? ' ' + t.blockNumber : ''); return; }
-    if (Date.now() > until) { clearInterval(tracking); $('resultText').textContent = 'Still pending after ten minutes. Its status is kept in the wallet\'s list (toolbar popup, Refresh).'; }
+    if (t && WORDS[t.status]) return done(WORDS[t.status] + (t.blockNumber !== undefined && ['included', 'failed'].includes(t.status) ? ' ' + t.blockNumber : ''));
+    if (t?.status === 'cancelled') return done(t.note || 'Not sent.');
+    if (unknown && t?.status === 'pending') { unknown = false; $('resultText').textContent = SENT; $('again').disabled = false; }
+    if (Date.now() > until) {
+      clearInterval(tracking);
+      $('resultText').textContent = unknown ? 'Its outcome is still unknown after ten minutes. Check the wallet\'s list (toolbar popup, Refresh) before you send it again.'
+        : 'Still pending after ten minutes. Its status is kept in the wallet\'s list (toolbar popup, Refresh).';
+    }
   };
   tracking = setInterval(tick, 3000); tick();
 }

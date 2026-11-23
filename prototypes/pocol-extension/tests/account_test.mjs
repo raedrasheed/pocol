@@ -53,7 +53,8 @@ async function world({ disclosure = true, extra = {}, from = dist } = {}) {
     eth_getTransactionCount: ([, tag]) => { if (tag === 'pending') return hex(env.nonce); if (env.nonceAt && /^0x/.test(tag)) { const v = env.nonceAt(Number(tag)); return typeof v === 'object' ? v : hex(v); } return hex(env.latestNonce); },
     eth_maxPriorityFeePerGas: () => hex(1000000000n), eth_gasPrice: () => hex(env.base + 1000000000n), eth_feeHistory: () => ({ baseFeePerGas: [hex(env.base)] }),
     eth_estimateGas: () => '0x5208',
-    eth_sendRawTransaction: ([raw]) => { if (env.sendError) return { __error: env.sendError }; env.sent = raw; return H.toHex(C.keccak(H.fromHex(raw))); },
+    // env.afterSend(), when set, runs once the node has the transaction (before its answer is returned).
+    eth_sendRawTransaction: ([raw]) => { if (env.sendError) return { __error: env.sendError }; env.sent = raw; env.afterSend?.(); return H.toHex(C.keccak(H.fromHex(raw))); },
     eth_getTransactionReceipt: ([h]) => env.receipts.get(h) || null,
     pocol_getLogs: () => [], ...extra });
   await loadWorker(from, 'acct' + ++n);
@@ -277,12 +278,14 @@ test('lib/account.js sendRefused: only an answer that proves a refusal is final'
   assert.equal(A.sendRefused({ code: -32603, message: 'internal error' }), false); assert.equal(A.sendRefused({ code: '-32000', message: 'nonce too low' }), false); assert.equal(A.sendRefused(null), false);
 });
 
-/** Runs the built send.js against the worker with a minimal DOM (no browser): its result text after one transfer. */
-async function sendPageResult(w, amount) {
+/** Runs the built send.js against the worker with a minimal DOM (no browser) through one transfer. `relay(m, forward)`
+ *  carries each page message to the worker (default: forward(m)), so a test can lose an answer or act before one.
+ *  Returns the page's elements, a wait helper and stop() (the page's timers); sendPageResult gives its result text. */
+async function sendPage(w, amount, { relay = (m, forward) => forward(m) } = {}) {
   const els = new Map(), el = (id) => { if (!els.has(id)) els.set(id, { id, textContent: '', hidden: false, disabled: false, checked: false, value: '', className: '', href: '' }); return els.get(id); };
-  const timers = [];
+  const timers = [], stop = () => { for (const t of timers) clearInterval(t); };
   const ctx = vm.createContext({ document: { getElementById: el }, location: { hash: '#devnet' }, window: { close() {} },
-    chrome: { runtime: { sendMessage: (m) => w.mock.send(m, 21, 'send.html') } }, setInterval: (f, ms) => { const t = realInterval(f, ms); timers.push(t); return t; }, clearInterval });
+    chrome: { runtime: { sendMessage: (m) => relay(m, (x) => w.mock.send(x, 21, 'send.html')) } }, setInterval: (f, ms) => { const t = realInterval(f, ms); timers.push(t); return t; }, clearInterval });
   vm.runInContext(readFileSync(join(dist, 'send.js'), 'utf8'), ctx);
   const until = async (f, what) => { for (let i = 0; i < 300; i++) { if (f()) return; await new Promise((r) => realTimeout(r, 10)); } throw new Error('send page: ' + what); };
   try {
@@ -291,8 +294,12 @@ async function sendPageResult(w, amount) {
     el('to').value = TO; el('amount').value = amount; await el('review').onclick();
     el('consent').checked = true; el('consent').onchange(); await el('confirm').onclick({ isTrusted: true });
     await new Promise((r) => realTimeout(r, 100)); // the first receipt check of track()
-    return el('resultText').textContent;
-  } finally { for (const t of timers) clearInterval(t); }
+  } catch (e) { stop(); throw e; }
+  return { el, until, stop };
+}
+async function sendPageResult(w, amount, opts) {
+  const page = await sendPage(w, amount, opts);
+  try { return page.el('resultText').textContent; } finally { page.stop(); }
 }
 
 test('send: the gateway\'s ambiguous error after a broadcast is "unknown", never "Not sent", and its receipt makes it included', async () => {
@@ -314,6 +321,101 @@ test('send: the gateway\'s ambiguous error after a broadcast is "unknown", never
   assert.match(await sendPageResult(w, '1'), /^Not sent: The node did not accept the transaction: nonce too low/);
 });
 
+// Codex review (PR #114, send.js "Not sent" branch): the page's answer can be lost after the worker broadcast the
+// transfer (the message channel closes; chrome.runtime.sendMessage rejects), and a storage failure while the worker
+// records the node's answer is an error after the broadcast. Neither proves that nothing was sent: the page shows an
+// unknown outcome, offers no immediate resend, and reconciles with the worker's transfer history (txs.refresh).
+// "Not sent" stays for refusals the worker proves before the broadcast and for refusals the node proves.
+const LOST = 'The message port closed before a response was received.';
+test('Codex review: a lost answer to send.confirm after the broadcast is an unknown outcome, reconciled with the history, never "Not sent"', async () => {
+  const w = await world();
+  await w.options({ type: 'account.import', kind: 'privateKey', privateKey: KEY2, password: PW });
+  const relay = async (m, forward) => { const r = await forward(m); if (m.type === 'send.confirm') throw new Error(LOST); return r; };
+  const page = await sendPage(w, '1.5', { relay });
+  try {
+    const el = page.el;
+    assert.equal(w.count('eth_sendRawTransaction'), 1, 'the worker broadcast the transfer');
+    const [entry] = (await w.popup({ type: 'txs.list' })).transactions; assert.equal(entry.status, 'pending');
+    // The page found the transfer in the history by its sender, chain, nonce, recipient and amount.
+    await page.until(() => el('resultHash').textContent === entry.hash, 'the hash from the history');
+    assert.doesNotMatch(el('resultText').textContent, /Not sent/);
+    assert.match(el('resultText').textContent, /^Sent to the network/, 'the history shows it was sent');
+    // Its receipt arrives: the page says included.
+    w.env.receipts.set(entry.hash, { transactionHash: entry.hash, status: '0x1', blockNumber: '0x2b', blockHash: '0x' + 'b2'.repeat(32), gasUsed: '0x5208' }); w.env.nonce = 1n; w.env.latestNonce = 1n;
+    await page.until(() => /^Included in block 43/.test(el('resultText').textContent), 'included');
+    assert.equal(el('again').disabled, false);
+  } finally { page.stop(); }
+  // While the history says nothing yet (the entry is still being recorded), the outcome stays unknown and no
+  // immediate resend is offered.
+  const w2 = await world();
+  await w2.options({ type: 'account.import', kind: 'privateKey', privateKey: KEY2, password: PW });
+  let quiet = false;
+  const relay2 = async (m, forward) => { if (quiet && m.type === 'txs.refresh') return { ok: true, transactions: [] }; const r = await forward(m); if (m.type === 'send.confirm') { quiet = true; throw new Error(LOST); } return r; };
+  const page2 = await sendPage(w2, '1.5', { relay: relay2 });
+  try {
+    const text = page2.el('resultText').textContent;
+    assert.doesNotMatch(text, /Not sent/); assert.match(text, /may have been sent/); assert.match(text, /Do not send it again until its status below is known/);
+    assert.equal(page2.el('again').disabled, true, 'no immediate resend while the outcome is unknown');
+    quiet = false; // the history answers: it was sent
+    await page2.until(() => /^Sent to the network/.test(page2.el('resultText').textContent), 'reconciled');
+    assert.equal(page2.el('again').disabled, false);
+  } finally { page2.stop(); }
+});
+test('Codex review: a history write that fails after the broadcast is "sent-unknown" from the worker and an unknown outcome on the page', async () => {
+  const w = await world();
+  const p = await prepared(w);
+  w.env.afterSend = () => { w.env.afterSend = null; w.mock.storage.failSets = 1; }; // the write after the node's answer fails
+  const c = await w.send({ type: 'send.confirm', id: p.id });
+  assert.equal(w.count('eth_sendRawTransaction'), 1);
+  assert.equal(c.ok, false, JSON.stringify(c)); assert.equal(c.error.code, 'sent-unknown'); assert.equal(c.error.outcome, 'unknown');
+  const [entry] = (await w.popup({ type: 'txs.list' })).transactions;
+  assert.equal(c.error.hash, entry.hash); assert.equal(entry.status, 'sending', 'the entry written before the broadcast stays open');
+  w.env.receipts.set(entry.hash, { transactionHash: entry.hash, status: '0x1', blockNumber: '0x2b', blockHash: '0x' + 'b2'.repeat(32), gasUsed: '0x5208' });
+  assert.equal((await w.popup({ type: 'txs.refresh' })).transactions[0].status, 'included', 'the refresh follows it');
+  // The page: unknown, its hash shown, no immediate resend.
+  const w2 = await world();
+  await w2.options({ type: 'account.import', kind: 'privateKey', privateKey: KEY2, password: PW });
+  w2.env.afterSend = () => { w2.env.afterSend = null; w2.mock.storage.failSets = 1; };
+  let quiet = false;
+  const relay = async (m, forward) => { if (quiet && m.type === 'txs.refresh') return { ok: true, transactions: [] }; const r = await forward(m); if (m.type === 'send.confirm') quiet = true; return r; };
+  const page = await sendPage(w2, '1.5', { relay });
+  try {
+    const text = page.el('resultText').textContent;
+    assert.doesNotMatch(text, /Not sent/); assert.match(text, /may have been sent/);
+    assert.equal(page.el('again').disabled, true);
+    const [e2] = (await w2.popup({ type: 'txs.list' })).transactions; assert.equal(page.el('resultHash').textContent, e2.hash);
+  } finally { page.stop(); }
+});
+test('Codex review: refusals proven before the broadcast are still "Not sent", on the page and as the worker\'s outcome', async () => {
+  for (const [what, before, code] of [['nonce', (w) => { w.env.nonce = 1n; }, 'nonce'], ['network', (w) => { w.env.genesis = '0x' + '99'.repeat(32); }, 4901],
+    ['lock', (w) => w.popup({ type: 'account.lock' }), 'expired']]) {
+    const w = await world();
+    await w.options({ type: 'account.import', kind: 'privateKey', privateKey: KEY2, password: PW });
+    let answer = null;
+    const relay = async (m, forward) => { if (m.type === 'send.confirm') { await before(w); answer = await forward(m); return answer; } return forward(m); };
+    const text = await sendPageResult(w, '1', { relay });
+    assert.equal(answer.ok, false, what); assert.equal(answer.error.code, code, what); assert.equal(answer.error.outcome, 'not-sent', what);
+    assert.match(text, /^Not sent: /, what);
+    assert.equal(w.count('eth_sendRawTransaction'), 0, what + ': nothing was sent');
+  }
+  // Stopped before the request started (a Lock while the entry is recorded): the worker's outcome is not-sent.
+  const w = await world();
+  const p = await prepared(w);
+  w.mock.storage.holdSets = 1;
+  const pending = w.send({ type: 'send.confirm', id: p.id });
+  for (let i = 0; i < 1000 && !w.mock.storage.held.length; i++) await new Promise((r) => realTimeout(r, 2));
+  assert.equal((await w.popup({ type: 'account.lock' })).ok, true); w.mock.storage.release();
+  const c = await pending; assert.equal(c.error.code, 4100); assert.equal(c.error.outcome, 'not-sent');
+  // A history write that fails before the broadcast: nothing was sent.
+  const w3 = await world();
+  const p3 = await prepared(w3); w3.mock.storage.failSets = 1;
+  const c3 = await w3.send({ type: 'send.confirm', id: p3.id });
+  assert.equal(c3.ok, false); assert.equal(c3.error.outcome, 'not-sent'); assert.equal(w3.count('eth_sendRawTransaction'), 0);
+  // A refusal the node proves.
+  const w4 = await world();
+  const p4 = await prepared(w4); w4.env.sendError = { code: -32000, message: 'nonce too low' };
+  const c4 = await w4.send({ type: 'send.confirm', id: p4.id }); assert.equal(c4.error.code, 'rejected'); assert.equal(c4.error.outcome, 'not-sent');
+});
 test('send: a transaction the node parks for the next block (-32016 held) is unknown, not rejected', async () => {
   const w = await world();
   const p = await prepared(w); w.env.sendError = { code: -32016, message: '-32016 pool full (gas): held for the next block' };

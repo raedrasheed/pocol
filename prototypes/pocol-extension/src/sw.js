@@ -752,7 +752,22 @@ async function prepareTransfer(msg, sender) {
     maxFee: maxCost.toString(), maxFeePcol: acct.formatPcol(maxCost), expectedFeePcol: acct.formatPcol(gas * (BigInt(fees.baseNext) + maxPriority)),
     total: total.toString(), totalPcol: acct.formatPcol(total), balancePcol: acct.formatPcol(balance), signingHash: toHex(ut.signingHash), explorer: explorerFor(p, address) };
 }
+/** Codex review (PR #114, send.js): every refusal of send.confirm says whether it is proven that nothing was sent.
+ *  outcome 'not-sent': a refusal before eth_sendRawTransaction could start (the checks, the signing, the history write
+ *  made before the broadcast, a stop before the request started), or a refusal the node proved (acct.sendRefused).
+ *  Code 'sent-unknown' (outcome 'unknown'): an error after the request may have reached the node, such as a failed
+ *  history write after its answer; the transfer may have been sent, and its entry recorded before the broadcast keeps
+ *  it followed (refreshHistory). The send page treats any other failure, such as a lost answer, as unknown too. */
 async function confirmTransfer(msg, sender) {
+  const at = { hash: null, broadcast: false };
+  try { return await submitTransfer(msg, sender, at); }
+  catch (e) {
+    if (e?.outcome) throw e;
+    if (!at.broadcast) throw Object.assign(e instanceof Error ? e : new Error(String(e)), { outcome: 'not-sent' });
+    throw fail(`The transfer may have been sent, but its outcome could not be recorded (${String(e?.message || e).slice(0, 200)}). Do not send it again until its status is known`, 'sent-unknown', { hash: at.hash, outcome: 'unknown' });
+  }
+}
+async function submitTransfer(msg, sender, at) {
   const r = reviews.get(msg.id);
   if (!r || r.tabId !== sender.tab?.id) throw fail('This review is no longer valid; review the transfer again', 'expired');
   reviews.delete(msg.id); // one use
@@ -775,6 +790,7 @@ async function confirmTransfer(msg, sender) {
       if (!accountUnlocked() || account.address !== r.address || r.ep.account !== accountEpoch || r.ep.profile !== eligibilityEpoch) throw fail('The wallet was locked or changed; review the transfer again', 4100);
       const out = signUnsigned(account.secret, r.ut); touchAccount(); return out;
     });
+    at.hash = signed.hash;
     const entry = { network: r.profile.name, chainId: r.tx.chainId, genesisHash: r.profile.genesisHash, from: r.address, to: r.tx.to, value: r.tx.value.toString(), nonce: r.tx.nonce.toString(),
       gas: r.tx.gas.toString(), maxFeePerGas: r.tx.maxFee.toString(), status: 'sending' };
     // Codex review (PR #114): a Lock, a wallet change or a profile change until the request starts stops it, as the
@@ -783,18 +799,17 @@ async function confirmTransfer(msg, sender) {
     // reservation, immediately before the request starts. A transfer stopped so was not sent, and its entry says so.
     const ineligible = () => (r.ep.profile !== eligibilityEpoch ? fail('The network profiles changed before the transfer was sent; it was not sent. Review it again', 4901)
       : !accountUnlocked() || account.address !== r.address || r.ep.account !== accountEpoch ? fail('The wallet was locked or changed before the transfer was sent; it was not sent. Review it again', 4100) : null);
-    const notSent = async (e) => { await updateHistory(signed.hash, { status: 'cancelled', note: 'Not sent: ' + e.message }); throw e; };
+    const notSent = async (e) => { e.outcome = 'not-sent'; await updateHistory(signed.hash, { status: 'cancelled', note: 'Not sent: ' + e.message }).catch(() => {}); throw e; };
     const queued = new AbortController(); transfersQueued.add(queued);
     try {
       await updateHistory(signed.hash, entry); // recorded before it is sent, so a lost answer is still tracked by its hash
       let stopped = ineligible();
       if (stopped || queued.signal.aborted) return await notSent(stopped || fail('The transfer was stopped before it was sent; it was not sent. Review it again', 'changed'));
+      let result;
       try {
-        const result = await rpcFor(r.profile, pools.trust, null, http.inflight, false)('eth_sendRawTransaction', [signed.raw], RPC_TIMEOUT_MS,
+        at.broadcast = true; // from here the request may reach the node; only a proof below says it was not sent
+        result = await rpcFor(r.profile, pools.trust, null, http.inflight, false)('eth_sendRawTransaction', [signed.raw], RPC_TIMEOUT_MS,
           { signal: queued.signal, beforeSend: () => !!(stopped = ineligible()) });
-        const ok = typeof result === 'string' && result.toLowerCase() === signed.hash;
-        await updateHistory(signed.hash, ok ? { status: 'pending' } : { status: 'unknown', note: 'The node answered with another hash' });
-        return { hash: signed.hash, status: ok ? 'pending' : 'unknown' };
       } catch (e) {
         // lib/transport.js answers 'cancelled' only before the request started (aborted or refused by beforeSend).
         if (e?.transport === 'cancelled') return await notSent(stopped || ineligible() || fail('The transfer was stopped before it was sent; it was not sent. Review it again', 'changed'));
@@ -802,12 +817,16 @@ async function confirmTransfer(msg, sender) {
         // gateway's "check transaction hash before resubmitting" after a broadcast it could not complete, may have
         // reached the node: the transfer stays "unknown" and refreshHistory follows its receipt, as the publisher does.
         const said = e?.rpc ? String(e.rpc.message || '').slice(0, 200) : null;
-        if (e?.rpc && acct.sendRefused(e.rpc)) { await updateHistory(signed.hash, { status: 'rejected', note: said }); throw fail('The node did not accept the transaction: ' + said, 'rejected', { hash: signed.hash }); }
+        if (e?.rpc && acct.sendRefused(e.rpc)) { await updateHistory(signed.hash, { status: 'rejected', note: said }).catch(() => {}); throw fail('The node did not accept the transaction: ' + said, 'rejected', { hash: signed.hash, outcome: 'not-sent' }); }
         const note = said === null ? 'No answer from the node; the transaction may have been sent'
           : `The node answered "${said}", which does not show that it refused the transaction; it may have been sent`;
         await updateHistory(signed.hash, { status: 'unknown', note });
         return { hash: signed.hash, status: 'unknown', note };
       }
+      // A failed write here is an error after the broadcast: confirmTransfer answers 'sent-unknown'.
+      const ok = typeof result === 'string' && result.toLowerCase() === signed.hash;
+      await updateHistory(signed.hash, ok ? { status: 'pending' } : { status: 'unknown', note: 'The node answered with another hash' });
+      return { hash: signed.hash, status: ok ? 'pending' : 'unknown' };
     } finally { transfersQueued.delete(queued); }
   });
 }
@@ -969,7 +988,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   }
   if (typeof msg?.type === 'string' && /^(account|net|send|txs|connections)\./.test(msg.type)) {
     accountRequest(msg, sender).then((r) => reply(r === null ? { ok: false, error: { code: -32601, message: 'unknown message' } } : { ok: true, ...r }),
-      (e) => reply({ ok: false, error: { code: e.code ?? -32603, message: String(e.message || e).slice(0, 300), ...(e.saved ? { saved: e.saved } : {}), ...(e.hash ? { hash: e.hash } : {}) } }));
+      (e) => reply({ ok: false, error: { code: e.code ?? -32603, message: String(e.message || e).slice(0, 300), ...(e.saved ? { saved: e.saved } : {}), ...(e.hash ? { hash: e.hash } : {}), ...(e.outcome ? { outcome: e.outcome } : {}) } }));
     return true;
   }
   (async () => {
