@@ -110,7 +110,10 @@ included; the keys `networkTestnet`, `appsTestnet` and `appsTestnetNote` were re
 `appsEditionNote` with unchanged values) or a release below 0.5.0, the retired network is named only in sentences of
 its true notices (the migration warnings and the 404 note), and `sitemap.xml` lists exactly the served pages but
 `404.html` and `faucet.html` (the faucet page stays out of it so that `FaucetPage`'s list of the files that name the
-faucet is unchanged; the home page links it).
+faucet is unchanged; the home page links it). Each pinned GitHub source link (the pages' and the guide's) is read at
+its commit from the local history: the file and its line anchor exist, it names no retired identity outside
+`development/`, and an extension or Studio source is this tree's release (the review of the links, 2026-11-23); a
+shallow clone without the commit skips it, and the websites workflow checks out the full history.
 
 ## pocol.net cPanel package (2026-11-23)
 
@@ -120,7 +123,9 @@ own snapshot: the ZIP holds exactly the committed snapshot but `.htaccess` (ship
 no extra field; a later commit gets a later time and name; ignored and untracked files never ship; a dirty tree, a stale
 or incomplete `SHA256SUMS.txt`, a non-empty output folder and every file a document root must never hold are refused;
 and both guides are filled, run the same commands, keep the stale-file sentence of the earlier `README-AR.txt`, and
-name for deletion only files that `host_files.py` marks DELETE. On a clean checkout it also runs the build with
+name for deletion only files that `host_files.py` marks DELETE; no backup archive path lies in the Document Root
+(File Manager's Compress dialog names `/pocol-backups/`), and steps 2 and 10 run as written in a scratch home folder
+restore the earlier site byte for byte, without the package's files and folders (2026-11-23 review). On a clean checkout it also runs the build with
 `site_identity.py --check`.
 
 ## Site truth (owner decision 4, 2026-11-18)

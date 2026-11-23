@@ -210,6 +210,20 @@ does.
   GENESIS-RECORD-2026-11-21.md`) instead of "launches". `sitemap.xml` lists every page but `404.html` and the faucet
   claim page (which only the files `FaucetPage` allows may name; the home page links it).
   `tests/test_served_content.py` checks each.
+- **Source links (2026-11-23 review of the links, the same request, item 3).** 34 pinned GitHub source links of
+  pocol.net (the pages' "Sources" lists and the guide's sources in `guide-content.js`) opened the retired network's
+  material: README.md at 2bea0eb8 and 4db26529, which says the repository pins chain ID 1599846715, and the extension's
+  and Studio's sources at f0444f69 (0.2.1: README-STUDIO.md, studio-network.js and Studio's app.js pin that chain, and
+  app.js calls it Testnet) and 28c127fc (0.4.0). They name 5dd5ac7b, the commit the snapshots' other source links name
+  (`site-identity.json` `links`), whose README.md and extension 0.5.0 sources pin PoCol Mainnet; the README line
+  anchors follow its sections (L1-L79, L129-L137, L539-L599). The edit went through `site_identity.py --edits`, which
+  moved `guide-content.js`'s `?v=` and `SHA256SUMS.txt`. Links to the specifications (`development/m1/reference`), the
+  contracts and node sources, the decision records and the release README are unchanged: they name no retired
+  identity. `tests/test_served_content.py` reads each linked file at its commit from the local history (the websites
+  workflow checks out the full history) and refuses a missing file or line anchor, a retired identity outside
+  `development/`, and an extension or Studio source of another release than this tree's. `site_identity.py --commit`
+  moves only the `links` of `site-identity.json`, so a later move of those links (after the merge, for example) moves
+  these by `--edits` too, and that test fails on any that opens earlier material.
 - **Headers, 404, robots (SITE-06, SITE-07).** `pocol.net/.htaccess` sets nosniff, the referrer and permissions
   policies, `X-Frame-Options DENY` and a `'self'` CSP (`connect-src` adds `https://explorer.pocol.net`; style
   attributes are allowed for the guide's illustration), refuses directory listings and `config.php`, and serves the
@@ -274,10 +288,14 @@ notes such as `README*` or `DEPLOY*`). DIR receives:
 - `DEPLOY-pocol.net-AR.md` and `DEPLOY-pocol.net-EN.md`, rendered from `package/` with the package's name, digest,
   commit and identity: prerequisites (Document Root, nested document roots, PHP 8.3 with 8.1 the minimum and `curl`,
   the explorer gateway's state), a backup outside the Document Root (Terminal `tar` with a file list, or File Manager
-  Compress), the ZIP's check, extraction into the Document Root, the `.htaccess` merge, permissions, the file check
+  Compress with the archive path set to `/pocol-backups/` in the dialog itself, never a path in the Document Root, where
+  the archive and its `api/config.php` would be served: 2026-11-23 review), the ZIP's check, extraction into the Document Root, the `.htaccess` merge, permissions, the file check
   (`sha256sum -c` and `tools/host_files.py` until OK, with the expected retired files to delete), cache purge, live
   checks (`/api/network.php` answering this chain ID and genesis hash, or 503 until the gateway is live) and the
-  rollback.
+  rollback (`tar` puts back the earlier files, then the files the package added are listed for review and deleted, and
+  the folders it created that are empty are removed, a nested site's files and folders kept out of both lists;
+  `tests/test_package_site.py` runs steps 2 and 10 as written and checks that the earlier site comes back byte for
+  byte).
 
 The deployment notes are no longer in the document root: `pocol.net/README-AR.txt`, which https://pocol.net/ served,
 said that this copy came before the new network (untrue since the launch of 2026-11-21) and named host internals, was

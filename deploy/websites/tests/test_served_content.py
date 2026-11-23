@@ -10,11 +10,13 @@
   page to index, and the faucet claim page faucet.html is left out on purpose: test_launch_decisions.FaucetPage keeps
   the files that name the faucet to the claim page, the home page (which links it), locales.js, SHA256SUMS.txt and the
   privacy policy, and that rule stays;
+- each pinned GitHub source link opens, at its commit, an existing file and line range that names no retired network
+  identity (outside development/'s dated records) and, for the extension's and Studio's sources, this tree's release;
 - the document root holds no deployment instructions or other owner notes: they ship beside the ZIP
   (deploy/websites/tools/package_site.py), so https://pocol.net/ never serves them (2026-11-23: README-AR.txt said the
   copy came before the new network and named host internals).
 The files are the tracked ones (git ls-files), so an ignored or untracked file in a checkout is not judged."""
-import re, subprocess, unittest
+import json, re, subprocess, unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -90,6 +92,49 @@ class ServedContent(unittest.TestCase):
             listed.add(rel)
         self.assertEqual(listed, pages)
         self.assertIn('Sitemap: https://pocol.net/sitemap.xml', (MAIN / 'robots.txt').read_text(encoding='utf-8'))
+
+    def test_the_source_links_open_pocol_mainnet_material(self):
+        # Every pinned GitHub source link of the served pages (the HTML pages and the guide's sources in
+        # guide-content.js) opens, at its commit, a file that exists and holds its line anchor; a file outside
+        # development/ (whose dated decision records may tell the history) that names no retired network identity
+        # (deploy/mainnet/retired-networks.json); and, for the extension's and Studio's sources, the release this tree
+        # ships (prototypes/pocol-extension/package.json), not the retired network's 0.2.x or 0.4.x code (2026-11-23
+        # review of the links, the owner's request of that day). The links read the commits' blobs from the local
+        # history: a shallow clone that lacks one skips; the websites workflow checks out the full history.
+        retired = json.loads((ROOT / 'deploy/mainnet/retired-networks.json').read_text(encoding='utf-8'))['retired']
+        marks = [str(r['chainId']) for r in retired] + [r['genesisHash'] for r in retired]
+        version = json.loads((ROOT / 'prototypes/pocol-extension/package.json').read_text(encoding='utf-8'))['version']
+        links = set()
+        for rel, text in served_text():
+            for m in re.finditer(r'https://github\.com/raedrasheed/pocol/blob/([0-9a-f]+)/([^"\'#\s<>)]+)(?:#(L\d+(?:-L\d+)?))?', text):
+                links.add((rel, m.group(1), m.group(2), m.group(3)))
+        guide = json.loads(re.fullmatch(r'window\.POCOL_GUIDE = (\{.*\});?\s*', (MAIN / 'guide-content.js').read_text(encoding='utf-8'), re.S).group(1))
+        for topic in guide['topics']:
+            for s in topic.get('sources', []):
+                if 'path' in s:
+                    links.add((f'guide-content.js:{topic["id"]}', s.get('ref', guide['sha']), s['path'], s.get('anchor')))
+        self.assertGreater(len({(c, p, a) for _, c, p, a in links}), 30)
+        shallow = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', '--is-shallow-repository'], capture_output=True,
+                                 text=True, timeout=60).stdout.strip() == 'true'
+        def blob(commit, path):
+            r = subprocess.run(['git', '-C', str(ROOT), 'show', f'{commit}:{path}'], capture_output=True, timeout=60)
+            if r.returncode and shallow and subprocess.run(['git', '-C', str(ROOT), 'cat-file', '-e', f'{commit}^{{commit}}'],
+                                                             capture_output=True, timeout=60).returncode:
+                self.skipTest(f'this shallow clone lacks {commit}')
+            self.assertEqual(r.returncode, 0, f'{commit}:{path} is not in the history')
+            return r.stdout.decode('utf-8', 'replace')
+        for rel, commit, path, anchor in sorted(links, key=lambda x: (x[0], x[1], x[2], x[3] or '')):
+            with self.subTest(page=rel, commit=commit[:12], path=path):
+                self.assertRegex(commit, r'^[0-9a-f]{40}$')
+                text = blob(commit, path)
+                if anchor:
+                    last = int(anchor.rsplit('L', 1)[1])
+                    self.assertLessEqual(last, len(text.splitlines()), f'#{anchor} is past the end of the file')
+                if not path.startswith('development/'):
+                    self.assertEqual([m for m in marks if m in text], [], 'the file names a retired network identity')
+                if path.startswith(('prototypes/pocol-extension/', 'prototypes/pocol-studio/')):
+                    shipped = json.loads(blob(commit, 'prototypes/pocol-extension/package.json'))['version']
+                    self.assertEqual(shipped, version, 'the source of an earlier extension release')
 
     def test_the_document_root_holds_no_deployment_notes(self):
         notes = [rel for rel in tracked() if re.search(r'(?i)(^|/)(readme|deploy|install|notes?)[^/]*$', rel)]
