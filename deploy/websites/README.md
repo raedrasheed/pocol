@@ -214,16 +214,18 @@ does.
   pocol.net (the pages' "Sources" lists and the guide's sources in `guide-content.js`) opened the retired network's
   material: README.md at 2bea0eb8 and 4db26529, which says the repository pins chain ID 1599846715, and the extension's
   and Studio's sources at f0444f69 (0.2.1: README-STUDIO.md, studio-network.js and Studio's app.js pin that chain, and
-  app.js calls it Testnet) and 28c127fc (0.4.0). They name 5dd5ac7b, the commit the snapshots' other source links name
-  (`site-identity.json` `links`), whose README.md and extension 0.5.0 sources pin PoCol Mainnet; the README line
+  app.js calls it Testnet) and 28c127fc (0.4.0). They name 5dd5ac7b (on GitHub; the snapshots' other source links,
+  `site-identity.json` `links`, named it then), whose README.md and extension 0.5.0 sources pin PoCol Mainnet; the README line
   anchors follow its sections (L1-L79, L129-L137, L539-L599). The edit went through `site_identity.py --edits`, which
   moved `guide-content.js`'s `?v=` and `SHA256SUMS.txt`. Links to the specifications (`development/m1/reference`), the
   contracts and node sources, the decision records and the release README are unchanged: they name no retired
   identity. `tests/test_served_content.py` reads each linked file at its commit from the local history (the websites
   workflow checks out the full history) and refuses a missing file or line anchor, a retired identity outside
   `development/`, and an extension or Studio source of another release than this tree's. `site_identity.py --commit`
-  moves only the `links` of `site-identity.json`, so a later move of those links (after the merge, for example) moves
-  these by `--edits` too, and that test fails on any that opens earlier material.
+  moves only the `links` of `site-identity.json` (test_site_identity requires their commit to hold this tree's
+  extension source, so each later extension change moves them); these 34 stay on 5dd5ac7b while its extension and
+  Studio sources are the release this tree ships, a move of them goes through `--edits`, and that test fails on any
+  that opens earlier material.
 - **Headers, 404, robots (SITE-06, SITE-07).** `pocol.net/.htaccess` sets nosniff, the referrer and permissions
   policies, `X-Frame-Options DENY` and a `'self'` CSP (`connect-src` adds `https://explorer.pocol.net`; style
   attributes are allowed for the guide's illustration), refuses directory listings and `config.php`, and serves the
