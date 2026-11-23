@@ -43,7 +43,15 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 
 const html = (t) => ({ mime: 'text/html', text: t }), js = (t) => ({ mime: 'application/javascript', text: t }), css = (t) => ({ mime: 'text/css', text: t }), json = (t) => ({ mime: 'application/json', text: t });
 const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+const COMPUTE_PROBE = `(async () => {
+  const r = {};
+  r.worker = typeof Worker; r.sharedWorker = typeof SharedWorker; r.gpu = typeof navigator.gpu; r.paint = typeof (window.CSS && CSS.paintWorklet);
+  try { const ctx = new OfflineAudioContext(1, 128, 8000); const url = URL.createObjectURL(new Blob(['registerProcessor("p", class extends AudioWorkletProcessor { process() { return true; } });'], { type: 'text/javascript' }));
+    r.audio = ctx.audioWorklet ? await ctx.audioWorklet.addModule(url).then(() => 'loaded', (e) => 'refused: ' + e.name) : 'unavailable'; } catch (e) { r.audio = 'refused: ' + e.name; }
+  document.body.dataset.result = JSON.stringify(r); document.body.dataset.done = '1';
+})();`;
 const SITES = {
+  compute: { '/index.html': { mime: 'text/html', text: '<!doctype html><html><body><h1>compute</h1><script src="probe.js"></script></body></html>' }, '/probe.js': { mime: 'application/javascript', text: COMPUTE_PROBE } },
   modules: {
     '/index.html': html(`<!doctype html><html><head><link rel="stylesheet" href="css/style.css"></head><body><h1 id="t">modules</h1><div id="bg"></div>
 <script type="module">import { tag } from './js/lib.mjs'; document.body.dataset.inline = tag;</script>
@@ -148,6 +156,14 @@ try {
     const { f } = await open('lazyCycle');
     const msg = await f.evaluate(() => document.body.dataset.result);
     check('a cycle reached through import() rejects that import with the cycle error', /module import cycle: \/x\.js -> \/y\.js -> \/x\.js/.test(msg), msg);
+  }
+  {
+    // Final review (2026-11-22): no compute outside the page's main thread: no worker, no worklet, no WebGPU.
+    const { f } = await open('compute');
+    const r = JSON.parse(await f.evaluate(() => document.body.dataset.result));
+    check('a site gets no Worker or SharedWorker', r.worker === 'undefined' && r.sharedWorker === 'undefined', JSON.stringify(r));
+    check('a site cannot load an AudioWorklet module from a blob: URL', r.audio !== 'loaded', JSON.stringify(r));
+    check('a site gets no WebGPU and no paint worklet', r.gpu === 'undefined' && r.paint === 'undefined', JSON.stringify(r));
   }
   check('no request left the local server', blocked === 0, String(blocked));
   check('no uncaught page errors in the host', errors.length === 0, errors.join('; '));

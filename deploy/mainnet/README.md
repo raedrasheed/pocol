@@ -103,10 +103,16 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    (`deploy/release/README.md`, owner procedure). This is the first signed release; no package is signed before it.
    The switch writes the release pin with the approval reference "OWNER-DECISIONS-2026-11-20 D1", so a node of this
    release booted on PoCol Mainnet reports `publicLaunchApproved` and `publicLaunchReady` true while its
-   `technicalReadiness` still lists what is open. The same PR publishes on the
-   pocol.net extension and download pages the two values users compare: the extension ID
-   `gggcoflmedlhlkcdhebmoepmggdnafmp` (`prototypes/pocol-extension/release/manifest-key.pub`) and the release key
-   fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` (`deploy/release/allowed_signers`).
+   `technicalReadiness` still lists what is open. The two values users compare are in the pocol.net snapshot
+   (2026-11-22, SITE-03; they do not depend on the invitation): the extension ID `gggcoflmedlhlkcdhebmoepmggdnafmp`
+   (`prototypes/pocol-extension/release/manifest-key.pub`) on the extension page and in the guide, and the release key
+   fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` (`deploy/release/allowed_signers`) there and in
+   the home page's "Verify a download"; `deploy/websites/tests/test_downloads.py` derives both from those files. They
+   are public only once the owner approves their early publication and uploads that snapshot (not done on
+   2026-11-22). Before the release is announced, check that the live https://pocol.net/chrome-extension.html shows
+   both values and the home page the fingerprint, and that `deploy/websites/tools/host_files.py --site pocol.net`
+   prints OK for the host's listing. After the signed release, `deploy/websites/tools/release_page.py RELEASE_DIR`
+   fills pocol.net's download buttons from the verified release.
 8. **Public launch.** Before the network is opened to the public, the disk monitor is active on the three founder
    servers and a real test notification from each has been received (D7 of 2026-11-21): on each server
    `--test-alert` delivered and received on every configured channel, a `--simulate-usage 96` alert received,

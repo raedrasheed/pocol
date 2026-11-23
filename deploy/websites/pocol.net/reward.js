@@ -13,11 +13,15 @@
       rewardContextNote: 'A snapshot of the latest block, captured when you open this page.',
       rewardCtaLabel: 'Explore collaborative mining', rewardHeading: 'Latest block reward', rewardBlock: 'Block #{number} ↗',
       rewardAmount: 'Block reward', rewardMiners: 'Beneficiary miners',
-      rewardAllocated: 'Total allocated to this block · before settlement', rewardDistinct: 'Distinct miners expected to receive a payment',
+      rewardAllocated: 'Total allocated to this block · before settlement', rewardDistinct: 'Distinct miners in the projected settlement',
       rewardLoading: 'Fetching block snapshot…', rewardPending: 'Pending settlement', rewardOffline: 'Unavailable',
       rewardOnce: 'Fetched once when this page loads. Reload the page for a new snapshot.',
       rewardSettlement: 'Expected settlement at block #{number}. Payments may change before settlement.',
-      rewardPayout: 'Expected to miners: {paid} PCOL · Expected burn: {burned} PCOL.',
+      rewardPayout: 'Projected to miners: {paid} PCOL · Projected burn: {burned} PCOL · Carried to the next pot: {carry} PCOL.',
+      rewardBond: 'Of the amount projected to miners, {bond} PCOL fills miners’ bonds.',
+      rewardPot: 'This block’s pot: {issued} PCOL issued + {tips} PCOL fees − {share} PCOL proposer fee share + {carryIn} PCOL carried in.',
+      rewardClosing: 'The network is closing: this pot may be settled by the final block, which burns its base burn.',
+      rewardFinal: 'Final block of the network: it opens no new reward pot.', rewardFinalStatus: 'Final block',
       rewardUnavailable: 'Reward data is temporarily unavailable. Reload the page to try again.',
       rewardUpdate: 'The reward service is awaiting an update. Reload the page after it is ready.',
       rewardCaptured: 'Snapshot captured {time}'
@@ -28,11 +32,15 @@
       rewardContextNote: 'لقطة لأحدث بلوك، تُجلب عند فتح هذه الصفحة.',
       rewardCtaLabel: 'اكتشف التعدين التعاوني', rewardHeading: 'مكافأة أحدث بلوك', rewardBlock: 'البلوك #{number} ↗',
       rewardAmount: 'مكافأة البلوك', rewardMiners: 'المعدّنون المستفيدون',
-      rewardAllocated: 'إجمالي المبلغ المخصص للبلوك · قبل التسوية', rewardDistinct: 'المعدّنون المتوقع حصولهم على مكافأة',
+      rewardAllocated: 'إجمالي المبلغ المخصص للبلوك · قبل التسوية', rewardDistinct: 'المعدّنون المختلفون في التسوية المتوقعة',
       rewardLoading: 'جارٍ جلب بيانات البلوك…', rewardPending: 'قيد التسوية', rewardOffline: 'غير متاح',
       rewardOnce: 'تُجلب مرة واحدة عند تحميل الصفحة. أعد تحميل الصفحة لجلب لقطة جديدة.',
       rewardSettlement: 'التسوية المتوقعة عند البلوك #{number}. قد تتغير المدفوعات قبل التسوية.',
-      rewardPayout: 'المتوقع للمعدّنين: {paid} PCOL · الحرق المتوقع: {burned} PCOL.',
+      rewardPayout: 'المتوقع للمعدّنين: {paid} PCOL · الحرق المتوقع: {burned} PCOL · المُرحَّل إلى المكافأة التالية: {carry} PCOL.',
+      rewardBond: 'من المبلغ المتوقع للمعدّنين يذهب {bond} PCOL إلى استكمال ضمانات المعدّنين.',
+      rewardPot: 'مكافأة هذا البلوك: {issued} PCOL إصدار + {tips} PCOL رسوم − {share} PCOL حصة المقترح من الرسوم + {carryIn} PCOL مُرحَّل إليها.',
+      rewardClosing: 'الشبكة في مرحلة الإغلاق: قد يسوّي البلوك الأخير هذه المكافأة، ويحرق حينها الجزء المخصص للحرق.',
+      rewardFinal: 'البلوك الأخير في الشبكة: لا يفتح مكافأة جديدة.', rewardFinalStatus: 'البلوك الأخير',
       rewardUnavailable: 'بيانات المكافأة غير متاحة مؤقتًا. أعد تحميل الصفحة للمحاولة مجددًا.',
       rewardUpdate: 'خدمة المكافآت بانتظار التحديث. أعد تحميل الصفحة بعد تفعيلها.',
       rewardCaptured: 'وقت جلب اللقطة {time}'
@@ -48,31 +56,51 @@
     if (number > MAX_UINT) return invalid();
     return number;
   }
+  // The summary api/reward.php passes on from the gateway's pocol-block-reward-v3 answer (F-74), checked again here:
+  // the pot is issuance + fees - the proposer's fee share + the carry in, and splits exactly into paid (bond fills
+  // included), burned and carried; a final block opens no pot.
   function validate(value) {
-    if (!object(value) || value.schema !== 'pocol-block-reward-v1' || value.chainId !== CHAIN_ID
-        || value.genesisHash !== GENESIS || value.source !== SOURCE || value.status !== 'pending'
-        || !count(value.blockHeight) || value.blockHeight === 0 || !count(value.settlementHeight)
-        || value.settlementHeight <= value.blockHeight || !count(value.shareCount)
+    const flag = v => typeof v === 'boolean';
+    if (!object(value) || value.schema !== 'pocol-block-reward-v3' || value.chainId !== CHAIN_ID
+        || value.genesisHash !== GENESIS || value.specVersion !== 2 || ('source' in value && value.source !== SOURCE)
+        || value.status !== 'pending' || !flag(value.final) || !flag(value.winnerAccruing)
+        || !count(value.blockHeight) || value.blockHeight === 0
+        || (value.final ? value.settlementHeight !== null
+          : !count(value.settlementHeight) || value.settlementHeight <= value.blockHeight)
+        || !count(value.shareCount) || value.shareCount > 256
         || !count(value.beneficiaryCount) || value.beneficiaryCount > value.shareCount + 2
         || typeof value.blockHash !== 'string' || !/^0x[\da-f]{64}$/i.test(value.blockHash)
         || typeof value.fetchedAt !== 'string' || !Array.isArray(value.beneficiaries)
-        || value.beneficiaries.length !== value.beneficiaryCount || value.beneficiaries.length > 10000) return invalid();
+        || value.beneficiaries.length !== value.beneficiaryCount || !('closing' in value)) return invalid();
     const fetchedAtMs = Date.parse(value.fetchedAt);
     if (!Number.isFinite(fetchedAtMs) || fetchedAtMs > Date.now() + 300000 || Date.now() - fetchedAtMs > 300000) return invalid();
-    const gross = amount(value.grossRewardWei), subsidy = amount(value.subsidyWei);
-    const paid = amount(value.projectedPaidWei), burned = amount(value.projectedBurnedWei);
-    if (gross !== paid + burned || subsidy > gross) return invalid();
-    let sum = 0n;
-    const seen = new Set();
+    const [issued, tips, share, carryIn, gross, paid, burned, bond, carry] = ['issuedWei', 'tipsWei', 'tipShareWei',
+      'carryInWei', 'grossRewardWei', 'projectedPaidWei', 'projectedBurnedWei', 'projectedBondWei', 'projectedCarryWei']
+      .map(key => amount(value[key]));
+    if (share > tips || gross !== paid + burned + carry || bond > paid) return invalid();
+    if (value.final ? gross !== 0n || issued !== 0n || share !== 0n || value.beneficiaryCount !== 0
+      : gross !== issued + tips - share + carryIn) return invalid();
+    let closing = null;
+    if (value.closing !== null) {
+      const c = value.closing;
+      if (!object(c) || !count(c.closeHeight) || !flag(c.cursorDone)) return invalid();
+      if ('settlementMayBeFinal' in c && (!flag(c.settlementMayBeFinal) || !count(c.earliestFinalHeight))) return invalid();
+      closing = { mayBeFinal: c.settlementMayBeFinal === true };
+    }
+    let sum = 0n, filled = 0n;
+    const seen = new Set(), miners = new Set();
     for (const beneficiary of value.beneficiaries) {
       if (!object(beneficiary) || !address(beneficiary.minerId) || !address(beneficiary.rewardAddress)) return invalid();
-      const id = beneficiary.minerId.toLowerCase(), payment = amount(beneficiary.amountWei);
-      if (seen.has(id) || payment === 0n) return invalid();
-      seen.add(id); sum += payment;
+      const id = beneficiary.minerId.toLowerCase(), pair = id + beneficiary.rewardAddress.toLowerCase();
+      const payment = amount(beneficiary.amountWei);
+      const fill = 'bondAccruedWei' in beneficiary ? amount(beneficiary.bondAccruedWei) : 0n;
+      if (seen.has(pair) || payment + fill === 0n || ('bondAccruedWei' in beneficiary && fill === 0n)) return invalid();
+      seen.add(pair); miners.add(id); sum += payment + fill; filled += fill;
     }
-    if (sum !== paid) return invalid();
+    if (sum !== paid || filled !== bond) return invalid();
     return { blockHeight: value.blockHeight, blockHash: value.blockHash, settlementHeight: value.settlementHeight,
-      beneficiaryCount: value.beneficiaryCount, fetchedAtMs, fetchedAt: new Date(fetchedAtMs).toISOString(), gross, paid, burned };
+      final: value.final, closing, miners: miners.size, fetchedAtMs, fetchedAt: new Date(fetchedAtMs).toISOString(),
+      issued, tips, share, carryIn, gross, paid, burned, bond, carry };
   }
 
   window.createPoColReward = ({ getLanguage = () => document.documentElement.lang,
@@ -106,7 +134,8 @@
         title: 'rewardTitle', subtitle: 'rewardSubtitle', 'details-label': 'rewardDetailsLabel',
         'source-label': 'rewardSourceLabel', 'cta-label': 'rewardCtaLabel', 'context-note': 'rewardContextNote' };
       for (const [id, key] of Object.entries(labels)) fields[id].textContent = strings[key];
-      fields.status.textContent = state === 'loading' ? strings.rewardLoading : snapshot ? strings.rewardPending : strings.rewardOffline;
+      fields.status.textContent = state === 'loading' ? strings.rewardLoading
+        : snapshot ? (snapshot.final ? strings.rewardFinalStatus : strings.rewardPending) : strings.rewardOffline;
       fields.amount.textContent = snapshot ? coins(snapshot.gross) : '—';
       fields.amount.dataset.long = String(fields.amount.textContent.length > 10);
       if (state !== 'ready') fields.breakdown.open = true;
@@ -114,7 +143,7 @@
         fields.breakdown.open = false;
         fields.breakdown.dataset.loaded = 'true';
       }
-      fields.miners.textContent = snapshot ? formatter('NumberFormat', { maximumFractionDigits: 0 }).format(snapshot.beneficiaryCount) : '—';
+      fields.miners.textContent = snapshot ? formatter('NumberFormat', { maximumFractionDigits: 0 }).format(snapshot.miners) : '—';
       fields.block.hidden = !snapshot;
       fields.captured.hidden = !snapshot;
       fields.settlement.hidden = !snapshot;
@@ -122,8 +151,16 @@
         const integer = formatter('NumberFormat', { maximumFractionDigits: 0 });
         fields.block.textContent = strings.rewardBlock.replace('{number}', integer.format(snapshot.blockHeight));
         fields.block.href = `${SOURCE}/#page=Blocks&q=${snapshot.blockHash}`;
-        fields.payout.textContent = strings.rewardPayout.replace('{paid}', coins(snapshot.paid)).replace('{burned}', coins(snapshot.burned));
-        fields.settlement.textContent = strings.rewardSettlement.replace('{number}', integer.format(snapshot.settlementHeight));
+        // Text only: every figure is formatted here and inserted with textContent.
+        fields.payout.textContent = snapshot.final ? strings.rewardFinal : [
+          strings.rewardPot.replace('{issued}', coins(snapshot.issued)).replace('{tips}', coins(snapshot.tips))
+            .replace('{share}', coins(snapshot.share)).replace('{carryIn}', coins(snapshot.carryIn)),
+          strings.rewardPayout.replace('{paid}', coins(snapshot.paid)).replace('{burned}', coins(snapshot.burned))
+            .replace('{carry}', coins(snapshot.carry)),
+          ...(snapshot.bond > 0n ? [strings.rewardBond.replace('{bond}', coins(snapshot.bond))] : [])].join(' ');
+        fields.settlement.hidden = snapshot.final;
+        fields.settlement.textContent = snapshot.final ? '' : strings.rewardSettlement.replace('{number}',
+          integer.format(snapshot.settlementHeight)) + (snapshot.closing?.mayBeFinal ? ' ' + strings.rewardClosing : '');
         fields.captured.dateTime = snapshot.fetchedAt;
         const time = formatter('DateTimeFormat', { dateStyle: 'medium', timeStyle: 'medium' }).format(snapshot.fetchedAtMs);
         fields.captured.textContent = strings.rewardCaptured.replace('{time}', time);

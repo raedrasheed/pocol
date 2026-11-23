@@ -478,6 +478,57 @@ class GatewayMembershipTests(unittest.TestCase):
                                       if m == 'eth_call' and p[0]['data'].startswith(selector('activeSlice(uint256,uint256)')) else query(m, p))
         self.assertEqual(service.call(request('pocol_getMembers', [0, 1]))['error']['code'], -32000)
 
+    def test_member_counts_are_one_block_and_label_every_bond_state(self):
+        # 2026-11-22 review: pocol.net's summary reads these counts instead of paging pocol_getMembers (5 tokens a page).
+        self.assertTrue(gateway.valid_call(request('pocol_getMemberCounts')))
+        for params in ([0], ['latest'], [0, 256]):
+            self.assertFalse(gateway.valid_call(request('pocol_getMemberCounts', params)))
+        self.assertEqual(gateway.COSTS['pocol_getMemberCounts'], gateway.COSTS['pocol_getMember'])
+        members = [(0x11, w0_word(bond_state=1)), (0x22, w0_word(bond_state=4)), (0x33, w0_word(bond_state=4, tomb=1)),
+                   (0x44, w0_word(bond_state=2, tomb=1)), (0x55, w0_word(bond_state=0)), (0x66, w0_word(bond_state=3)),
+                   (0x77, w0_word(bond_state=1, tomb=1))]
+        node = Registry(members); service = v3_service(node)
+        answer = service.call(request('pocol_getMemberCounts', ident=9))
+        self.assertEqual(answer, {'jsonrpc': '2.0', 'id': 9, 'result': {
+            'height': 40, 'blockHash': node.head_hash(40), 'active': 7, 'live': 4, 'eligible': 2, 'tomb': 3,
+            'bondStates': {'NONE': 1, 'HELD': 2, 'BURNED': 1, 'PAID': 1, 'ACCRUING': 2}}})
+        self.assertEqual([c[1][0]['data'][:10] for c in node.reads('eth_call')],
+                         [selector('lengths()'), selector('activeSlice(uint256,uint256)')])
+        self.assertEqual(len(node.reads('eth_getBlockByNumber')), 2, 'the head and its re-check')
+        # Cached per head: a second read, and pocol_getMember's draw at the same head, read no page again.
+        node.calls.clear()
+        self.assertEqual(service.call(request('pocol_getMemberCounts', ident=10))['result'], answer['result'])
+        self.assertEqual(node.calls, [('eth_getBlockByNumber', ['latest', False])])
+        self.assertEqual(gateway.member_counts([]), {'active': 0, 'live': 0, 'eligible': 0, 'tomb': 0,
+                                                     'bondStates': {'NONE': 0, 'HELD': 0, 'BURNED': 0, 'PAID': 0, 'ACCRUING': 0}})
+
+    def test_member_counts_read_the_largest_membership_within_the_read_budget(self):
+        members = [(i + 1, w0_word(bond_state=(1, 4, 2)[i % 3], tomb=int(i % 3 == 2), act_pos=i)) for i in range(gateway.MAX_MEMBERS_V3)]
+        node = Registry(members); service = v3_service(node)
+        result = service.call(request('pocol_getMemberCounts'))['result']
+        self.assertEqual((result['active'], result['eligible'], result['tomb']), (10000, 6667, 3333))
+        pages = [c for c in node.reads('eth_call') if c[1][0]['data'].startswith(selector('activeSlice(uint256,uint256)'))]
+        self.assertEqual(len(pages), -(-gateway.MAX_MEMBERS_V3 // gateway.ACTIVE_PAGE))
+        self.assertLessEqual(len(node.calls), gateway.MEMBER_READS_MAX + gateway.DRAW_READS_MAX)
+        # One more member than the supported maximum is refused, never truncated.
+        node = Registry(members + [(10001, w0_word())]); service = v3_service(node)
+        self.assertEqual(service.call(request('pocol_getMemberCounts'))['error']['code'], -32000)
+
+    def test_member_counts_refuse_a_moved_block_and_a_malformed_record(self):
+        node = Registry([(0x11, w0_word())]); service = v3_service(node)
+        query = node.query
+        def moving(method, params):
+            answer = query(method, params)
+            if method == 'eth_call': node.hashes[40] = '0x' + 'ee' * 32
+            return answer
+        service.query = moving
+        self.assertEqual(service.call(request('pocol_getMemberCounts'))['error']['code'], -32022)
+        self.assertEqual(service.member_cache, {})
+        for members in ([(0, w0_word())], [(0x11, w0_word(status=2))], [(0x11, w0_word(bond_state=9))], [(0x11, w0_word()), (0x11, w0_word())]):
+            node = Registry(members); service = v3_service(node)
+            with self.subTest(members=members):
+                self.assertEqual(service.call(request('pocol_getMemberCounts'))['error']['code'], -32000)
+
     def member(self, w0, w1=0, w2=0, w3=0, removal=1):
         node = Registry([], {self.A: (w0, w1, w2, w3)}, {self.A: removal}); service = v3_service(node)
         answer = service.call(request('pocol_getMember', [self.A.upper().replace('0X', '0x')]))
@@ -624,7 +675,7 @@ class GatewayMembershipTests(unittest.TestCase):
 
     def test_requests_are_charged_by_method_cost(self):
         service = gateway.Gateway(network=NET); costs = []
-        service.charge = lambda cost: costs.append(cost) or False
+        service.charge = lambda cost, client=None, reserve=0.0: costs.append((cost, client, reserve)) or False
         server = gateway.Server(('127.0.0.1', 0), service)
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
         try:
@@ -636,7 +687,8 @@ class GatewayMembershipTests(unittest.TestCase):
             self.assertEqual(conn.getresponse().status, 429); conn.close()
         finally:
             server.shutdown(); server.server_close(); thread.join()
-        self.assertEqual(costs, [20 + 5 + 10 + 1])
+        # Charged to the caller (a loopback caller without X-Forwarded-For is itself) and kept above the /api reserve.
+        self.assertEqual(costs, [(20 + 5 + 10 + 1, '127.0.0.1', gateway.API_RESERVE)])
 
 
 class ForkVersionBoundTests(unittest.TestCase):

@@ -148,9 +148,9 @@ jobs:
             # committed 2026-11-18), so the packager packages it with the fixed extension id.
             npm run package
             # The zip is reproducible (W14): a second packaging of the same build gives the same bytes, so the file the
-            # owner signs is the file CI makes. The sites list no extension package before the signed release (owner
-            # policy, 2026-11-22; deploy/websites/tests/test_downloads.py); a line they list for the package must be
-            # this version's and this build's digest.
+            # owner signs is the file CI makes. The sites list no extension package before the signed release (SITE-01,
+            # deploy/websites/tools/release_page.py records it from the verified release); a line they list for the
+            # package must be this version's and this build's digest.
             version=$(node -p "require('./package.json').version")
             digest=$(cut -d' ' -f1 "releases/PoCol-Studio-IDE-Viewer-$version.zip.sha256")
             python3 scripts/package-release.py "$RUNNER_TEMP/again.zip"

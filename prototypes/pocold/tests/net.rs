@@ -518,6 +518,9 @@ fn newcomer(r:&Running,tag:&str)->Option<TcpStream>{
 const HEAVY:&str=r#"{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"data":"0x5b600056","gas":"0x1c9c380"},"latest"]}"#;
 const LIGHT:&str=r#"{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber","params":[]}"#;
 fn timed(port:u16,body:&str)->(u16,Duration){let t=Instant::now();let (c,_)=rpc(port,body,false);(c,t.elapsed())}
+/// As `timed`, with the answer's body too (assertion messages show it, at most 600 characters).
+fn timed_body(port:u16,body:&str)->(u16,String,Duration){let t=Instant::now();let (c,b)=rpc(port,body,false);(c,b,t.elapsed())}
+fn clip(b:&str)->String{if b.chars().count()<=600{b.to_string()}else{format!("{}… ({} bytes)",b.chars().take(600).collect::<String>(),b.len())}}
 fn counter(c:&std::sync::atomic::AtomicUsize)->usize{c.load(Ordering::SeqCst)}
 /// While a 30M-gas eth_call holds the consensus thread, requests queued behind it get 504 at the
 /// work deadline (not when the work would end), are never run once it has passed, and release
@@ -563,11 +566,11 @@ fn stats(port:u16)->serde_json::Value{
     let mut l=small();l.rpc.work_deadline=dl;let r=start("deadline",l);
     let base=threads();let e0=counter(&c.expired);let (ha0,lq0)=(counter(&c.heavy_active),counter(&c.light_queued));
     let stop=Arc::new(AtomicBool::new(false));
-    let h=std::thread::spawn({let p=r.rpc;move||timed(p,HEAVY)});
+    let h=std::thread::spawn({let p=r.rpc;move||timed_body(p,HEAVY)});
     let lights:Vec<_>=(0..8).map(|_|{let (p,stop)=(r.rpc,stop.clone());std::thread::spawn(move||{let mut v=vec![];while !stop.load(Ordering::SeqCst){v.push(rpc(p,LIGHT,false).0)}v})}).collect();
-    let (hc,ht)=h.join().unwrap();std::thread::sleep(d);stop.store(true,Ordering::SeqCst);
+    let (hc,hb,ht)=h.join().unwrap();std::thread::sleep(d);stop.store(true,Ordering::SeqCst);
     let codes:Vec<u16>=lights.into_iter().flat_map(|t|t.join().unwrap()).collect();
-    assert_eq!(hc,504);assert!(ht>=dl,"the heavy caller must not time out before its deadline ({dl:?}): {ht:?}");
+    assert_eq!(hc,504,"the heavy caller: answered after {ht:?} (work deadline {dl:?}, heavy call {d:?}): {}",clip(&hb));assert!(ht>=dl,"the heavy caller must not time out before its deadline ({dl:?}): {ht:?}");
     // A full light lane (requests that expired behind the heavy call and are not yet skipped) answers
     // -32021 {busy} with HTTP 200 (network.md:214); 503 is only the RPC_CONN_MAX refusal.
     assert!(codes.iter().all(|c|matches!(*c,200|503|504)),"{codes:?}");let late=codes.iter().filter(|c|**c==504).count();
@@ -592,7 +595,10 @@ fn stats(port:u16)->serde_json::Value{
     let (mut sends,mut whole)=(0,0);
     let members=loop{sends+=1;
         let (m1,e1)=(counter(&c.expired_members),counter(&c.expired));
-        let (code,t)=timed(r.rpc,&body);assert_eq!(code,504);assert!(t>=dl,"a batch timeout must not precede its deadline {dl:?}: {t:?}");
+        let (code,answer,t)=timed_body(r.rpc,&body);
+        assert_eq!(code,504,"batch send {sends}: answered after {t:?} (work deadline {dl:?}, heavy call {d:?}; members not started so far {}, skipped {}): {}",
+            counter(&c.expired_members)-m1,counter(&c.expired)-e1,clip(&answer));
+        assert!(t>=dl,"a batch timeout must not precede its deadline {dl:?}: {t:?}");
         // The node has finished with this batch: it ran it (19 members expire after the first), or skipped it.
         assert!(wait_until(30_000,||counter(&c.expired_members)-m1>=19||counter(&c.expired)>e1),
             "the node runs or skips the batch: members {}, skipped {}",counter(&c.expired_members)-m1,counter(&c.expired)-e1);

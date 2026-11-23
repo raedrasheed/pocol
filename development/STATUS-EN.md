@@ -60,6 +60,17 @@ Each of these is undecided; texts that need them say "owner decision pending".
 - the launch-disclosure wording (draft in `deploy/standalone/README.md`);
 - the reward page S1 wording.
 
+Decided by the owner on 2026-11-23
+([decisions/OWNER-DECISIONS-2026-11-23.md](decisions/OWNER-DECISIONS-2026-11-23.md)):
+
+- only PoCol Studio and PoCol IDE connect to the extension's wallet in this release; websites opened in the viewer get
+  no account on PoCol Mainnet; connections for other websites are deferred, not rejected (D1, EXT-03);
+- the Chrome Web Store item keeps the id the store assigns; the unofficial `key.pem` upload is not used (D2);
+- the on-chain site viewer stays in the store build, with the remote-code answer "Yes" (D3);
+- no site links an extension package or lists its digest before the signed release (D4, SITE-01);
+- PoCol Studio's version goes from 0.1.1 to 0.5.0 (D5);
+- the pocold RPC fix: an answer completed after the work deadline is answered 504 (D6).
+
 Decided by the owner on 2026-11-20
 ([decisions/OWNER-DECISIONS-2026-11-20.md](decisions/OWNER-DECISIONS-2026-11-20.md)):
 

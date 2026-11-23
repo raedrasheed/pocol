@@ -226,7 +226,6 @@ STEP3 = {
     # deploy/websites/tools/site_identity.py, requires the links to name the package.json version).
     'prototypes/pocol-extension/package.json': re.compile(r'"version":\s*"0\.4\.1"'),
     'prototypes/pocol-studio/package.json': re.compile(r'"version":\s*"0\.1\.1"'),
-    'prototypes/pocol-studio/dist/app.js': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
 }
 # Current documents whose text described the tree before the switch: once the tree pins a network that is not retired,
 # none may still say that the pin is the retired network's, that the extension holds the D1 placeholder, that no launch
@@ -240,6 +239,9 @@ SUPERSEDED_AFTER_SWITCH = {
                                                          r"until the identity switch the source holds the D1 placeholder|"
                                                          r"carry the retired network identity until the identity switch\.\*\* Until"),
 }
+# The Studio's install dialog linked the retired network's extension package; since 2026-11-22 (SITE-01) it links
+# pocol.net's release verification page instead, before and after the switch.
+RETIRED_EXTENSION_LINK = ('prototypes/pocol-studio/dist/app.js', re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'))
 TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, ni.NODE_SPEC, ni.RETIRED, ni.PROFILES,
                                                                   ni.REHEARSAL_PROFILE, ni.PUBLIC_CHAINS, ni.MAINNET_PROFILE]
 # The rehearsal network's chain ID (read independently of the tool): never a launch network.
@@ -1171,8 +1173,10 @@ class SetNetworkIdentity(unittest.TestCase):
             self.assertEqual(held, [], 'the identity-switch release replaces or bumps these: ' + ', '.join(held))
         else:
             self.assertEqual(held, list(STEP3), 'update STEP3 to what the files hold today')
-        # The detector works: each pattern finds the text it names on the retired release's tree.
-        self.assertIsNotNone(STEP3['prototypes/pocol-studio/dist/app.js'].search('PoCol-Studio-IDE-Viewer-0.4.1.zip'))
+        # The retired extension link is gone already, switched or not; the detector works on the retired release's text.
+        rel, old = RETIRED_EXTENSION_LINK
+        self.assertIsNone(old.search((ni.ROOT / rel).read_text(encoding='utf-8')), rel)
+        self.assertIsNotNone(old.search('PoCol-Studio-IDE-Viewer-0.4.1.zip'))
 
     def test_the_documents_no_longer_describe_the_tree_before_the_switch(self):
         held = {rel: rx.search(' '.join((ni.ROOT / rel).read_text(encoding='utf-8').split()))

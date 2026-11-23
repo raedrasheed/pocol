@@ -16,6 +16,8 @@ on:
       - 'deploy/rewards/explorer_*.py'
       - 'deploy/rewards/test_explorer_api.py'
       - 'deploy/rewards/testdata/*explorer*'
+      - 'deploy/rewards/pocol_transactions.py'
+      - 'deploy/rewards/test_pocol_transactions.py'
       - 'deploy/explorer/**'
       # The fee faucet and its /faucet/* route in the explorer block (the explorer installer and its tests import it).
       - 'deploy/faucet/**'
@@ -30,6 +32,10 @@ on:
       - 'prototypes/pocol-extension/tests/data/decoder-corpus-v3.json'
       # Sites W14: the native package names the sites may name (assemble_release.py at package.py's version).
       - 'deploy/release/assemble_release.py'
+      # The published extension ID and release key (test_downloads.py) and the release verifier release_page.py uses.
+      - 'deploy/release/allowed_signers'
+      - 'deploy/release/verify_release.py'
+      - 'prototypes/pocol-extension/release/manifest-key.pub'
       - 'deploy/standalone/package.py'
       # Sites W7: explorer_w7.test.mjs checks the decoder's selectors against the Registry signatures there.
       - 'prototypes/lp4-execution/contracts/system/PoColSystemV3.sol'
@@ -67,6 +73,8 @@ on:
       - 'deploy/rewards/explorer_*.py'
       - 'deploy/rewards/test_explorer_api.py'
       - 'deploy/rewards/testdata/*explorer*'
+      - 'deploy/rewards/pocol_transactions.py'
+      - 'deploy/rewards/test_pocol_transactions.py'
       - 'deploy/explorer/**'
       - 'deploy/faucet/**'
       - 'deploy/mainnet/**'
@@ -76,6 +84,10 @@ on:
       - 'prototypes/pocol-extension/package.json'
       - 'prototypes/pocol-extension/tests/data/decoder-corpus-v3.json'
       - 'deploy/release/assemble_release.py'
+      # The published extension ID and release key (test_downloads.py) and the release verifier release_page.py uses.
+      - 'deploy/release/allowed_signers'
+      - 'deploy/release/verify_release.py'
+      - 'prototypes/pocol-extension/release/manifest-key.pub'
       - 'deploy/standalone/package.py'
       - 'prototypes/lp4-execution/contracts/system/PoColSystemV3.sol'
       - 'prototypes/pocold/src/readiness.rs'
@@ -124,8 +136,12 @@ jobs:
         run: python3 -B -m unittest discover -s deploy/websites/tests -p 'test_*.py' -v
       - name: Explorer v3 membership edits (W7) and their helpers in node:vm
         run: node --test deploy/websites/tests/explorer_w7.test.mjs
+      - name: Explorer production-readiness edits (relay retries, transaction index and geography texts) in node:vm
+        run: node --test deploy/websites/tests/explorer_prod.test.mjs
       - name: Explorer gateway /api reads (the retired PHP relays' checks, every handler, the recorded PHP vectors)
         run: python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v
+      - name: Explorer transaction index (follow, reorganizations, restarts, bounds, the /api/transactions.php page)
+        run: python3 -B -m unittest discover -s deploy/rewards -p test_pocol_transactions.py -v
       - name: Explorer gateway host (Caddy site with the Studio and faucet routes, static copy, installer and rollback)
         run: python3 -B -m unittest discover -s deploy/explorer -v
       - name: Fee faucet (error codes, CORS, client key) and its /faucet/* Caddy route
@@ -138,6 +154,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y php-cli php-curl
           php deploy/websites/tests/api_security.php
+          # Each reward.php refusal check removed alone must fail api_security.php.
+          python3 -B deploy/websites/tests/reward_check_mutants.py
+          # The network summary at 10,000 members through the gateway's own token bucket.
+          python3 -B deploy/websites/tests/network_budget.py
       - name: Studio gateway
         run: python3 -B -m unittest discover -s deploy/studio -v
       - name: Studio site
@@ -154,5 +174,7 @@ jobs:
           echo "POCOL_CHROMIUM=$(node --input-type=module -e "const {chromium}=await import('$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs');console.log(chromium.executablePath())")" >> "$GITHUB_ENV"
       - name: Browser checks of the four sites (all requests outside each local origin aborted)
         run: node deploy/websites/tests/browser_security.mjs
+      - name: Every page of pocol.net, Studio and the IDE at 390 and 1366 px, English and Arabic (width, RTL, links, CSP)
+        run: node deploy/websites/tests/site_pages.mjs
       - name: Explorer W7 Overview against a fake relay (a refused transaction read, the map's members page)
         run: node deploy/websites/tests/explorer_w7_browser.mjs

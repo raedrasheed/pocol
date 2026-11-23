@@ -41,16 +41,16 @@ Derived files move with their sources:
   present on disk (an archive restored under downloads/) is listed by its bytes and stays declared.
 
 --download PATH=SHA256 (repeatable; PATH is `<site>/downloads/<name>`, a .zip, .tar.gz or .apk archive or its .sig or
-.sha256) writes the SHA256SUMS.txt line of a release file that is kept out of Git and adds its name to keptOut. It
+.sha256, or the signed release's SHA256SUMS or network.pocol.json or their .sig) writes the SHA256SUMS.txt line of a release file that is kept out of Git and adds its name to keptOut. It
 drops the lines it supersedes (and their keptOut names): the
 kept-out lines of another version of the same archive family (the name before `-X.Y.Z`, for example
 `PoCol-Studio-IDE-Viewer` or `PoCol-Mainnet`) and any other kept-out line with the bytes of one of those (an unversioned
 copy such as `PoCol-Studio-Chrome.zip`). A file of the snapshot that it supersedes (a tracked `.sha256`) is refused
 until it is removed, and a PATH that is in the snapshot is refused (its line is its own digest).
 
---drop-download PATH (repeatable) withdraws a kept-out file that the site no longer serves (2026-11-22: the unsigned
-0.5.0 extension package step 7 listed): its name leaves keptOut and its SHA256SUMS.txt line goes, so the file is one to
-delete from the host. A PATH that keptOut does not name, or that a --download of the same run gives, is refused.
+--drop-download PATH (repeatable) withdraws a kept-out file that the site no longer serves (2026-11-22: the retired
+network's extension package, and the unsigned 0.5.0 extension package step 7 listed): its name leaves keptOut and its
+SHA256SUMS.txt line goes, so the file is one to delete from the host. A PATH that keptOut does not name, or that a --download of the same run gives, is refused.
 
 --check also refuses: any retired identity (deploy/mainnet/retired-networks.json) other than the declared one, so the
 check turns on by itself once the snapshots pin a network that is not retired (a retired identity on the declared chain
@@ -59,8 +59,8 @@ link whose version is not the extension's package.json version; an extension ver
 `Studio & Viewer X.Y.Z`, `Version X.Y.Z`, `الإصدار X.Y.Z`, `إضافة PoCol X.Y.Z`) that is not that version, except a
 capability message that names the oldest version with a feature (`X.Y.Z or later`, `X.Y.Z أو أحدث`); a native package
 name `PoCol-Mainnet-X.Y.Z-*` that is not one of deploy/release/assemble_release.py's names at
-deploy/standalone/package.py's version (or its .sig or .sha256), apart from the retired names in LEGACY_NATIVE that the
-pages still link until the signed release moves them (W16), each of which must still be named; an index.html script or
+deploy/standalone/package.py's version (or its .sig or .sha256), apart from the retired names in LEGACY_NATIVE (empty
+since the owner's request of 2026-11-23), each of which must still be named while it is listed; an index.html script or
 stylesheet that does not exist; a hashed bundle whose name is not its content version; any config.php in a snapshot (never read), and server
 code or a hidden file in the explorer snapshot (an api/ entry, a .php file, a dotfile such as .htaccess): the gateway
 host serves the explorer as static files, and its /api reads are deploy/rewards/explorer_api.py (Sites W8).
@@ -98,9 +98,10 @@ EXTRA = ['deploy/websites/tests/api_security.php', 'deploy/websites/tests/browse
 SUMS = 'SHA256SUMS.txt'
 # A download file that may be listed in SHA256SUMS.txt but kept out of Git (deploy/websites/README.md): an archive, its
 # signature or its .sha256. Which ones are kept out is DECLARED's keptOut: a tracked .sha256 has this form too.
-KEPT_OUT = re.compile(r'downloads/[^/]+\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?')
+KEPT_OUT = re.compile(r'downloads/(?:[^/]+\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?|(?:SHA256SUMS|network\.pocol\.json)(?:\.sig)?)')
 # A --download name: a kept-out file name of plain characters.
-DOWNLOAD_NAME = re.compile(r'downloads/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?')
+# The signed release's SHA256SUMS and the invitation, with their .sig, are release files too (tools/release_page.py).
+DOWNLOAD_NAME = re.compile(r'downloads/(?:[A-Za-z0-9][A-Za-z0-9._-]*\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?|(?:SHA256SUMS|network\.pocol\.json)(?:\.sig)?)')
 # An archive family and its version: `downloads/<family>-X.Y.Z<rest>`.
 ARCHIVE_VERSION = re.compile(r'downloads/(.+?)-([0-9]+\.[0-9]+\.[0-9]+)(?=[-.])(.*)')
 # Hashed bundles: key -> (site, prefix). The file is `<site>/assets/<prefix>-<12 hex>.js`, exactly one per key.
@@ -178,12 +179,14 @@ LABELS = [re.compile(prefix + _SEMVER) for prefix in (
 OR_LATER = re.compile(r'\s+(?:or later|or newer|أو أحدث|أو ما بعده)')
 # Native package names (assemble_release.py's, at package.py's version).
 NATIVE = re.compile(r'PoCol-Mainnet-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_-]+(?:\.[A-Za-z0-9]+)+')
-# The retired network's native package that pocol.net still links, labelled as the retired network's, beside "Coming
-# from the retired network?" (index.html, pocol-tools.html, guide-content.js) until the signed release moves those links
-# (W16, PR F). The Linux package and the unlabelled "MAINNET EDITION" and tools-page links were removed on 2026-11-22:
-# they offered the retired network's 0.4.0 packages as PoCol Mainnet applications. --check fails
-# once no page links a name listed here, so the exemption leaves with the last link.
-LEGACY_NATIVE = frozenset({'PoCol-Mainnet-0.4.0-Windows.zip'})
+# Retired native packages that a page may still name (none). The Linux package and the unlabelled "MAINNET EDITION" and
+# tools-page links were removed on 2026-11-22: they offered the retired network's 0.4.0 packages as PoCol Mainnet
+# applications. The last one, PoCol-Mainnet-0.4.0-Windows.zip, linked and labelled as the retired network's beside
+# "Coming from the retired network?" (index.html, pocol-tools.html, guide-content.js), was removed with its exemption on
+# the owner's request of 2026-11-23 (no Testnet or 0.4.x offer in the deployment content): any PoCol-Mainnet-0.4.x name
+# is now refused like any other name that is not the release's, and tools/host_files.py lists the host's copy as DELETE.
+# --check fails once no page names a name listed here, so an exemption leaves with its last link.
+LEGACY_NATIVE = frozenset()
 VERSIONED = re.compile(r'(?<![0-9A-Za-z_.:/-])(/?[A-Za-z0-9_][A-Za-z0-9_./-]*)\?v=([0-9a-f]{12})(?![0-9A-Za-z])')
 # The explorer snapshot is static (Sites W8): its /api paths are the gateway's (deploy/rewards/explorer_api.py) and its
 # headers are the Caddy site's (deploy/explorer/explorer_site.py), so no server code or hidden file may be in it.

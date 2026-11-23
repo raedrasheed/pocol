@@ -77,7 +77,13 @@ class ExplorerAllowListTests(unittest.TestCase):
         self.assertEqual(checks, 43, 'api_security.php had 43 explorer relay checks')
 
     def test_the_allow_list_is_lib_php_and_narrower_than_rpc(self):
-        self.assertEqual(len(api.METHODS), 17)
+        # lib.php's 17 reads, and pocol_getMemberCounts (2026-11-22: pocol.net's summary reads the membership counts in
+        # one call instead of paging pocol_getMembers), parameterless as /rpc has it.
+        self.assertEqual(len(api.METHODS), 18)
+        self.assertIn('pocol_getMemberCounts', api.METHODS)
+        self.assertTrue(api.valid_call(call('pocol_getMemberCounts')))
+        for params in (['latest'], [0], [0, 256]):
+            self.assertFalse(api.valid_call(call('pocol_getMemberCounts', params)))
         self.assertLess(api.METHODS, set(gateway.NO_PARAMS) | gateway.HASH_METHODS | gateway.ACCOUNT_METHODS | gateway.MEMBERS
                         | {'eth_getBlockByNumber', 'eth_getBlockByHash', 'pocol_getTransactions'})
         with patch.object(gateway, 'valid_options', lambda options: True):
@@ -291,13 +297,28 @@ class ExplorerRelayTests(GatewayServerCase):
             self.assertEqual(self.gateway.tokens, 0.0, 'a refused request is not charged')
 
     def test_network_summary_batches_of_pocol_net(self):
-        """pocol.net/api/network.php: no Origin, [status, params, miners] then 20 block reads; HTTP 200 exactly and every
-        answer a result (network.php:49-66)."""
-        status, _, first = self.post([call('pocol_status', ident=1), call('pocol_getParams', ident=2), call('pocol_getMiners', ident=3)])
+        """pocol.net/api/network.php: no Origin, [status, params, member counts] then 20 block reads; HTTP 200 exactly
+        and every answer a result. The counts are the gateway's own membership read (an empty ActList here: lengths()
+        answers four zero words), charged 20 tokens; the first request costs 22 and the blocks 20 (2026-11-22 review)."""
+        self.node.answers['eth_call'] = {'result': '0x' + '00' * 128}
+        with patch.object(gateway.time, 'monotonic', return_value=1000.0):  # no refill during the check
+            self.gateway.tokens, self.gateway.token_time = 80.0, 1000.0
+            status, _, first = self.post([call('pocol_status', ident=1), call('pocol_getParams', ident=2), call('pocol_getMemberCounts', ident=3)])
+            self.assertEqual(self.gateway.tokens, 58.0)
         self.assertEqual(status, 200)
-        self.assertTrue(all('result' in a and 'error' not in a for a in first))
+        self.assertTrue(all('result' in a and 'error' not in a for a in first), first)
         self.assertEqual(first[0]['result']['head'], {'height': 16, 'hash': F.HASH})
-        status, _, blocks = self.post([call('eth_getBlockByNumber', ['0x%x' % (100 - i), False], 4 + i) for i in range(20)])
+        self.assertEqual(first[2]['result'], {'height': 16, 'blockHash': F.HASH, 'active': 0, 'live': 0, 'eligible': 0, 'tomb': 0,
+                                              'bondStates': {'NONE': 0, 'HELD': 0, 'BURNED': 0, 'PAID': 0, 'ACCRUING': 0}})
+        # The whole check runs on a controlled clock: on the real one, a host that booted less than 1000 s ago (a fresh
+        # CI runner) sees time go back to before 1000.0 and refills nothing. Sent at once, the block batch exceeds the
+        # client's burst (22 + 20 > CLIENT_BURST 40) and is refused busy; network.php resends it after Retry-After.
+        blocks_batch = [call('eth_getBlockByNumber', ['0x%x' % (100 - i), False], 4 + i) for i in range(20)]
+        with patch.object(gateway.time, 'monotonic', return_value=1000.0):
+            status, headers, busy = self.post(blocks_batch)
+        self.assertEqual((status, headers.get('Retry-After')), (429, '3'), busy)
+        with patch.object(gateway.time, 'monotonic', return_value=1003.0):
+            status, _, blocks = self.post(blocks_batch)
         self.assertEqual((status, [b['id'] for b in blocks]), (200, list(range(4, 24))))
         self.assertTrue(all(b['result']['hash'] == F.HASH for b in blocks))
 

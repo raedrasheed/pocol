@@ -2,7 +2,7 @@
   {
     "file": "ide-bundle",
     "old": "(0,D.jsxs)(`a`,{className:`button secondary full`,href:`/downloads/PoCol-Studio-IDE-Viewer-0.5.0.zip`,download:!0,children:[(0,D.jsx)(Wr,{name:`download`}),`Download PoCol extension 0.5.0`]})",
-    "new": "(0,D.jsxs)(`a`,{className:`button secondary full`,href:`https://pocol.net/chrome-extension.html#install`,target:`_blank`,rel:`noreferrer`,children:[(0,D.jsx)(Wr,{name:`download`}),`PoCol extension: release and verification`]}),(0,D.jsx)(`p`,{className:`context-note`,children:`The PoCol Mainnet extension is published with the signed release; this IDE offers no extension package before then. pocol.net publishes the extension ID and the release key fingerprint to check it against.`})",
+    "new": "(0,D.jsxs)(`a`,{className:`button secondary full`,href:`https://pocol.net/chrome-extension.html#verify-release`,target:`_blank`,rel:`noreferrer`,children:[(0,D.jsx)(Wr,{name:`download`}),`PoCol extension: release and verification`]}),(0,D.jsx)(`p`,{className:`context-note`,children:`The PoCol Mainnet extension is published with the signed release; this IDE offers no extension package before then. pocol.net publishes the extension ID and the release key fingerprint to check it against.`})",
     "count": 1
   }
 ]

@@ -19,6 +19,12 @@
     'RTCRtpScriptTransform', 'WebSocket', 'WebSocketStream', 'WebTransport', 'EventSource', 'Worker', 'SharedWorker', 'BroadcastChannel']) define(W, k, undefined);/*@else*//*@end*/
   try { Object.defineProperty(Navigator.prototype, 'sendBeacon', { value: () => false, writable: false, configurable: false }); } catch {}
   try { Object.defineProperty(Navigator.prototype, 'mediaDevices', { get: () => undefined, configurable: false }); } catch {}
+  // Final review (2026-11-22): worklets run site code on another thread and WebGPU computes on the GPU; a site gets
+  // neither (Worker and SharedWorker are removed above). Worklet.prototype.addModule covers every worklet kind.
+  for (const [o, k] of [[W.BaseAudioContext && W.BaseAudioContext.prototype, 'audioWorklet'], [W.CSS, 'paintWorklet'], [W.CSS, 'layoutWorklet'],
+    [W.CSS, 'animationWorklet'], [Navigator.prototype, 'gpu']]) if (o) { try { Object.defineProperty(o, k, { get: () => undefined, configurable: false }); } catch {} }
+  if (W.Worklet) { try { Object.defineProperty(W.Worklet.prototype, 'addModule', { value: () => PromiseC.reject(new DOMException('PoCol sandbox: worklets are not supported', 'NotSupportedError')), writable: false, configurable: false }); } catch {} }
+  for (const k of ['AudioWorkletNode', 'Worklet', 'GPU', 'GPUAdapter', 'GPUDevice']) define(W, k, undefined);
 
   // ---- Frame guard: no nested browsing context can be created (fresh realms would undo RtcLockdown) ----
   const FORBID = new Set(['IFRAME', 'FRAME', 'FRAMESET', 'OBJECT', 'EMBED', 'PORTAL', 'BASE', 'APPLET', 'FENCEDFRAME']);

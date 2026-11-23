@@ -607,7 +607,7 @@ class SiteIdentity(unittest.TestCase):
         self.assertIn(f'href:`/downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip`,download:!0,children:[(0,D.jsx)(Wr,'
                       f'{{name:`download`}}),`Download PoCol extension {EXT_VERSION}`]', before_pending)
         self.assertNotIn('PoCol-Studio-IDE-Viewer-', ide)
-        self.assertIn('href:`https://pocol.net/chrome-extension.html#install`', ide)
+        self.assertIn('href:`https://pocol.net/chrome-extension.html#verify-release`', ide)
         # Its capability messages name the oldest version with contract signing: matched by the label patterns, and
         # exempt only because they say "or later".
         for message in ('Update the PoCol extension to version 0.4.0 or later', 'Update your PoCol extension to 0.4.0 or later',
@@ -641,7 +641,10 @@ class SiteIdentity(unittest.TestCase):
         names = set(si.release.native_names(ROOT))
         self.assertEqual(names, {f'PoCol-Mainnet-{NATIVE_VERSION}-linux-x86_64.tar.gz',
                                  f'PoCol-Mainnet-{NATIVE_VERSION}-windows-x86_64.zip', f'PoCol-Mainnet-{NATIVE_VERSION}-arm64.apk'})
-        # The exempt names are the retired packages the pages still link, and each is linked today.
+        # The exempt names are the retired packages the pages still link, and each is linked today. There is none since
+        # the owner's request of 2026-11-23 removed the last one (PoCol-Mainnet-0.4.0-Windows.zip), so a 0.4.x name is
+        # refused like any other name that is not the release's.
+        self.assertEqual(si.LEGACY_NATIVE, frozenset())
         main = '\n'.join(p.read_text(encoding='utf-8') for p in (ROOT / si.MAIN).iterdir()
                          if p.suffix in ('.html', '.js'))
         for name in si.LEGACY_NATIVE:
@@ -657,6 +660,14 @@ class SiteIdentity(unittest.TestCase):
                 self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
         p.write_bytes(original)
         self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        # The retired Windows package is refused now that it is not exempt (the owner's request of 2026-11-23), and the
+        # refused run writes nothing.
+        p.write_text(original.decode('utf-8') + '// PoCol-Mainnet-0.4.0-Windows.zip\n', encoding='utf-8')
+        before = snapshot(root)
+        self.assertEqual(self.run_tool(root), 2)
+        self.assertIn('names the native package PoCol-Mainnet-0.4.0-Windows.zip', self.last_errors)
+        self.assertEqual(snapshot(root), before)
+        p.write_bytes(original)
         # An exempt name that no file names any more fails, so the exemption is removed with the last link.
         with mock.patch.object(si, 'LEGACY_NATIVE', si.LEGACY_NATIVE | {'PoCol-Mainnet-0.3.0-Windows.zip'}):
             self.assertEqual(self.run_tool(root, '--check'), 2)
@@ -689,7 +700,12 @@ class SiteIdentity(unittest.TestCase):
             self.assertEqual(self.run_tool(root), 0, self.last_errors)
         old_native, chrome = 'a' * 64, lines()['downloads/PoCol-Studio-Chrome.zip']
         # A kept-out line of the retired native package (it was listed before the 2026-11-13 clean-up): a run keeps it
-        # while keptOut names it, and drops it when it does not.
+        # while keptOut names it, and drops it when it does not. Since the owner's request of 2026-11-23 the retired
+        # name is not exempt (LEGACY_NATIVE is empty) and --check refuses it anywhere, so the exemption it had is set
+        # here for as long as the line is in the copy; the kept-out and superseding rules under test are unchanged.
+        exempt = mock.patch.object(si, 'LEGACY_NATIVE', frozenset({'PoCol-Mainnet-0.4.0-Windows.zip'}))
+        exempt.start()
+        self.addCleanup(mock.patch.stopall)
         sums.write_text(sums.read_text(encoding='utf-8') + f'{old_native}  downloads/PoCol-Mainnet-0.4.0-Windows.zip\n',
                         encoding='utf-8')
         self.assertEqual(self.run_tool(root, '--check'), 2, 'an undeclared line of a file that is not in the snapshot')
@@ -717,6 +733,9 @@ class SiteIdentity(unittest.TestCase):
         self.assertEqual(snapshot(root), before)
         # The extension's own .sha256 is tracked, so a newer family member would have to remove it first: here the
         # 0.4.1 lines stay (same version) and the 0.3.9 line and its copy go (older version of the same family).
+        # The run drops the retired line (an older version of the PoCol-Mainnet family), so the tree it writes names
+        # the retired package nowhere and needs no exemption.
+        exempt.stop()
         self.assertEqual(self.run_tool(root, *args), 0, self.last_errors)
         got = lines()
         for path, digest in given.items():

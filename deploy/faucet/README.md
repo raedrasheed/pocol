@@ -21,6 +21,7 @@ A new miner can register with a 0 PCOL bond, but its first transaction still pay
 | Transfers per UTC day | 200 (0.4 PCOL a day at most) | `dailyLimit` |
 | Transfers per client per UTC day | 3 | `perClientDaily` |
 | Node chain ID must equal the configured one | always | `chainId` |
+| Node genesis hash (`pocol_getParams`) must equal the configured one | when set (recommended: the invitation's `devnet.json` `genesisHash`) | `genesisHash` |
 | Operator balance at most the float, else the faucet stops | mainnet: 10 PCOL; elsewhere: none | `maxFloatWei` |
 
 On mainnet the amount, the two daily limits and the float may be set lower than these values, never higher.

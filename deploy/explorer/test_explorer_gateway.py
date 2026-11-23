@@ -502,6 +502,38 @@ class InstallerTests(unittest.TestCase):
                 self.assertIn('and the faucet route', printed)
         self.run_install(existing=True, faucet_route=True, fail_https=True)
 
+    # The unit the previous release (main at 1bb11f4c) wrote, verbatim: an update replaces it with this release's unit.
+    PREVIOUS_UNIT = ("[Unit]\nDescription=PoCol explorer gateway (read-only /rpc and the explorer's /api reads)\nAfter=network.target pocol-standalone.service\n\n"
+                     "[Service]\nType=simple\nDynamicUser=yes\nExecStart=/usr/bin/python3 /opt/pocol-explorer-gateway/gateway.py --bind 127.0.0.1 --port 8088 "
+                     "--rpc-port 8545 --v3-network /etc/pocol-explorer-gateway/network.json --site-origin https://explorer.pocol.net\n"
+                     "WorkingDirectory=/opt/pocol-explorer-gateway\nRestart=on-failure\nRestartSec=3\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=strict\n"
+                     "ProtectHome=yes\nProtectKernelTunables=yes\nProtectKernelModules=yes\nProtectControlGroups=yes\nRestrictSUIDSGID=yes\nRestrictRealtime=yes\n"
+                     "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX\nIPAddressDeny=any\nIPAddressAllow=localhost\nMemoryMax=256M\nTasksMax=64\nUMask=0077\n\n"
+                     "[Install]\nWantedBy=multi-user.target\n")
+
+    def test_the_unit_runs_the_transaction_index_in_its_state_directory(self):
+        self.assertIn('pocol_transactions.py', installer.SOURCES)
+        for forks in (False, True):
+            text = installer.unit_text(forks)
+            self.assertIn('StateDirectory=pocol-explorer-gateway\nStateDirectoryMode=0700\n', text)
+            self.assertIn('Environment=POCOL_TX_DB=/var/lib/pocol-explorer-gateway/transactions.sqlite3\n', text)
+            self.assertIn('After=network.target pocol-standalone.service pocol-observer.service\n', text)
+            self.assertIn('IPAddressAllow=localhost\n', text)
+        self.assertEqual(installer.PREVIOUS_UNIT_TEXT, self.PREVIOUS_UNIT)
+
+    def test_an_update_from_the_previous_release_unit_writes_this_release_unit(self):
+        for forks in (False, True):
+            with self.subTest(forks=forks):
+                root = self.run_install(existing=True, unit_text=installer.unit_text(forks, self.PREVIOUS_UNIT), forks=forks)[3]
+                self.assertEqual((root / 'gateway.service').read_text(), installer.unit_text(forks))
+                self.assertEqual((root / 'opt' / 'pocol_transactions.py').read_bytes(), (ROOT / 'deploy/rewards/pocol_transactions.py').read_bytes())
+        with self.assertRaisesRegex(RuntimeError, 'custom edits'):
+            self.run_install(existing=True, unit_text=self.PREVIOUS_UNIT.replace('TasksMax=64', 'TasksMax=640'))
+        # A failed update restores the previous release's unit.
+        root = self.run_install(existing=True, unit_text=self.PREVIOUS_UNIT, fail_https=True)[3]
+        self.assertEqual((root / 'gateway.service').read_text(), self.PREVIOUS_UNIT)
+        self.assertFalse((root / 'opt' / 'pocol_transactions.py').exists())
+
     def test_https_wait_reaches_the_https_check(self):
         self.run_install(https_wait=1800)
 

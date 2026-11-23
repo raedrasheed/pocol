@@ -106,6 +106,13 @@ The gateway also serves the explorer's membership reads, each at one head block 
   height (`lengths`, whose heldTotal bounds every bond, and `activeSlice` pages, cached per head) and at most 32 other
   records; past that bound `proposerEligible` is `null`, never guessed. It also answers for records outside the
   active list, such as `registerReplacing` victims (status 2).
+- `pocol_getMemberCounts` (no parameters, token cost 20; 2026-11-22): the ActList's counts at one head block, from
+  the same `lengths` and `activeSlice` scan that `proposerEligible` uses (cached per head, at most 40 pages):
+  `active`, `live` (not tomb), `eligible` (live and HELD or ACCRUING, the rule pocol.net's summary shows), `tomb` and
+  `bondStates` (the members in each labelled bond state), with `height` and `blockHash`. pocol.net's
+  `api/network.php` reads it once a refresh instead of paging `pocol_getMembers` through the shared budget (40 pages,
+  200 tokens, at 10,000 members). A pocol.net snapshot that reads it needs a gateway that serves it: install the
+  gateway first.
 - `pocol_getRemovable` (cost 10) and `pocol_finality` (cost 1) are forwarded to the node. `pocol_getMiners` stays for
   compatibility; the explorer bundle no longer calls it (Sites W7: it reads `pocol_getMembers` pages).
 
@@ -143,7 +150,7 @@ relays' behaviour:
 Every answer is `application/json; charset=utf-8` with `Cache-Control: no-store`, nosniff and the explorer's security
 headers; errors are `{"error": "..."}` with PHP's messages. The four paths share four relay slots (PHP's lock slots;
 busy is 429, with `Retry-After: 3` on `/api/rpc.php` only as rpc.php sent it, and 503 for transactions, as in PHP)
-and the gateway's global token bucket (the `/rpc` costs). Behind Caddy each request is one connection to the gateway: a connection beyond its 16 request slots is
+and the gateway's token buckets (the `/rpc` costs; the node's bucket, a bucket per client, and a share of the node's bucket that `/rpc` cannot take: `deploy/explorer/README.md`). Behind Caddy each request is one connection to the gateway: a connection beyond its 16 request slots is
 answered `{"error":"The data service is busy. Please retry shortly."}` with 429 and `Retry-After: 3` on any path (the
 PHP relays' lock slots answered so before a request reached the gateway), not closed unanswered. Where PHP cannot be matched, the safer answer is kept (`deploy/explorer/README.md`, Behaviour that differs): a
 spent budget is answered as busy, so 429 with `Retry-After: 3` on `/api/rpc.php`, 429 without it on health and
@@ -204,8 +211,10 @@ at launch; nothing here touches DNS or servers. The same site serves the explore
 same-origin `/api/*.php` reads (Explorer reads, above); `deploy/explorer/install_explorer_gateway.py` installs this
 gateway, the static copy and the Caddy site (`deploy/explorer/README.md`).
 
-`gateway.py` is the explorer gateway with this adapter integrated (a required import, installed beside it; the GeoIP
-and transaction index modules stay optional). The public `pocol_getBlockReward` method still accepts exactly
+`gateway.py` is the explorer gateway with this adapter integrated (a required import, installed beside it). The transaction index
+`pocol_transactions.py` is installed beside it too and runs when `POCOL_TX_DB` names its file (the installer's unit
+sets it; `deploy/explorer/README.md`, Transaction index). There is no GeoIP module: the network gives no truthful
+miner location (`deploy/explorer/README.md`, Miner map). The public `pocol_getBlockReward` method still accepts exactly
 `params: []`; clients cannot supply a network or a schedule. The gateway passes its immutable, locally validated
 configuration to the adapter on every reward read. No HTTP/RPC input can replace it.
 
@@ -254,7 +263,10 @@ configured chain ID and genesis hash.
 **Operator step at deployment.** The explorer service unit is written by `deploy/explorer/install_explorer_gateway.py`
 (with `--v3-network`, and `--fork-schedule` when `forks.json` exists); the network file must exist before it runs. A
 hand-made unit with only the old arguments fails at startup. The pocol.net reward page
-(`deploy/websites/pocol.net/api/reward.php`, `reward.js`) still validates the retired `pocol-block-reward-v1` answer and is switched to `pocol-block-reward-v3` separately.
+(`deploy/websites/pocol.net/api/reward.php`, `reward.js`) validates this `pocol-block-reward-v3` answer (F-74, 2026-11-22)
+and shows its summary: pot h, its projected split (paid with bond fills, burned, carried), the projected beneficiaries,
+the closing note and the final block; `deploy/websites/tests/api_security.php` checks it on the recorded
+`testdata/v3-devnet-tape.json` snapshots.
 
 The explorer's `pocol_getParams` sanitizer retains the public fields `forkSchedule`, `capRaise`,
 `effectiveNonceMode`, `nextBlockNonceMode` and `consensusCompatibilitySha256`. The public RPC method allowlist is

@@ -13,11 +13,24 @@ import { keccak } from './lib/crypto.js';
 import * as rlp from './lib/rlp.js';
 import { toHex, fromHex, eq } from './lib/hex.js';
 import { NETWORK, isStudioOrigin, validateEndpoint, trustMessage } from './lib/studio-network.js';
+// The D1 mark is read through the namespace: the identity switch removes that export (set_network_identity.py).
+import * as studioNetwork from './lib/studio-network.js';
+import { importKeyfile, exportKeyfile } from './lib/studio-keyfile.js';
+import * as acct from './lib/account.js';
+import { identityDifference, describeDifference } from './lib/identity.js';
+import { readNetworkFees, ABSOLUTE_CEILING } from './lib/fees.js';
 import { JOB_PREFIX, JOB_TTL_MS, validatePublishRequest, validateSiteTarget, publicJob } from './lib/studio-bridge.js';
 import { IDE_JOB_PREFIX, isIdeOrigin, validateContractRequest, publicContractJob } from './lib/contracts.js';
 import { networkOf, blocksAccount, archiveForeignJobs, removeSideKeys } from './lib/jobs.js';
+import { LOCK_SIGNAL_KEY, withVaultLock } from './lib/vault-guard.js';
 
 const store = chrome.storage.local;
+// Final review (2026-11-22): Chrome lets content scripts use storage.local by default, and the extension's content
+// scripts on studio.pocol.net and ide.pocol.net (studio-content.js, ide-content.js) never need it. Only the extension's
+// own pages and this worker may read or write the vault, the history, the profiles and the jobs. It is set on every
+// worker start (an install, an update, a browser restart), before any listener is registered.
+export const STORAGE_ACCESS = Object.freeze({ accessLevel: 'TRUSTED_CONTEXTS' });
+export const storageRestricted = (async () => { try { await store.setAccessLevel(STORAGE_ACCESS); return true; } catch { return false; } })();
 // F11: minimum seed-encryption password length, enforced in the worker (the security boundary), to
 // match the Studio key-file export. The viewer wallet cannot export its seed, so a weak password or a
 // silent replace is unrecoverable.
@@ -46,6 +59,14 @@ export const walletSalt = (p) => p.netKey;
 // The built-in profile's fork schedule is pinned by this release: [[1,"0"]], what the fresh network's genesis metadata
 // carries (pocold testnet.rs and main.rs write "forks":[[1,0]]; lib.rs maps a missing forks key to [(1,0)]). Neither
 // storage nor RPC can change it. A cap raise ([[1,"0"],[2,H'],[3,H]]) ships as an extension release with the node release.
+// EXT-01 (2026-11-22): the viewer seed wallet (`wallet.*`, D14) has no export and no import, and chrome.storage.local is
+// deleted with the extension, so a key it holds is lost on uninstall or an extension-id change. It therefore serves local
+// networks only: never the built-in public profile (trust level RN) nor a custom profile of the public network's
+// identity (the same netKey), so it never shows or signs for an address on the public PoCol network. The PoCol wallet
+// (`account.*`, the exportable `studio:wallet` vault) is the wallet of the public network.
+export const PUBLIC_NET_KEY = netKeyOf(NETWORK.chainId, fromHex(NETWORK.genesisHash));
+export const seedWalletAllowed = (p) => !!p && p.trustLevel !== 'RN' && p.netKey !== PUBLIC_NET_KEY;
+const SEED_LOCAL_ONLY = 'The viewer wallet is for local networks only: it cannot be exported, so it never holds an address on the public PoCol network';
 export const PUBLIC_FORK_SCHEDULE = Object.freeze(normalizeForkSchedule([[1, '0']]).map((entry) => Object.freeze(entry)));
 const publicProfile = () => ({ ...NETWORK, forkSchedule: PUBLIC_FORK_SCHEDULE });
 const storedProfiles = async () => {
@@ -105,11 +126,14 @@ function rpcFor(profile, pool, session = null, shared = http.inflight, retry = t
 // The verified site fetch retries its own reads (fetchSite, with the chunk-level pool), so it gets them unwrapped.
 const contentRpc = (profile) => { const c = rpcFor(profile, pools.content, null, http.inflight, false), s = rpcFor(profile, pools.site, null, http.inflight, false); return (m, p, ...r) => (m === 'eth_getCode' ? c(m, p, ...r) : s(m, p, ...r)); };
 /** netKey check against the endpoint: chainId and genesisHash must equal the profile. */
+// The refusal names the difference (lib/identity.js): what the profile pins and what the endpoint answered.
 async function checkNetwork(profile, rpc) {
-  const cid = BigInt(await rpc('eth_chainId', []));
-  if (cid !== BigInt(profile.chainId)) throw Object.assign(new Error('endpoint chainId differs from profile'), { code: 4901 });
+  const cid = await rpc('eth_chainId', []);
+  let diff = identityDifference(profile, cid, profile.genesisHash);
+  if (diff) throw Object.assign(new Error(`endpoint chainId differs from profile (${describeDifference(diff)})`), { code: 4901, difference: diff });
   const st = await rpc('pocol_status', []);
-  if (st.genesisHash.toLowerCase() !== profile.genesisHash.toLowerCase()) throw Object.assign(new Error('endpoint genesis differs from profile'), { code: 4901 });
+  diff = identityDifference(profile, cid, st?.genesisHash);
+  if (diff) throw Object.assign(new Error(`endpoint genesis differs from profile (${describeDifference(diff)})`), { code: 4901, difference: diff });
 }
 
 // ---------------- signing eligibility (browser.md "Signing eligibility", A06) ----------------
@@ -124,6 +148,9 @@ let eligibilityEpoch = 0, walletEpoch = 0;
 const approvals = new Set(); // {sess, cancel(code, message)}
 const epochs = () => ({ profile: eligibilityEpoch, wallet: walletEpoch });
 function cancelApprovals(pred, code, message) { for (const a of [...approvals]) if (pred(a.sess)) a.cancel(code, message); }
+// The PoCol wallet's signed transfers not yet sent (confirmTransfer): a lock or a profile change aborts the queued request.
+const transfersQueued = new Set(); // AbortController
+const abortTransfers = () => { for (const c of [...transfersQueued]) c.abort(); };
 function walletChanged(message) { walletEpoch++; cancelApprovals(() => true, 4100, message); }
 const lockWallet = (message) => { unlocked = null; walletChanged(message); };
 const isUnlocked = () => { if (unlocked && Date.now() > unlocked.until) lockWallet('wallet locked (timeout)'); return !!unlocked; };
@@ -144,6 +171,7 @@ async function signEligible(sess, ep) {
   const c = changed(sess, ep); if (c) return c;
   if (!cur || cur.invalid || !sameProfile(cur, sess.profile)) return E(4901, 'network profile changed');
   if (cur.conflict) return E(4100, 'conflicting network profile is read-only');
+  if (!seedWalletAllowed(cur)) return E(4100, SEED_LOCAL_ONLY);
   if (!isUnlocked()) return E(4100, 'wallet locked');
   if (sess.trust.level === 'RP' && !(sess.trust.ok && sess.trust.head >= 1)) return E(4100, 'RP window not established');
   return null;
@@ -164,11 +192,11 @@ async function identity(sess) {
 }
 /** A profile change begins (under ProfileMutex, before its storage write): requests in flight
  *  can no longer rely on the old profile set, so approvals and queued submissions end (4901). */
-function profilesChanging() { eligibilityEpoch++; cancelApprovals(() => true, 4901, 'network profiles changing'); }
+function profilesChanging() { eligibilityEpoch++; cancelApprovals(() => true, 4901, 'network profiles changing'); abortTransfers(); }
 /** After a profile change (under ProfileMutex): sessions whose profile was removed, changed or
  *  invalidated end with 4901; a session whose profile became conflicting stays read-only. */
 async function profilesChanged() {
-  eligibilityEpoch++; cancelApprovals(() => true, 4901, 'network profiles changed');
+  eligibilityEpoch++; cancelApprovals(() => true, 4901, 'network profiles changed'); abortTransfers();
   const list = await profiles();
   for (const s of [...sessions.values()]) { const cur = list.find((p) => p.name === s.profile.name); if (!cur || cur.invalid || !sameProfile(cur, s.profile)) s.revoke(4901, 'network profile changed'); }
 }
@@ -326,6 +354,8 @@ async function walletKey(sess) { return isUnlocked() ? networkKey(unlocked.seed,
 const touchWallet = () => { if (unlocked) unlocked.until = Date.now() + LOCK_MS; };
 async function wallet(sess, m, ask) {
   if (m.method === 'eth_chainId') return { result: '0x' + sess.profile.chainId.toString(16) };
+  // EXT-01: no account, dialog or signature on the public network from the seed wallet.
+  if (!seedWalletAllowed(sess.profile)) return m.method === 'eth_accounts' ? { result: [] } : E(4100, SEED_LOCAL_ONLY);
   const ep = epochs();
   const key = await walletKey(sess);
   let err = changed(sess, ep); if (err) return err;
@@ -489,7 +519,9 @@ async function studioRequest(msg, sender) {
   times.push(Date.now()); studioLimits.set(sender.tab.id, times);
   if (msg.type === 'studio.openSite') {
     const target = validateSiteTarget(payload);
-    await chrome.tabs.create({ url: chrome.runtime.getURL('viewer.html') + '#' + NETWORK.name + '/' + target.site + target.path });
+    // EXT-08: the tab opens on a confirmation (viewer.html?confirm=studio): the site is fetched and its code runs only
+    // after the user's own click there, so a Studio page cannot start on-chain site code without the user.
+    await chrome.tabs.create({ url: chrome.runtime.getURL('viewer.html') + '?confirm=studio#' + NETWORK.name + '/' + target.site + target.path });
     return { opened: true };
   }
   return studioLocked(async () => {
@@ -554,6 +586,393 @@ async function ideRequest(msg,sender) {
     return {jobId:id};
   });
 }
+// ---------------- the PoCol wallet (account.*, EXT-02/04/05) ----------------
+// One account: the `studio:wallet` vault (lib/studio-keyfile.js, the format Studio, IDE and the native-wallet export
+// helpers use), decrypted only here, in the worker, while unlocked. Its key leaves the worker only inside the
+// password-encrypted vault, when the user creates a wallet (the forced backup) or asks for a backup. Transfers are
+// built here from the profile endpoint, shown in send.html, and signed here only after that page's explicit
+// confirmation (send.prepare, then send.confirm with the review id), with the profile's chain ID in the signed
+// EIP-1559 payload. The built-in profile is refused while this build pins the D1 placeholder (no network request then).
+const VAULT_KEY = 'studio:wallet', HISTORY_KEY = 'wallet:history', DISCLOSURE_KEY = 'wallet:disclosure', DISCLOSURE_VERSION = 1;
+const HISTORY_MAX = 100, REFRESH_MAX = 20, SEND_REVIEW_MS = 2 * 60 * 1000, TRANSFER_GAS_MAX = 1000000n;
+const PW_FAIL_WINDOW_MS = 60000, PW_FAIL_MAX = 5;
+// The placeholder refusal; the testGateway test build pins a devnet as the built-in profile, which is no placeholder.
+export const PLACEHOLDER_BUILD = /*@fault testGateway*/studioNetwork.NETWORK_PLACEHOLDER === true/*@else*/false/*@end*/;
+let account = null; // {secret, address, until}
+let accountEpoch = 0, accountBusy = false, pwFails = [];
+const reviews = new Map(); // review id -> a prepared transfer awaiting send.html's confirmation
+const PAGES = Object.freeze({ manage: ['options.html'], unlock: ['options.html', 'popup.html', 'send.html'], read: ['options.html', 'popup.html', 'send.html'], send: ['send.html'] });
+/** The extension page a message came from (its path), or null for anything else. */
+function pageOf(sender) {
+  const base = chrome.runtime.getURL('');
+  return typeof sender?.url === 'string' && sender.url.startsWith(base) ? sender.url.slice(base.length).split(/[?#]/)[0] : null;
+}
+const fail = (message, code = 'refused', extra = {}) => Object.assign(new Error(message), { code, ...extra });
+function fromPages(sender, pages) { const page = pageOf(sender); if (!page || !pages.includes(page)) throw fail('This wallet operation is available only in the extension’s own wallet pages', 4100); return page; }
+function lockAccount(why) {
+  if (account) account.secret.fill(0);
+  account = null; accountEpoch++;
+  for (const r of reviews.values()) r.cancelled = why;
+  reviews.clear(); abortTransfers();
+}
+const accountUnlocked = () => { if (account && Date.now() > account.until) lockAccount('timeout'); return !!account; };
+const touchAccount = () => { if (account) account.until = Date.now() + LOCK_MS; };
+const storedVault = async () => (await store.get(VAULT_KEY))[VAULT_KEY] || null;
+const vaultAddress = (v) => (v && typeof v.address === 'string' && /^0x[0-9a-f]{40}$/.test(v.address) ? v.address : null);
+// A vault written by a Studio or IDE page (import, create) replaces the account: an unlocked copy of another key locks.
+chrome.storage.onChanged?.addListener((changes, area) => {
+  if (area === 'local' && changes[VAULT_KEY] && account && vaultAddress(changes[VAULT_KEY].newValue) !== account.address) lockAccount('wallet changed');
+});
+/** Failed password attempts (unlock, backup): at most PW_FAIL_MAX a minute; PBKDF2 600000 already costs each one. */
+function passwordGate() { const now = Date.now(); pwFails = pwFails.filter((t) => now - t < PW_FAIL_WINDOW_MS); if (pwFails.length >= PW_FAIL_MAX) throw fail('Too many wrong passwords; wait a minute and try again', 'rate'); }
+async function openVault(password) {
+  const v = await storedVault(); if (!v) throw fail('No PoCol wallet is saved in this browser yet', 'none');
+  passwordGate();
+  if (typeof password !== 'string' || !password) throw fail('Enter the wallet password', 'password');
+  try { return { vault: v, secret: await importKeyfile(new TextEncoder().encode(JSON.stringify(v)), password) }; }
+  catch { pwFails.push(Date.now()); throw fail('Wrong password, or the saved wallet is damaged', 'password'); }
+}
+/** Saves `secret` as the vault under `password` and unlocks it. A different saved address is replaced only with
+ *  replace:true (the settings page asks the user to back it up first), and replace:true covers only the wallet saved
+ *  when this started. Returns the encrypted backup, and unlocked:false when the wallet was locked meanwhile.
+ *  Codex review (PR #114): the saved vault is read again and written inside the vault lock that the Studio and IDE
+ *  pages' saveVaultIfNone hold too, so a wallet a page saved while this encrypted is never overwritten; and a Lock
+ *  (or any lock) during the encryption is kept: the new wallet is saved but stays locked.
+ *  Codex review (PR #114, head 7f91bb9e): `replaceAddress` is the saved address the refusal reported, which the
+ *  settings page's confirmation showed (and the user backed up); replace:true then covers only that wallet, compared
+ *  with the saved vault again inside the vault lock, so a wallet another Settings tab saved meanwhile is refused
+ *  ('exists', a new confirmation). Without it, replace:true covers the wallet saved when this started, as before. */
+async function saveAccount(secret, password, replace, replaceAddress) {
+  if (typeof password !== 'string' || password.length < acct.PASSWORD_MIN) throw fail(`Use a password of at least ${acct.PASSWORD_MIN} characters`, 'password');
+  if (accountBusy) throw fail('Another wallet operation is in progress', 'busy');
+  accountBusy = true;
+  try {
+    const e0 = accountEpoch, address = addressOf(secret), before = await storedVault();
+    // The confirmed wallet: a lowercase address, or null for a saved vault without a readable one; anything else never matches.
+    const confirmed = replaceAddress === undefined ? undefined : replaceAddress === null ? null : typeof replaceAddress === 'string' ? replaceAddress.toLowerCase() : false;
+    const covered = (v) => (confirmed === undefined ? !!before && vaultAddress(v) === vaultAddress(before) : vaultAddress(v) === confirmed);
+    const allowed = (v) => !v || vaultAddress(v) === address || (replace === true && covered(v));
+    const refusal = (v) => fail('Another PoCol wallet is saved in this browser. Back it up first, then confirm that you replace it.', 'exists', { saved: vaultAddress(v) });
+    if (!allowed(before)) throw refusal(before);
+    const box = await exportKeyfile(secret, password);
+    return await withVaultLock(async () => {
+      const now = await storedVault();
+      if (!allowed(now)) throw refusal(now);
+      const lockedMeanwhile = e0 !== accountEpoch;
+      lockAccount('wallet replaced'); const epoch = accountEpoch;
+      await store.set({ [VAULT_KEY]: box });
+      if (epoch !== accountEpoch) throw fail('The wallet changed while it was saved; unlock it again', 'changed');
+      if (lockedMeanwhile) return { address, backup: box, unlocked: false };
+      account = { secret: secret.slice(), address, until: Date.now() + LOCK_MS };
+      return { address, backup: box, unlocked: true };
+    });
+  } finally { accountBusy = false; secret.fill(0); }
+}
+/** The profile a wallet operation uses (default: the built-in one): valid and not conflicting. */
+async function walletProfile(name) {
+  const p = (await profiles()).find((x) => x.name === (name || NETWORK.name));
+  if (!p) throw fail('Unknown network profile', 'profile');
+  if (p.invalid) throw fail('This network profile is no longer valid: ' + p.invalid, 'profile');
+  if (p.conflict) throw fail('This network profile conflicts with another one (same chain ID, another genesis or schedule); it is read-only', 'profile');
+  return p;
+}
+const isPlaceholder = (p) => PLACEHOLDER_BUILD && p.name === NETWORK.name;
+const PLACEHOLDER_NOTE = 'This build pins a placeholder network, not PoCol Mainnet: the wallet makes no network request and cannot send until the extension release pins PoCol Mainnet.';
+const explorerFor = (p, address) => (p.name === NETWORK.name && !isPlaceholder(p) && p.endpoint === acct.EXPLORER_ORIGIN + '/studio/rpc' ? acct.explorerAddressUrl(address) : null);
+async function requireDisclosure() {
+  const d = (await store.get(DISCLOSURE_KEY))[DISCLOSURE_KEY];
+  if (!d || d.version !== DISCLOSURE_VERSION) throw fail('Read and accept what the wallet sends to the network first (open the PoCol wallet from the toolbar)', 'disclosure');
+}
+const quantity = (v, what) => { if (typeof v !== 'string' || !/^0x[0-9a-fA-F]{1,64}$/.test(v)) throw fail('The network returned a malformed ' + what, 'endpoint'); return BigInt(v); };
+const frozenProfile = (p) => Object.freeze(Object.fromEntries(PROFILE_FIELDS.map((k) => [k, p[k]])));
+async function netStatus(name) {
+  const p = await walletProfile(name);
+  const info = { name: p.name, chainId: p.chainId, genesisHash: p.genesisHash, endpoint: p.endpoint, trustLevel: p.trustLevel, builtIn: p.name === NETWORK.name, placeholder: isPlaceholder(p) };
+  if (info.placeholder) return { ...info, reachable: null, note: PLACEHOLDER_NOTE };
+  await requireDisclosure();
+  const rpc = rpcFor(p, pools.trust, null, http.inflight, { attempts: 2, deadlineMs: 15000 });
+  try {
+    const cidHex = await rpc('eth_chainId', []), cid = quantity(cidHex, 'chain ID'), st = await rpc('pocol_status', []);
+    const chainOk = cid === BigInt(p.chainId), genesisOk = typeof st?.genesisHash === 'string' && st.genesisHash.toLowerCase() === p.genesisHash;
+    const diff = identityDifference(p, cidHex, st?.genesisHash);
+    let head = null;
+    if (chainOk && genesisOk) {
+      const b = await rpc('eth_getBlockByNumber', ['latest', false]); const ts = Number(quantity(b?.timestamp, 'block time'));
+      head = { height: Number(quantity(b?.number, 'block number')), timestamp: ts, ageSec: Math.max(0, Math.round(Date.now() / 1000 - ts)) };
+    }
+    return { ...info, reachable: true, chainOk, genesisOk, endpointChainId: cid.toString(), endpointGenesisHash: typeof st?.genesisHash === 'string' ? st.genesisHash.toLowerCase().slice(0, 66) : null,
+      difference: diff ? describeDifference(diff) : null, head };
+  } catch (e) { return { ...info, reachable: false, error: String(e?.rpc?.message || e?.message || e).slice(0, 200) }; }
+}
+async function accountBalance(name) {
+  const v = await storedVault(), address = vaultAddress(v); if (!address) throw fail('No PoCol wallet is saved in this browser yet', 'none');
+  const p = await walletProfile(name);
+  if (isPlaceholder(p)) return { address, placeholder: true, note: PLACEHOLDER_NOTE };
+  await requireDisclosure();
+  const rpc = rpcFor(p, pools.trust); await checkNetwork(p, rpc);
+  const wei = quantity(await rpc('eth_getBalance', [address, 'latest']), 'balance');
+  return { address, network: p.name, chainId: p.chainId, wei: wei.toString(), pcol: acct.formatPcol(wei), explorer: explorerFor(p, address) };
+}
+let historyChain = Promise.resolve();
+const historyLocked = (f) => { const r = historyChain.then(f); historyChain = r.catch(() => {}); return r; };
+const readHistory = async () => { const h = (await store.get(HISTORY_KEY))[HISTORY_KEY]; return Array.isArray(h) ? h : []; };
+const updateHistory = (hash, patch) => historyLocked(async () => {
+  const h = await readHistory(), i = h.findIndex((x) => x.hash === hash);
+  if (i >= 0) h[i] = { ...h[i], ...patch, updatedAt: Date.now() }; else h.unshift({ hash, ...patch, createdAt: Date.now(), updatedAt: Date.now() });
+  const e = h[i >= 0 ? i : 0]; for (const k of Object.keys(e)) if (e[k] === undefined) delete e[k]; // a patch value undefined removes the field
+  await store.set({ [HISTORY_KEY]: h.slice(0, HISTORY_MAX) });
+});
+async function prepareTransfer(msg, sender) {
+  const tabId = sender.tab?.id; if (!Number.isInteger(tabId)) throw fail('Open the send page from the PoCol wallet', 4100);
+  const p = await walletProfile(msg.name);
+  if (isPlaceholder(p)) throw fail(PLACEHOLDER_NOTE, 'placeholder');
+  await requireDisclosure();
+  if (!accountUnlocked()) throw fail('Unlock the PoCol wallet first', 4100);
+  const to = acct.parseRecipient(msg.to), value = acct.parsePcol(msg.amount);
+  const address = account.address, ep = { account: accountEpoch, profile: eligibilityEpoch };
+  const stale = () => { if (ep.account !== accountEpoch || ep.profile !== eligibilityEpoch || !accountUnlocked() || account.address !== address) throw fail('The wallet or the network profiles changed; review the transfer again', 'changed'); };
+  if (p.name === NETWORK.name) { const all = await store.get(null); if (Object.entries(all).some(([k, j]) => (k.startsWith(JOB_PREFIX) || k.startsWith(IDE_JOB_PREFIX)) && blocksAccount(j, address, NETWORK))) throw fail('Resume or cancel the unfinished Studio or IDE operation of this wallet first (Settings, Publication history)', 'busy'); }
+  const rpc = rpcFor(p, pools.trust);
+  await checkNetwork(p, rpc); stale();
+  const nonce = quantity(await rpc('eth_getTransactionCount', [address, 'pending']), 'nonce');
+  const balance = quantity(await rpc('eth_getBalance', [address, 'latest']), 'balance');
+  const fees = await readNetworkFees(rpc), { maxPriority, maxFee } = acct.transferFees(fees.baseNext, fees.tip, ABSOLUTE_CEILING);
+  const gas = quantity(await rpc('eth_estimateGas', [{ from: address, to, value: '0x' + value.toString(16) }]), 'gas estimate');
+  stale();
+  if (gas < 21000n || gas > TRANSFER_GAS_MAX) throw fail(`The network estimates ${gas} gas for this transfer; this wallet sends plain transfers of at most ${TRANSFER_GAS_MAX} gas`, 'gas');
+  const maxCost = gas * maxFee, total = value + maxCost;
+  if (balance < total) throw fail(`Insufficient balance: ${acct.formatPcol(balance)} available, up to ${acct.formatPcol(total)} needed (amount plus maximum fee)`, 'funds');
+  const tx = { chainId: p.chainId, nonce, maxPriority, maxFee, gas, to, value, data: '0x' }, ut = unsignedTx(tx);
+  for (const [k, r] of reviews) if (r.tabId === tabId) reviews.delete(k);
+  const id = crypto.randomUUID(), expiresAt = Date.now() + SEND_REVIEW_MS;
+  reviews.set(id, { id, tabId, profile: frozenProfile(p), address, tx, ut, ep, expiresAt });
+  return { id, expiresAt, network: p.name, chainId: p.chainId, genesisHash: p.genesisHash, endpoint: p.endpoint, trustLevel: p.trustLevel, builtIn: p.name === NETWORK.name,
+    from: address, to, value: value.toString(), valuePcol: acct.formatPcol(value), nonce: nonce.toString(), gas: gas.toString(),
+    maxFeePerGas: maxFee.toString(), maxPriorityFeePerGas: maxPriority.toString(), baseFeePerGas: fees.baseNext,
+    maxFee: maxCost.toString(), maxFeePcol: acct.formatPcol(maxCost), expectedFeePcol: acct.formatPcol(gas * (BigInt(fees.baseNext) + maxPriority)),
+    total: total.toString(), totalPcol: acct.formatPcol(total), balancePcol: acct.formatPcol(balance), signingHash: toHex(ut.signingHash), explorer: explorerFor(p, address) };
+}
+/** Codex review (PR #114, send.js): every refusal of send.confirm says whether it is proven that nothing was sent.
+ *  outcome 'not-sent': a refusal before eth_sendRawTransaction could start (the checks, the signing, the history write
+ *  made before the broadcast, a stop before the request started), or a refusal the node proved (acct.sendRefused).
+ *  Code 'sent-unknown' (outcome 'unknown'): an error after the request may have reached the node, such as a failed
+ *  history write after its answer; the transfer may have been sent, and its entry recorded before the broadcast keeps
+ *  it followed (refreshHistory). The send page treats any other failure, such as a lost answer, as unknown too. */
+async function confirmTransfer(msg, sender) {
+  const at = { hash: null, broadcast: false };
+  try { return await submitTransfer(msg, sender, at); }
+  catch (e) {
+    if (e?.outcome) throw e;
+    if (!at.broadcast) throw Object.assign(e instanceof Error ? e : new Error(String(e)), { outcome: 'not-sent' });
+    throw fail(`The transfer may have been sent, but its outcome could not be recorded (${String(e?.message || e).slice(0, 200)}). Do not send it again until its status is known`, 'sent-unknown', { hash: at.hash, outcome: 'unknown' });
+  }
+}
+async function submitTransfer(msg, sender, at) {
+  const r = reviews.get(msg.id);
+  if (!r || r.tabId !== sender.tab?.id) throw fail('This review is no longer valid; review the transfer again', 'expired');
+  reviews.delete(msg.id); // one use
+  if (r.cancelled) throw fail('The wallet was locked or changed; review the transfer again', 'changed');
+  if (Date.now() > r.expiresAt) throw fail('The review expired after two minutes; review the transfer again', 'expired');
+  if (!globalThis.navigator?.locks) throw fail('This browser cannot coordinate wallet transactions safely', 4200);
+  // The publisher and contract pages hold this lock while they sign: a transfer never interleaves with their nonces.
+  return navigator.locks.request(`pocol:publish:${r.tx.chainId}:${r.address}`, { mode: 'exclusive', ifAvailable: true }, async (lease) => {
+    if (!lease) throw fail('Another tab is publishing from this wallet; finish or pause it first', 'busy');
+    // Codex review (PR #114): a Studio or IDE job that signed after the review (and paused before its transaction reached
+    // the node) holds the reviewed nonce. Checked again here, under the lock every job signs under, as they do.
+    if (r.profile.name === NETWORK.name) { const all = await store.get(null); if (Object.entries(all).some(([k, j]) => (k.startsWith(JOB_PREFIX) || k.startsWith(IDE_JOB_PREFIX)) && blocksAccount(j, r.address, NETWORK))) throw fail('Resume or cancel the unfinished Studio or IDE operation of this wallet first (Settings, Publication history)', 'busy'); }
+    const signed = await profileLocked(async () => {
+      const cur = await walletProfile(r.profile.name);
+      if (!sameProfile(cur, r.profile) || r.ep.profile !== eligibilityEpoch) throw fail('The network profile changed; review the transfer again', 4901);
+      if (!accountUnlocked() || account.address !== r.address || r.ep.account !== accountEpoch) throw fail('The wallet was locked or changed; review the transfer again', 4100);
+      const rpc = rpcFor(cur, pools.trust); await checkNetwork(cur, rpc);
+      const nonce = quantity(await rpc('eth_getTransactionCount', [r.address, 'pending']), 'nonce');
+      if (nonce !== r.tx.nonce) throw fail('Another transaction from this wallet was sent meanwhile; review the transfer again', 'nonce');
+      if (!accountUnlocked() || account.address !== r.address || r.ep.account !== accountEpoch || r.ep.profile !== eligibilityEpoch) throw fail('The wallet was locked or changed; review the transfer again', 4100);
+      const out = signUnsigned(account.secret, r.ut); touchAccount(); return out;
+    });
+    at.hash = signed.hash;
+    const entry = { network: r.profile.name, chainId: r.tx.chainId, genesisHash: r.profile.genesisHash, from: r.address, to: r.tx.to, value: r.tx.value.toString(), nonce: r.tx.nonce.toString(),
+      gas: r.tx.gas.toString(), maxFeePerGas: r.tx.maxFee.toString(), status: 'sending' };
+    // Codex review (PR #114): a Lock, a wallet change or a profile change until the request starts stops it, as the
+    // viewer wallet's submit() does: the queued request is aborted (lockAccount, profilesChanging), and the account
+    // epoch and the profiles are checked again after the history write and, synchronously after the transport
+    // reservation, immediately before the request starts. A transfer stopped so was not sent, and its entry says so.
+    const ineligible = () => (r.ep.profile !== eligibilityEpoch ? fail('The network profiles changed before the transfer was sent; it was not sent. Review it again', 4901)
+      : !accountUnlocked() || account.address !== r.address || r.ep.account !== accountEpoch ? fail('The wallet was locked or changed before the transfer was sent; it was not sent. Review it again', 4100) : null);
+    const notSent = async (e) => { e.outcome = 'not-sent'; await updateHistory(signed.hash, { status: 'cancelled', note: 'Not sent: ' + e.message }).catch(() => {}); throw e; };
+    const queued = new AbortController(); transfersQueued.add(queued);
+    try {
+      await updateHistory(signed.hash, entry); // recorded before it is sent, so a lost answer is still tracked by its hash
+      let stopped = ineligible();
+      if (stopped || queued.signal.aborted) return await notSent(stopped || fail('The transfer was stopped before it was sent; it was not sent. Review it again', 'changed'));
+      let result;
+      try {
+        at.broadcast = true; // from here the request may reach the node; only a proof below says it was not sent
+        result = await rpcFor(r.profile, pools.trust, null, http.inflight, false)('eth_sendRawTransaction', [signed.raw], RPC_TIMEOUT_MS,
+          { signal: queued.signal, beforeSend: () => !!(stopped = ineligible()) });
+      } catch (e) {
+        // lib/transport.js answers 'cancelled' only before the request started (aborted or refused by beforeSend).
+        if (e?.transport === 'cancelled') return await notSent(stopped || ineligible() || fail('The transfer was stopped before it was sent; it was not sent. Review it again', 'changed'));
+        // Only an answer that proves a refusal is final (lib/account.js sendRefused). Any other error, such as the
+        // gateway's "check transaction hash before resubmitting" after a broadcast it could not complete, may have
+        // reached the node: the transfer stays "unknown" and refreshHistory follows its receipt, as the publisher does.
+        const said = e?.rpc ? String(e.rpc.message || '').slice(0, 200) : null;
+        if (e?.rpc && acct.sendRefused(e.rpc)) { await updateHistory(signed.hash, { status: 'rejected', note: said }).catch(() => {}); throw fail('The node did not accept the transaction: ' + said, 'rejected', { hash: signed.hash, outcome: 'not-sent' }); }
+        const note = said === null ? 'No answer from the node; the transaction may have been sent'
+          : `The node answered "${said}", which does not show that it refused the transaction; it may have been sent`;
+        await updateHistory(signed.hash, { status: 'unknown', note });
+        return { hash: signed.hash, status: 'unknown', note };
+      }
+      // A failed write here is an error after the broadcast: confirmTransfer answers 'sent-unknown'.
+      const ok = typeof result === 'string' && result.toLowerCase() === signed.hash;
+      await updateHistory(signed.hash, ok ? { status: 'pending' } : { status: 'unknown', note: 'The node answered with another hash' });
+      return { hash: signed.hash, status: ok ? 'pending' : 'unknown' };
+    } finally { transfersQueued.delete(queued); }
+  });
+}
+/** Receipts of this extension's open transfers (at most REFRESH_MAX): included (status and block, on the canonical
+ *  chain), failed, or dropped when the account's nonce moved past it without a receipt. A receipt is not finality: an
+ *  included or failed transfer is read again on every refresh until its block is SETTLE_DEPTH blocks below the head
+ *  ("settled"), and goes back to pending when its receipt or its block leaves the canonical chain (a reorganization),
+ *  as the publisher re-reads a saved receipt against the canonical block (lib/publisher.js). A dropped transfer is not
+ *  final either (Codex review, PR #114): it is read again until the account's nonce at SETTLE_DEPTH blocks below the
+ *  head is past its nonce, becomes included or failed when its receipt appears, and goes back to pending when the
+ *  nonce is free again (a reorganization removed the other transaction). A node that cannot answer the nonce at that
+ *  depth (its retained state window) bounds the watch to DROPPED_WATCH blocks after the drop was seen. */
+const OPEN_STATES = ['sending', 'pending', 'unknown'], RECHECK_STATES = ['included', 'failed'];
+// Deeper than pocold's reorganization alarm (node.rs K_ALARM = 60 blocks) and its `safe` depth (K_SAFE = 6).
+export const SETTLE_DEPTH = 64n, DROPPED_WATCH = 4n * SETTLE_DEPTH;
+async function refreshHistory() {
+  await requireDisclosure();
+  const list = await profiles(); const checked = new Map(), heads = new Map();
+  const profileOf = (t) => list.find((x) => x.name === t.network && !x.invalid && x.chainId === t.chainId && x.genesisHash === t.genesisHash);
+  // Entries whose profile is gone or is the placeholder are skipped before the bound, so they never crowd out the rest.
+  // Codex review (PR #114, head 1e00c82d): the bound rotates through all eligible entries. Each refresh takes the
+  // REFRESH_MAX least recently checked ones (never checked first, then newest first) and stamps them with the next
+  // `checkSeq` numbers, under the history lock, before any request: entries that stay pending or unknown, or whose
+  // profile is unreachable, move to the back, so older transfers are checked again in turn.
+  const open = await historyLocked(async () => {
+    const h = await readHistory();
+    const picked = h.map((x, i) => [x, i]).filter(([x]) => (OPEN_STATES.includes(x.status) || ((RECHECK_STATES.includes(x.status) || x.status === 'dropped') && !x.settled)) && profileOf(x) && !isPlaceholder(profileOf(x)))
+      .sort(([a, i], [b, j]) => (Number(a.checkSeq) || 0) - (Number(b.checkSeq) || 0) || i - j).slice(0, REFRESH_MAX);
+    if (!picked.length) return [];
+    let seq = h.reduce((m, x) => Math.max(m, Number(x.checkSeq) || 0), 0);
+    for (const [, i] of picked) h[i] = { ...h[i], checkSeq: ++seq };
+    await store.set({ [HISTORY_KEY]: h });
+    return picked.map(([x]) => x);
+  });
+  for (const t of open) {
+    const p = profileOf(t);
+    const rpc = rpcFor(p, pools.trust, null, http.inflight, { attempts: 2, deadlineMs: 15000 });
+    const headOf = () => { if (!heads.has(p.name)) heads.set(p.name, rpc('eth_getBlockByNumber', ['latest', false]).then((h) => quantity(h?.number, 'block number'))); return heads.get(p.name); };
+    try {
+      if (!checked.has(p.name)) checked.set(p.name, checkNetwork(p, rpc).then(() => true, () => false));
+      if (!(await checked.get(p.name))) continue;
+      const rc = await rpc('eth_getTransactionReceipt', [t.hash]);
+      const mine = !!rc && String(rc.transactionHash).toLowerCase() === t.hash;
+      if (mine) {
+        const b = await rpc('eth_getBlockByNumber', [rc.blockNumber, false]);
+        if (b && String(b.hash).toLowerCase() === String(rc.blockHash).toLowerCase()) {
+          const at = quantity(rc.blockNumber, 'block number');
+          const head = await headOf();
+          await updateHistory(t.hash, { status: rc.status === '0x1' ? 'included' : 'failed', blockNumber: Number(at), blockHash: String(rc.blockHash).toLowerCase(), gasUsed: String(quantity(rc.gasUsed, 'gas used')),
+            settled: head >= at && head - at >= SETTLE_DEPTH, droppedAt: undefined, note: undefined });
+          continue;
+        }
+      }
+      // No canonical receipt: an entry recorded as included or failed was reorganized out of the chain.
+      if (RECHECK_STATES.includes(t.status))
+        await updateHistory(t.hash, { status: 'pending', blockNumber: undefined, blockHash: undefined, gasUsed: undefined, settled: undefined, note: 'Its block is no longer on the canonical chain (a reorganization); waiting for it to be included again' });
+      if (mine) continue; // a receipt in a block that is not canonical (yet): read it again next time
+      const used = quantity(await rpc('eth_getTransactionCount', [t.from, 'latest']), 'nonce') > BigInt(t.nonce);
+      if (t.status === 'dropped') {
+        if (!used) { await updateHistory(t.hash, { status: 'pending', droppedAt: undefined, note: 'The transaction that used its nonce is no longer on the canonical chain (a reorganization); waiting for this one' }); continue; }
+        const head = await headOf(), since = t.droppedAt === undefined ? null : BigInt(t.droppedAt);
+        if (since === null) { await updateHistory(t.hash, { droppedAt: Number(head) }); continue; }
+        if (head >= since + DROPPED_WATCH || (head >= SETTLE_DEPTH && quantity(await rpc('eth_getTransactionCount', [t.from, '0x' + (head - SETTLE_DEPTH).toString(16)]), 'nonce') > BigInt(t.nonce)))
+          await updateHistory(t.hash, { settled: true });
+        continue;
+      }
+      if (used && !(await rpc('eth_getTransactionReceipt', [t.hash]))) {
+        // Asked again after the nonce read, so a transaction included between the two reads is not called dropped.
+        await updateHistory(t.hash, { status: 'dropped', droppedAt: Number(await headOf()), note: 'Another transaction used this nonce; this one was not included' });
+      }
+    } catch { /* stays open; the next refresh tries again */ }
+  }
+  return listHistory();
+}
+async function listHistory() {
+  const list = await profiles();
+  return (await readHistory()).map((t) => { const p = list.find((x) => x.name === t.network && x.chainId === t.chainId); return { ...t, explorer: p ? explorerFor(p, t.from) : null }; });
+}
+async function accountRequest(msg, sender) {
+  switch (msg.type) {
+    case 'account.status': {
+      const v = await storedVault();
+      const disclosure = (await store.get(DISCLOSURE_KEY))[DISCLOSURE_KEY];
+      return { exists: !!v, address: vaultAddress(v), unlocked: accountUnlocked(), lockAt: account ? account.until : null, disclosureAccepted: disclosure?.version === DISCLOSURE_VERSION, placeholderBuild: PLACEHOLDER_BUILD, network: NETWORK.name };
+    }
+    case 'account.acceptDisclosure': fromPages(sender, PAGES.read); await store.set({ [DISCLOSURE_KEY]: { version: DISCLOSURE_VERSION, at: Date.now() } }); return {};
+    case 'account.create': {
+      fromPages(sender, PAGES.manage);
+      let key; do { key = crypto.getRandomValues(new Uint8Array(32)); try { addressOf(key); break; } catch { key.fill(0); } } while (true);
+      return saveAccount(key, msg.password, msg.replace, msg.replaceAddress);
+    }
+    case 'account.import': {
+      fromPages(sender, PAGES.manage);
+      let secret;
+      if (msg.kind === 'privateKey') secret = acct.parsePrivateKey(msg.privateKey);
+      else if (msg.kind === 'phrase') secret = acct.phraseToSecret(msg.phrase);
+      else if (msg.kind === 'file') {
+        if (typeof msg.fileBase64 !== 'string' || msg.fileBase64.length > 22000) throw fail('Choose a PoCol wallet file', 'file');
+        let bytes; try { bytes = Uint8Array.from(atob(msg.fileBase64), (c) => c.charCodeAt(0)); } catch { throw fail('Choose a PoCol wallet file', 'file'); }
+        passwordGate();
+        try { secret = await importKeyfile(bytes, msg.filePassword ?? msg.password); } catch (e) { pwFails.push(Date.now()); throw fail(e.message, 'file'); } finally { bytes.fill(0); }
+      } else throw fail('Choose what to import', 'kind');
+      return saveAccount(secret, msg.password, msg.replace, msg.replaceAddress);
+    }
+    case 'account.unlock': {
+      fromPages(sender, PAGES.unlock);
+      const e0 = accountEpoch, { secret } = await openVault(msg.password);
+      if (e0 !== accountEpoch) { secret.fill(0); throw fail('The wallet changed during unlocking; try again', 'changed'); }
+      lockAccount('unlocked again'); account = { secret, address: addressOf(secret), until: Date.now() + LOCK_MS };
+      return { address: account.address, lockAt: account.until };
+    }
+    case 'account.lock': {
+      // The user's Lock (toolbar or settings) locks every page that holds a decrypted key too: the Studio publisher and
+      // IDE contract pages watch this key (lib/vault-guard.js watchLockSignal) and lock at once.
+      lockAccount('locked');
+      await store.set({ [LOCK_SIGNAL_KEY]: { at: Date.now(), id: crypto.randomUUID() } });
+      return {};
+    }
+    case 'account.export': {
+      // EXT-04: a backup at any time, after the password is entered again; the result is the stored encrypted vault.
+      fromPages(sender, PAGES.manage);
+      const { vault, secret } = await openVault(msg.password);
+      const address = addressOf(secret); secret.fill(0);
+      if (vaultAddress(vault) !== address) throw fail('The saved wallet does not match its address; it is damaged', 'damaged');
+      return { address, backup: vault };
+    }
+    case 'net.status': fromPages(sender, PAGES.read); return netStatus(msg.name);
+    case 'account.balance': fromPages(sender, PAGES.read); return accountBalance(msg.name);
+    case 'send.prepare': fromPages(sender, PAGES.send); return prepareTransfer(msg, sender);
+    case 'send.confirm': fromPages(sender, PAGES.send); return confirmTransfer(msg, sender);
+    case 'send.cancel': fromPages(sender, PAGES.send); if (reviews.get(msg.id)?.tabId === sender.tab?.id) reviews.delete(msg.id); return {};
+    case 'txs.list': fromPages(sender, PAGES.read); return { transactions: await listHistory() };
+    case 'txs.refresh': fromPages(sender, PAGES.read); return { transactions: await refreshHistory() };
+    case 'connections.list': fromPages(sender, PAGES.manage);
+      return { connections: [...sessions.entries()].filter(([, s]) => !s.closed && s.approved).map(([id, s]) => ({ id, site: s.site, network: s.profile.name, address: s.approved, tabId: s.tabId })) };
+    case 'connections.revoke': {
+      // EXT-03: the user ends a site's account grant; its pending requests are cancelled and it must ask again.
+      fromPages(sender, PAGES.manage);
+      const s = sessions.get(msg.id); if (!s || s.closed) throw fail('This site is no longer connected', 'gone');
+      s.approved = null; cancelApprovals((x) => x === s, 4100, 'disconnected by the user');
+      return {};
+    }
+    default: return null;
+  }
+}
+
 // Sites W4: on install or update, jobs of another network (a retired chain, or an identity change) move to the read-only
 // archive, so they never block the wallet and need no receipts from this network.
 // The schedule key of releases up to 0.4.1 (an operator-supplied schedule for the built-in profile) is never read; an
@@ -565,6 +984,11 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (sender.url && !sender.url.startsWith(chrome.runtime.getURL(''))) {
     const handler=typeof msg?.type==='string'&&msg.type.startsWith('ide.')?ideRequest:studioRequest;
     handler(msg || {}, sender).then((result) => reply({ ok: true, result }), (e) => reply({ ok: false, error: String(e.message || e).slice(0, 256) }));
+    return true;
+  }
+  if (typeof msg?.type === 'string' && /^(account|net|send|txs|connections)\./.test(msg.type)) {
+    accountRequest(msg, sender).then((r) => reply(r === null ? { ok: false, error: { code: -32601, message: 'unknown message' } } : { ok: true, ...r }),
+      (e) => reply({ ok: false, error: { code: e.code ?? -32603, message: String(e.message || e).slice(0, 300), ...(e.saved ? { saved: e.saved } : {}), ...(e.hash ? { hash: e.hash } : {}), ...(e.outcome ? { outcome: e.outcome } : {}) } }));
     return true;
   }
   (async () => {
@@ -613,14 +1037,14 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
         walletChanged('wallet unlocked again'); unlocked = { seed, until: Date.now() + LOCK_MS }; return { ok: true }; }
       case 'wallet.lock': lockWallet('wallet locked'); return { ok: true };
       case 'wallet.status': return { ok: true, exists: !!(await store.get('wallet')).wallet, unlocked: isUnlocked() };
-      case 'wallet.address': { const p = (await profiles()).find((x) => x.name === msg.name); if (!p || p.invalid || !isUnlocked()) return { ok: false }; const seed = unlocked.seed; return { ok: true, address: addressOf(await networkKey(seed, walletSalt(p))) }; }
+      case 'wallet.address': { const p = (await profiles()).find((x) => x.name === msg.name); if (!p || p.invalid || !isUnlocked()) return { ok: false }; if (!seedWalletAllowed(p)) return { ok: false, error: SEED_LOCAL_ONLY }; const seed = unlocked.seed; return { ok: true, address: addressOf(await networkKey(seed, walletSalt(p))) }; }
       default: return { ok: false, error: 'unknown message' };
     }
   })().then(reply, (e) => reply({ ok: false, error: { code: e.code || -32603, message: String(e.message || e) } }));
   return true;
 });
 
-chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
+// The toolbar button opens popup.html (manifest action.default_popup), so it has no click handler here.
 
 // omnibox: 'pocol <profile>/<0xaddr>[/path]'
 chrome.omnibox.onInputEntered.addListener((text) => {

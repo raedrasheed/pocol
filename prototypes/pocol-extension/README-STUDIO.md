@@ -16,7 +16,7 @@ npm run test:contracts
 npm run test:contract-ui
 ```
 
-The build vendors the pinned Noble and ethers dependencies; it downloads no executable code at runtime. Load `dist/` with Chrome's Load unpacked developer option for this development release. Store publication has not been performed or approved. A release has a fixed extension ID: the manifest `key` is the owner's public key in `release/manifest-key.pub`, so every user and every later release has the same ID, `gggcoflmedlhlkcdhebmoepmggdnafmp`, the one published on pocol.net, and the saved vault stays with it. The Studio page still talks to the extension only through an origin-scoped content bridge; it does not need the ID. The published zip is signed with the owner's ssh-ed25519 release key (`deploy/release/README.md`); its `.sha256` is integrity only.
+The build vendors the pinned Noble and ethers dependencies; it downloads no executable code at runtime. Load `dist/` with Chrome's Load unpacked developer option for this development release. Store publication has not been performed or approved. A release has a fixed extension ID: the manifest `key` is the owner's public key in `release/manifest-key.pub`, so every user and every later side-loaded release has the same ID, `gggcoflmedlhlkcdhebmoepmggdnafmp`, the one published on pocol.net, and the saved vault stays with it. The Chrome Web Store item, once published, has the ID the store assigns (owner decision 2026-11-23 D2, `store/README.md`): a separate extension with its own storage, to which a wallet moves with its encrypted backup. The Studio page still talks to the extension only through an origin-scoped content bridge; it does not need the ID. The published zip is signed with the owner's ssh-ed25519 release key (`deploy/release/README.md`); its `.sha256` is integrity only.
 
 ## Network
 
@@ -24,11 +24,13 @@ The built-in `pocol-public` profile pins chain ID `2656089850`, genesis hash `0x
 
 ## The Viewer wallet address
 
-The Viewer's seed-derived wallet keys each profile's address with that profile's network key (netKey, D14), the
-built-in `pocol-public` profile included, so an address belongs to one network. Releases up to 0.4.1 keyed the
-built-in profile with a fixed salt (the retired network's netKey); 0.5.0 has no such salt. On the PoCol Mainnet the
-Viewer shows the network's own address, the same one a custom profile of that network gets. Nothing carries over from
-the retired network, so no balance is lost. Studio and IDE use the imported wallet key directly and are not affected.
+The Viewer's seed-derived wallet ("Local development wallet" in Settings) keys each profile's address with that
+profile's network key (netKey, D14), so an address belongs to one network. It has no export, and Chrome deletes the
+extension's storage when it is removed, so since 2026-11-22 it serves local networks only: the worker refuses it for
+the built-in PoCol Mainnet profile and for any custom profile of the same network (no address, `eth_accounts` empty,
+`eth_requestAccounts` and `eth_sendTransaction` refused with 4100). Releases up to 0.4.1 keyed the built-in profile with
+a fixed salt (the retired network's netKey); nothing carries over from the retired network. The wallet of PoCol
+Mainnet is the PoCol wallet (`README-EN.md`, "The PoCol wallet"), the exportable key Studio and IDE use.
 
 ## Existing Windows wallet
 

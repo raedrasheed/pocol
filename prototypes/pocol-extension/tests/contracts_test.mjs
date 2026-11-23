@@ -55,6 +55,11 @@ test('JSON payable constructor accepts value without changing the existing walle
 test('wrong chain and genesis block preparing before any signature',async()=>{
  for(const changes of [{chain:'0x1'},{genesis:BLOCKHASH}]){const ctx=harness(changes);await assert.rejects(prepared(ctx),{code:'WRONG_NETWORK'});assert.equal(ctx.events.length,0);}
 });
+// 2026-11-22: the refusal names what differs, the value the page signs for and the endpoint's (lib/identity.js).
+test('the wrong-network refusal shows the difference',async()=>{
+ await assert.rejects(prepared(harness({chain:'0x1'})),(e)=>e.code==='WRONG_NETWORK'&&e.message.includes(`chain ID: expected ${N.NETWORK.chainId}, the endpoint answered 1`)&&/Signing is blocked/.test(e.message));
+ await assert.rejects(prepared(harness({genesis:BLOCKHASH})),(e)=>e.code==='WRONG_NETWORK'&&e.message.includes(`genesis hash: expected ${N.NETWORK.genesisHash}, the endpoint answered ${BLOCKHASH}`));
+});
 test('nonpayable, read methods, malformed targets, EOA targets and insufficient funds fail',async()=>{
  assert.throws(()=>C.validateContractRequest({...REQUEST,valueWei:'1'}),{code:'NON_PAYABLE'});
  assert.throws(()=>C.validateContractRequest({...REQUEST,action:'call',to:OTHER,method:'read',abi:['function read() view returns(uint256)'],args:[]}),{code:'INVALID_REQUEST'});

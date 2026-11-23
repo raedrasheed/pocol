@@ -2,10 +2,23 @@
 declare(strict_types=1);
 
 // Fixed read-only gateway operation; requests cannot supply RPC input or an upstream.
-const POCOL_REWARD_SCHEMA = 'pocol-block-reward-v1';
+// F-74 (2026-11-22): the gateway's pocol_getBlockReward answers the v3 projection (deploy/rewards/pocol_rewards.py
+// snapshot_v3, schema pocol-block-reward-v3); this proxy validates it and passes on only the summary the page shows.
+const POCOL_REWARD_SCHEMA = 'pocol-block-reward-v3';
 const POCOL_REWARD_GENESIS = '0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e';
 const POCOL_REWARD_UPSTREAM = 'https://explorer.pocol.net/rpc';
-const POCOL_REWARD_MAX_REPLY = 262144;
+// A v3 answer carries the block's own flows and, for a final block, every pot it settles: the gateway's reply cap.
+const POCOL_REWARD_MAX_REPLY = 4194304;
+// Final review (2026-11-22): pocol.net's server is one client of the explorer gateway (deploy/rewards/gateway.py
+// CLIENT_BURST 40 tokens, CLIENT_RATE 10 a second), and this read costs 20 tokens (COSTS pocol_getBlockReward). With a
+// 3-second cache it alone took 6.7 tokens a second, and with the network summary's 4.2 (api/network.php) more than the
+// client's 10: about one reward read in five was refused under steady visitors. The cache now lasts 6 seconds (3.3 tokens
+// a second), and a read the gateway refuses as busy (HTTP 429) is sent once more after its Retry-After (1 to 3 s).
+// deploy/websites/tests/network_budget.py replays both pages' reads through the real Gateway.charge.
+const POCOL_REWARD_CACHE_TTL = 6;
+const POCOL_REWARD_FAILURE_PAUSE = 3;
+const POCOL_REWARD_BUSY_RETRIES = 1;
+const POCOL_REWARD_BUSY_WAIT_MAX = 3.0;
 const POCOL_REWARD_UINT256_MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
 
 function pocol_reward_fail(): never {
@@ -40,39 +53,73 @@ function pocol_reward_address($v): bool {
         && $v !== '0x0000000000000000000000000000000000000000';
 }
 
+function pocol_reward_sum(array $values): string {
+    $sum = '0';
+    foreach ($values as $value) $sum = pocol_reward_add($sum, $value);
+    return $sum;
+}
+
+/** The v3 summary the page shows: identity, the captured block, pot h and its projected split, and the projected
+ * beneficiaries. Every amount is a canonical uint256 decimal and every identity the gateway's: the pot is issuance plus
+ * tips less the proposer's tip share plus the carry in, and splits exactly into paid (including bond fills), burned and
+ * carried. A final block opens no pot and projects nothing. Anything else is refused (fail closed). */
 function pocol_reward_validate($v, ?int $now = null): array {
     $now ??= time();
     if (!is_object($v) || ($v->schema ?? null) !== POCOL_REWARD_SCHEMA
         || ($v->chainId ?? null) !== 2656089850 || ($v->genesisHash ?? null) !== POCOL_REWARD_GENESIS
-        || ($v->source ?? null) !== 'https://explorer.pocol.net' || ($v->status ?? null) !== 'pending'
+        || ($v->specVersion ?? null) !== 2
+        || (property_exists($v, 'source') && $v->source !== 'https://explorer.pocol.net') || ($v->status ?? null) !== 'pending'
         || !pocol_reward_integer($v->blockHeight ?? null) || $v->blockHeight < 1
         || !is_string($v->blockHash ?? null) || preg_match('/^0x[0-9a-f]{64}$/D', $v->blockHash) !== 1
-        || !pocol_reward_integer($v->settlementHeight ?? null) || $v->settlementHeight <= $v->blockHeight
+        || !is_bool($v->final ?? null) || !is_bool($v->winnerAccruing ?? null)
+        || ($v->final ? !property_exists($v, 'settlementHeight') || $v->settlementHeight !== null
+            : !pocol_reward_integer($v->settlementHeight ?? null) || $v->settlementHeight <= $v->blockHeight)
         || !pocol_reward_integer($v->shareCount ?? null) || $v->shareCount > 256
         || !pocol_reward_integer($v->beneficiaryCount ?? null) || $v->beneficiaryCount > 258
         || !is_array($v->beneficiaries ?? null) || !array_is_list($v->beneficiaries)
-        || count($v->beneficiaries) !== $v->beneficiaryCount || !is_string($v->fetchedAt ?? null)) pocol_reward_fail();
+        || count($v->beneficiaries) !== $v->beneficiaryCount || !is_string($v->fetchedAt ?? null)
+        || !property_exists($v, 'closing')) pocol_reward_fail();
     $stamp = strtotime($v->fetchedAt);
     if ($stamp === false || $stamp > $now + 10 || $now - $stamp > 60) pocol_reward_fail();
-    foreach (['subsidyWei','grossRewardWei','projectedPaidWei','projectedBurnedWei'] as $key) {
-        if (!pocol_reward_amount($v->$key ?? null)) pocol_reward_fail();
+    $keys = ['issuedWei','tipsWei','tipShareWei','carryInWei','grossRewardWei','projectedPaidWei','projectedBurnedWei',
+        'projectedBondWei','projectedCarryWei'];
+    foreach ($keys as $key) if (!pocol_reward_amount($v->$key ?? null)) pocol_reward_fail();
+    if (pocol_reward_compare($v->tipShareWei, $v->tipsWei) > 0
+        || pocol_reward_sum([$v->projectedPaidWei, $v->projectedBurnedWei, $v->projectedCarryWei]) !== $v->grossRewardWei
+        || pocol_reward_compare($v->projectedBondWei, $v->projectedPaidWei) > 0) pocol_reward_fail();
+    // The final block opens no pot and takes no tip share: its tips and carries burn in finalize (block flows).
+    if ($v->final ? $v->grossRewardWei !== '0' || $v->issuedWei !== '0' || $v->tipShareWei !== '0' || $v->beneficiaryCount !== 0
+        : pocol_reward_add($v->grossRewardWei, $v->tipShareWei) !== pocol_reward_sum([$v->issuedWei, $v->tipsWei, $v->carryInWei])) pocol_reward_fail();
+    $closing = null;
+    if ($v->closing !== null) {
+        $c = $v->closing;
+        if (!is_object($c) || !pocol_reward_integer($c->closeHeight ?? null) || !is_bool($c->cursorDone ?? null)) pocol_reward_fail();
+        $closing = ['closeHeight'=>$c->closeHeight, 'cursorDone'=>$c->cursorDone];
+        if (property_exists($c, 'earliestFinalHeight') || property_exists($c, 'settlementMayBeFinal')) {
+            if (!pocol_reward_integer($c->earliestFinalHeight ?? null) || !is_bool($c->settlementMayBeFinal ?? null)) pocol_reward_fail();
+            $closing += ['earliestFinalHeight'=>$c->earliestFinalHeight, 'settlementMayBeFinal'=>$c->settlementMayBeFinal];
+        }
     }
-    if (pocol_reward_compare($v->subsidyWei, $v->grossRewardWei) > 0
-        || pocol_reward_add($v->projectedPaidWei, $v->projectedBurnedWei) !== $v->grossRewardWei) pocol_reward_fail();
-    $sum = '0'; $ids = []; $beneficiaries = [];
+    $paid = '0'; $bond = '0'; $ids = []; $beneficiaries = [];
     foreach ($v->beneficiaries as $b) {
         if (!is_object($b) || !pocol_reward_address($b->minerId ?? null)
-            || !pocol_reward_address($b->rewardAddress ?? null) || !pocol_reward_amount($b->amountWei ?? null)
-            || $b->amountWei === '0' || isset($ids[$b->minerId])) pocol_reward_fail();
-        $ids[$b->minerId] = true; $sum = pocol_reward_add($sum, $b->amountWei);
-        $beneficiaries[] = ['minerId'=>$b->minerId, 'rewardAddress'=>$b->rewardAddress, 'amountWei'=>$b->amountWei];
+            || !pocol_reward_address($b->rewardAddress ?? null) || !pocol_reward_amount($b->amountWei ?? null)) pocol_reward_fail();
+        $filled = property_exists($b, 'bondAccruedWei') ? $b->bondAccruedWei : '0';
+        $pair = $b->minerId . $b->rewardAddress;
+        if (!pocol_reward_amount($filled) || (property_exists($b, 'bondAccruedWei') && $filled === '0')
+            || ($b->amountWei === '0' && $filled === '0') || isset($ids[$pair])) pocol_reward_fail();
+        $ids[$pair] = true; $paid = pocol_reward_sum([$paid, $b->amountWei, $filled]); $bond = pocol_reward_add($bond, $filled);
+        $beneficiaries[] = ['minerId'=>$b->minerId, 'rewardAddress'=>$b->rewardAddress, 'amountWei'=>$b->amountWei]
+            + ($filled === '0' ? [] : ['bondAccruedWei'=>$filled]);
     }
-    if ($sum !== $v->projectedPaidWei) pocol_reward_fail();
+    if ($paid !== $v->projectedPaidWei || $bond !== $v->projectedBondWei) pocol_reward_fail();
     $result = [];
-    foreach (['schema','chainId','genesisHash','source','fetchedAt','blockHeight','blockHash','settlementHeight',
-        'subsidyWei','grossRewardWei','projectedPaidWei','projectedBurnedWei','beneficiaryCount','status','shareCount'] as $key) {
+    foreach (['schema','chainId','genesisHash','specVersion','fetchedAt','blockHeight','blockHash','final','settlementHeight',
+        ...$keys, 'winnerAccruing','beneficiaryCount','status','shareCount'] as $key) {
         $result[$key] = $v->$key;
     }
+    if (property_exists($v, 'source')) $result['source'] = $v->source;
+    $result['closing'] = $closing;
     $result['beneficiaries'] = $beneficiaries;
     return $result;
 }
@@ -85,11 +132,26 @@ function pocol_reward_envelope(string $raw, ?int $now = null): array {
     return pocol_reward_validate($reply->result, $now);
 }
 
-function pocol_reward_fetch(): array {
+/** The gateway's read; `$post` (tests) replaces the HTTPS request and returns [HTTP status, Retry-After seconds, body].
+ * A busy answer (HTTP 429) is sent again after its Retry-After (at least 1 s, at most POCOL_REWARD_BUSY_WAIT_MAX), at
+ * most POCOL_REWARD_BUSY_RETRIES times; any other failure fails at once. */
+function pocol_reward_fetch(?callable $post = null, ?callable $sleep = null): array {
+    $post ??= 'pocol_reward_post';
+    $sleep ??= static function (float $s): void { usleep((int)round($s * 1e6)); };
+    for ($retry = 0; ; $retry++) {
+        [$code, $retryAfter, $raw] = $post();
+        if ($code === 429 && $retry < POCOL_REWARD_BUSY_RETRIES) { $sleep(min(POCOL_REWARD_BUSY_WAIT_MAX, max(1.0, (float)$retryAfter))); continue; }
+        if ($code !== 200 || !is_string($raw)) pocol_reward_fail();
+        return pocol_reward_envelope($raw);
+    }
+}
+
+/** One HTTPS POST of the fixed read: [HTTP status (0 when the request failed), Retry-After seconds, body]. */
+function pocol_reward_post(): array {
     if (!extension_loaded('curl')) pocol_reward_fail();
     $handle = curl_init(POCOL_REWARD_UPSTREAM);
     if ($handle === false) pocol_reward_fail();
-    $raw = '';
+    $raw = ''; $retryAfter = 0.0;
     try {
         curl_setopt_array($handle, [
             CURLOPT_POST=>true,
@@ -102,13 +164,17 @@ function pocol_reward_fetch(): array {
                 if (strlen($raw) + strlen($chunk) > POCOL_REWARD_MAX_REPLY) return 0;
                 $raw .= $chunk; return strlen($chunk);
             },
+            CURLOPT_HEADERFUNCTION=>static function ($unused, string $line) use (&$retryAfter): int {
+                if (preg_match('/^Retry-After:\s*([0-9]{1,3})\s*$/i', $line, $m) === 1) $retryAfter = (float)$m[1];
+                return strlen($line);
+            },
         ]);
-        if (curl_exec($handle) === false || curl_getinfo($handle, CURLINFO_HTTP_CODE) !== 200) pocol_reward_fail();
-        return pocol_reward_envelope($raw);
+        if (curl_exec($handle) === false) return [0, 0.0, null];
+        return [(int)curl_getinfo($handle, CURLINFO_HTTP_CODE), $retryAfter, $raw];
     } finally { curl_close($handle); }
 }
 
-/** Three-second cache and nonblocking refresh lock. Expired data is never served. */
+/** A POCOL_REWARD_CACHE_TTL-second cache and nonblocking refresh lock. Expired data is never served. */
 function pocol_reward_cached(callable $loader, ?int $now = null, ?string $directory = null): array {
     $clock = static fn(): int => $now ?? time();
     $directory ??= sys_get_temp_dir() . '/pocol-reward-' . substr(hash('sha256', __FILE__), 0, 24);
@@ -130,14 +196,14 @@ function pocol_reward_cached(callable $loader, ?int $now = null, ?string $direct
             try {
                 $saved = json_decode($raw, false, 32, JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING);
                 if (!is_object($saved) || !is_int($saved->cachedAt ?? null) || $saved->cachedAt > $clock()
-                    || $clock() - $saved->cachedAt >= 3) return null;
+                    || $clock() - $saved->cachedAt >= POCOL_REWARD_CACHE_TTL) return null;
                 return pocol_reward_validate($saved->snapshot ?? null, $clock());
             } catch (Throwable $error) { return null; }
         };
         $cached = $readCache(); if ($cached !== null) return $cached;
         $lastFailure = is_file($failure) ? @file_get_contents($failure, false, null, 0, 32) : false;
         if (is_string($lastFailure) && preg_match('/^[0-9]{1,16}$/D', $lastFailure) === 1
-            && (int)$lastFailure <= $clock() && $clock() - (int)$lastFailure < 3) pocol_reward_fail();
+            && (int)$lastFailure <= $clock() && $clock() - (int)$lastFailure < POCOL_REWARD_FAILURE_PAUSE) pocol_reward_fail();
         $lock = @fopen($lockFile, 'c'); if ($lock === false) pocol_reward_fail();
         try {
             if (!flock($lock, LOCK_EX | LOCK_NB)) pocol_reward_fail();

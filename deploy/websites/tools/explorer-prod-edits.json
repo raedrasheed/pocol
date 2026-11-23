@@ -1,0 +1,68 @@
+[
+ {
+  "file": "explorer-bundle",
+  "old": "async function it(e){let t=e.map(",
+  "new": "async function it(e){for(let t=1;;t++)try{return await PocolP1Once(e)}catch(n){if(t>=3||!n.PocolP1Busy)throw n;await new Promise(e=>setTimeout(e,Math.max(1500*t,n.PocolP1After||0)))}}function PocolP1Mark(e,t,n=0){return e.PocolP1Busy=t,e.PocolP1After=n,e}function PocolP1RetryAfter(e){let t=Number(e.headers?.get?.(`Retry-After`));return Number.isFinite(t)&&t>0?Math.min(t,30)*1e3:0}async function PocolP1Once(e){let t=e.map(",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "if(!r.trim())throw Error(`The data service returned an empty response (HTTP ${n.status}). Please retry.`);",
+  "new": "if(!r.trim())throw PocolP1Mark(Error(`The data service returned an empty response (HTTP ${n.status}). Please retry.`),n.status===502||n.status===503);",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "if(!n.ok)throw Error(i.error||`Data source unavailable`);",
+  "new": "if(!n.ok)throw PocolP1Mark(Error(i.error||`Data source unavailable`),n.status===429||n.status===502||n.status===503,n.status===429?PocolP1RetryAfter(n):0);",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "if(t.error)throw Error(t.error.message||`Query unavailable`);return t.result})}",
+  "new": "if(t.error)throw PocolP1Mark(Error(t.error.message||`Query unavailable`),t.error.code===-32021||t.error.code===-32000);return t.result})}",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "(0,N.jsx)(`p`,{children:`Every included transaction, from the first block onward.`})",
+  "new": "(0,N.jsx)(`p`,{children:Number.isSafeInteger(E?.from)&&E.from>0?`Transactions from block #${E.from.toLocaleString()} onward; this gateway no longer keeps older ones.`:`Every included transaction, from the first block onward.`})",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "if(!r.ok)throw Error(`Automatic GeoIP is unavailable. Check the GeoIP gateway update on the Linux node.`);",
+  "new": "if(!r.ok)throw Error(`Miner locations are unavailable: the PoCol network does not record where miners are, and this explorer does not place peers by their IP addresses.`);",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "r.error?`Automatic geography unavailable`:",
+  "new": "r.error?`Miner locations unavailable`:",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "r.error?`Install or check Update-PoCol-Explorer-GeoIP.sh on the observer node.`:",
+  "new": "r.error?`The network has no location data for miners, and peers’ IP addresses are not used to place them (privacy).`:",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "t===`Miner map`?`Automatic country estimates from observed network connections.`:",
+  "new": "t===`Miner map`?`Miner locations are not published: the network does not record them.`:",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "(0,N.jsx)(`div`,{className:`table-wrap`,\"aria-busy\":s,children:",
+  "new": "(0,N.jsx)(`div`,{className:`table-wrap`,\"aria-busy\":s,style:{position:`relative`},children:",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": ":null):null;return(0,N.jsxs)(`section`,{className:`panel miner-map-panel ${i?`map-compact`:``}`,\"aria-label\":`Automatic network geography`,children:[",
+  "new": ":null):null;if(!r.data)return(0,N.jsx)(`section`,{className:`panel miner-map-panel ${i?`map-compact`:``}`,\"aria-label\":`Miner locations`,children:(0,N.jsx)(`div`,{className:`panel-heading`,children:(0,N.jsxs)(`div`,{children:[(0,N.jsxs)(`h2`,{children:[(0,N.jsx)(w,{size:19}),`Miner locations`]}),(0,N.jsx)(`p`,{role:`status`,children:r.error||(r.loading?`Checking for miner location data.`:`Miner locations are unavailable.`)})]})})});return(0,N.jsxs)(`section`,{className:`panel miner-map-panel ${i?`map-compact`:``}`,\"aria-label\":`Automatic network geography`,children:[",
+  "count": 1
+ }
+]

@@ -372,8 +372,9 @@ impl Drop for Resv{fn drop(&mut self){self.pool.fetch_sub(self.n,Ordering::SeqCs
 /// An answer and the reservation that covers it until the connection drops it. `close`: the
 /// connection closes without writing (the batch reached BATCH_WALL while it ran); `batch_from`: a
 /// batch's read-end (BATCH_WALL bounds its send too).
-pub struct Reply{pub body:String,_resv:Option<Resv>,pub close:bool,batch_from:Option<Instant>}
-impl Reply{fn small(body:String)->Self{Self{body,_resv:None,close:false,batch_from:None}}}
+/// `done`: when the answer was complete; one completed at or after its request's work deadline is not sent (`conn`).
+pub struct Reply{pub body:String,_resv:Option<Resv>,pub close:bool,batch_from:Option<Instant>,done:Instant}
+impl Reply{fn small(body:String)->Self{Self{body,_resv:None,close:false,batch_from:None,done:Instant::now()}}}
 /// The heavyActive / lightActive gauge while a request runs (<= 1 each: one consensus thread).
 struct Active(&'static AtomicUsize);
 impl Active{fn new(g:&'static AtomicUsize)->Self{g.fetch_add(1,Ordering::SeqCst);Self(g)}}
@@ -402,12 +403,12 @@ pub fn answer(n:&mut Node,q:&Request)->Reply{
     let mut budget=Budget{compute_by:Instant::now()+if light{lr.compute_light}else{lr.compute_heavy},scratch_max:lr.scratch_heavy,scratch_used:0,walled:false};
     let wall_by=batch.then(||q.queued+lr.batch_wall);
     let mut body=handle_from(n,&q.body,q.site,q.via,Some(q.deadline),wall_by,&mut budget);
-    if budget.walled{return Reply{body:String::new(),_resv:None,close:true,batch_from:None}}
+    if budget.walled{return Reply{body:String::new(),_resv:None,close:true,batch_from:None,done:Instant::now()}}
     // Over the class's reservation: -32020 {resultBytes}, and the reservation shrinks to the error
     // (network.md:210, RG12).
     if body.len()>need{body=result_bytes(&request_id(&q.body));}
     body.shrink_to_fit();resv.shrink(body.capacity());
-    Reply{body,_resv:Some(resv),close:false,batch_from:batch.then_some(q.queued)}
+    Reply{body,_resv:Some(resv),close:false,batch_from:batch.then_some(q.queued),done:Instant::now()}
 }
 fn request_id(body:&[u8])->Value{
     if json_values(body)>JSON_VALUES_MAX{return Value::Null}
@@ -677,6 +678,13 @@ fn read_until(s:&mut TcpStream,tmp:&mut [u8],deadline:Instant)->std::io::Result<
     if left.is_zero(){return Err(std::io::Error::new(std::io::ErrorKind::TimedOut,"request deadline"))}
     s.set_read_timeout(Some(left.max(Duration::from_millis(1))))?;s.read(tmp)
 }
+// Test hook: a late wake of the connection thread. A test sets it on the thread that runs `conn`; at each wait for
+// the node's answer (1: the admission wait, 2: the work wait) the thread reports the point and then waits for the
+// test's go before it reads its channel, as a thread woken late on a loaded host does.
+#[cfg(test)]
+thread_local!{static LATE_WAKE:std::cell::RefCell<Option<(Sender<u8>,mpsc::Receiver<()>)>>=const{std::cell::RefCell::new(None)};}
+#[cfg(test)]
+fn late_wake(point:u8){LATE_WAKE.with(|h|if let Some((at,go))=&*h.borrow(){let _=at.send(point);let _=go.recv();})}
 fn conn(mut s:TcpStream,node:SyncSender<Event>,light:LightLane,l:&Limits,srv:&Server,work:bool)->std::io::Result<()>{
     // SO_SNDBUF (network.md:190) is SEND_SOCK_BUF, set by the acceptor (`serve`) before this thread
     // starts, and the SendPacer writes at most SEND_SOCK_BUF per call: A, the bytes the socket has
@@ -751,15 +759,20 @@ fn conn(mut s:TcpStream,node:SyncSender<Event>,light:LightLane,l:&Limits,srv:&Se
     // Admission within QUEUE_WAIT (network.md:234): the answer, or the node's admission, by then;
     // otherwise this connection marks the request gone (the node will not run it) and answers busy
     // itself. Admitted work is waited for until the work deadline (then 504).
+    #[cfg(test)] late_wake(1);
     let r=match rx.recv_timeout(admit_by.saturating_duration_since(Instant::now())){
         Ok(r)=>Some(r),
         Err(_)=>match state.compare_exchange(QUEUED,GONE,Ordering::SeqCst,Ordering::SeqCst){
-            Err(ADMITTED)=>rx.recv_timeout(work_by.saturating_duration_since(Instant::now())).ok(),
+            Err(ADMITTED)=>{#[cfg(test)] late_wake(2);rx.recv_timeout(work_by.saturating_duration_since(Instant::now())).ok()},
             // Gone: marked here (counted here) or by the node at dequeue (counted there).
             g if Instant::now()<work_by=>{if g.is_ok(){COUNTERS.queue_wait.fetch_add(1,Ordering::SeqCst);COUNTERS.busy.fetch_add(1,Ordering::SeqCst);}return respond(&mut s,200,&busy(&body))}
             _=>None,
         }
     };
+    // An answer the node completed at or after the work deadline is not sent: its caller is answered 504, as while
+    // the work runs. A connection thread that wakes late (a loaded host) can find such an answer already queued, and
+    // its wait (recv_timeout) returns a queued message before it checks the time.
+    let r=r.filter(|r|r.close||r.done<work_by);
     // The reservation in the Reply is released when it drops, after the write or its failure. The
     // 200 answer is written under the SendPacer (`pace_write`), so a slow reader cannot hold its
     // reservation beyond SEND_MAX(size); `r` stays alive across the write, holding the reservation.
@@ -1446,6 +1459,48 @@ mod tests{
             assert!(response.starts_with("HTTP/1.1 504"),"{response}");assert!(Instant::now()>=request.deadline,"a timeout is never sent early");
             assert_eq!(request.state.load(Ordering::SeqCst),ADMITTED);assert_eq!(queued.load(Ordering::SeqCst),1,"the pending backend body remains bounded and held");
             drop(request);assert_eq!(queued.load(Ordering::SeqCst),0,"dropping backend work releases its place");client.join().unwrap();connection.join().unwrap().unwrap();
+        }
+    }
+    /// RPCGUARD.md:148: after the work deadline the connection answers 504 and sends no answer. A connection thread
+    /// that wakes late (`late_wake`) finds the node's answer already queued, and its wait returns that answer before it
+    /// checks the time: an answer completed after the deadline must still be 504, one completed before it is sent. The
+    /// test holds the thread at the wait point until the answer is queued, so no timing decides the outcome. Both waits:
+    /// the answer reaches the admission wait (1), or the admission wait ends at the work deadline with the request
+    /// admitted (QUEUE_WAIT is longer here) and the answer reaches the work wait (2).
+    #[test] fn an_answer_completed_after_the_work_deadline_is_answered_504_even_when_the_connection_wakes_late(){
+        use super::*;
+        let heavy=r#"{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{}]}"#;
+        let answer_body=r#"{"jsonrpc":"2.0","id":1,"result":"0x"}"#;
+        // (wait point, the answer completed after the work deadline, the expected status)
+        for (point,late,expect) in [(1u8,true,"HTTP/1.1 504"),(2,true,"HTTP/1.1 504"),(1,false,"HTTP/1.1 200")]{
+            let listener=TcpListener::bind("127.0.0.1:0").unwrap();let addr=listener.local_addr().unwrap();
+            let client=std::thread::spawn(move||{
+                let mut s=TcpStream::connect(addr).unwrap();s.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+                let request=format!("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{heavy}",heavy.len());
+                s.write_all(request.as_bytes()).unwrap();let mut response=String::new();let _=s.read_to_string(&mut response);response
+            });
+            let (socket,_)=listener.accept().unwrap();sockbuf::set(&socket,SEND_SOCK_BUF).unwrap();
+            let (events,backend)=mpsc::sync_channel(1);let (light,_light_rx)=mpsc::sync_channel(1);
+            // Point 1 is reached at once; point 2 at the work deadline (the admission wait ends there: QUEUE_WAIT is longer).
+            let limits=Limits{work_deadline:Duration::from_millis(300),queue_wait:Duration::from_secs(30),..Default::default()};
+            let queue_wait=limits.queue_wait;
+            let (at_tx,at)=mpsc::channel();let (go,go_rx)=mpsc::channel();
+            let connection=std::thread::spawn(move||{
+                LATE_WAKE.with(|h|*h.borrow_mut()=Some((at_tx,go_rx)));
+                conn(socket,events,LightLane{tx:light,wake:Arc::new(AtomicBool::new(false))},&limits,&Server::new(),false)
+            });
+            let request=match backend.recv_timeout(Duration::from_secs(10)).unwrap(){Event::Rpc(q)=>q,_=>panic!("expected RPC work")};
+            assert!(request.admit(queue_wait).is_ok(),"the node takes the request at once");
+            assert_eq!(at.recv_timeout(Duration::from_secs(10)).unwrap(),1);
+            if point==2{go.send(()).unwrap();assert_eq!(at.recv_timeout(Duration::from_secs(10)).unwrap(),2,"the admission wait ends without an answer, admitted");}
+            // The answer is completed after the work deadline (late) or before it; the thread wakes after the deadline either way.
+            if late{while Instant::now()<=request.deadline{std::thread::sleep(Duration::from_millis(5))}}
+            request.reply.send(Reply::small(answer_body.to_string())).unwrap();
+            while Instant::now()<=request.deadline{std::thread::sleep(Duration::from_millis(5))}
+            go.send(()).unwrap();
+            let response=client.join().unwrap();connection.join().unwrap().unwrap();
+            assert!(response.starts_with(expect),"wait point {point}, answer completed {} the work deadline: expected {expect}, got {response:?}",if late{"after"}else{"before"});
+            if expect.ends_with("504"){assert!(!response.contains("result"),"no answer body after the deadline: {response:?}")}
         }
     }
     // F13: a loopback-RPC answer must never carry a CORS grant a cross-origin page could use, and a

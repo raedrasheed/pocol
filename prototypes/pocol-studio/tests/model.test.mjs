@@ -199,3 +199,73 @@ test('the gateway identity check compares chain ID and genesis hash, and a misma
   assert.match(app,/const id=networkIdentity\(NETWORK,v\);if\(!id\.ok\)\{\$\('#network-state'\)\.textContent=networkMismatchText\(id,/);
   assert.match(app,/networkDetails:`Mainnet · Chain ID \$\{NETWORK\.chainId\}`/);
 });
+// STU-03 and stage-2 item c (2026-11-22): the gateway's transient refusals are retried before the pre-check is skipped,
+// and a skip names its reason.
+import{capsSkipReason,CAPS_ATTEMPTS,CAPS_BUDGET_MS}from'../dist/model.js';
+const scripted=(answers,log=[])=>async body=>{log.push(JSON.parse(body).method);const a=answers.shift();if(a instanceof Error)throw a;
+  return{ok:a.ok??true,status:a.status??200,headers:{get:name=>name==='Retry-After'?(a.retryAfter??null):null},json:async()=>a.body};};
+const noWait=waits=>async ms=>{waits.push(ms);};
+test('a request-budget refusal (-32005) twice, then an answer: the pre-check runs after two waits',async()=>{
+  const waits=[],log=[],budget={body:{jsonrpc:'2.0',id:1,error:{code:-32005,message:'Request budget exceeded; retry shortly'}}};
+  const v=await capsPrecheck(scripted([budget,budget,{body:{jsonrpc:'2.0',id:1,result:capsOf()}}],log),site,{newSite:true},{wait:noWait(waits)});
+  assert.equal(v.checked,true);assert.deepEqual(v.refuse,[]);
+  assert.deepEqual(log,['pocol_getCaps','pocol_getCaps','pocol_getCaps']);assert.deepEqual(waits,[500,1000]);
+});
+test('HTTP 429 with Retry-After and a busy gateway (-32021) are retried too; the wait follows Retry-After, capped',async()=>{
+  const waits=[];
+  const v=await capsPrecheck(scripted([{ok:false,status:429,retryAfter:'2'},{ok:false,status:429,retryAfter:'60'},
+    {body:{jsonrpc:'2.0',id:1,result:capsOf()}}]),site,{newSite:true},{wait:noWait(waits)});
+  assert.equal(v.checked,true);assert.deepEqual(waits,[2000,3000],'Retry-After in seconds, at most 3 s');
+  const busy=[];
+  const w=await capsPrecheck(scripted([{body:{jsonrpc:'2.0',id:1,error:{code:-32021,message:'Studio gateway busy; retry shortly'}}},
+    {body:{jsonrpc:'2.0',id:1,result:capsOf()}}]),site,{newSite:true},{wait:noWait(busy)});
+  assert.equal(w.checked,true);assert.deepEqual(busy,[500]);
+  // The waiting budget ends the retries before CAPS_ATTEMPTS when the gateway asks for long waits.
+  const long=[];
+  const x=await capsPrecheck(scripted(Array(10).fill({ok:false,status:429,retryAfter:'60'})),site,{newSite:true},{wait:noWait(long)});
+  assert.deepEqual(x,{checked:false,reason:'busy',status:429,attempts:3});assert.deepEqual(long,[3000,3000]);
+});
+test('a refusal that persists is skipped as busy after a bounded number of tries, never retried forever',async()=>{
+  const waits=[],log=[],budget={body:{jsonrpc:'2.0',id:1,error:{code:-32005,message:'Request budget exceeded'}}};
+  const v=await capsPrecheck(scripted(Array(10).fill(budget),log),site,{newSite:true},{wait:noWait(waits)});
+  assert.deepEqual(v,{checked:false,reason:'busy',code:-32005,attempts:CAPS_ATTEMPTS});
+  assert.equal(log.length,CAPS_ATTEMPTS);assert.ok(waits.reduce((a,b)=>a+b,0)<=CAPS_BUDGET_MS);
+  const http=await capsPrecheck(scripted(Array(10).fill({ok:false,status:503})),site,{newSite:true},{wait:noWait([])});
+  assert.deepEqual(http,{checked:false,reason:'busy',status:503,attempts:CAPS_ATTEMPTS});
+});
+test('other refusals are not retried and keep their reason; each reason has its message in both languages',async()=>{
+  const log=[];
+  assert.deepEqual(await capsPrecheck(scripted([{ok:false,status:400}],log),site,{newSite:true},{wait:noWait([])}),{checked:false,reason:'http',status:400});
+  assert.deepEqual(await capsPrecheck(scripted([{body:{jsonrpc:'2.0',id:1,error:{code:-32000,message:'Node unavailable'}}}],log),site,{newSite:true},{wait:noWait([])}),
+    {checked:false,reason:'error',code:-32000});
+  assert.deepEqual(await capsPrecheck(scripted([new TypeError('Failed to fetch')],log),site,{newSite:true},{wait:noWait([])}),{checked:false,reason:'unreachable'});
+  assert.equal(log.length,3,'one request each');
+  assert.deepEqual(['busy','http','unreachable','method','error',undefined].map(reason=>capsSkipReason({reason})),
+    ['capsSkippedBusy','capsSkippedHttp','capsSkippedOffline','capsSkippedMethod','capsSkippedError','capsSkipped']);
+  const{readFile}=await import('node:fs/promises');const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
+  const keys=(key)=>(app.match(new RegExp('[{,]'+key+":'",'g'))||[]).length;
+  for(const key of['capsSkippedBusy','capsSkippedHttp','capsSkippedOffline','capsSkippedMethod','capsSkippedError','capsInvalid','networkError','gatewayBusy','gatewayNode','extensionRelease'])
+    assert.equal(keys(key),2,key);
+  assert.ok(app.includes("toast(t(capsSkipReason(pre))"),'the skip toast names its reason');
+});
+test('errorText turns gateway and network failures into actionable text and keeps the detail',async()=>{
+  const{readFile}=await import('node:fs/promises');const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
+  const line=start=>app.split('\n').find(l=>l.startsWith(start));
+  const src=line('function explain(m){')+'\n'+line('function errorText(e){');
+  const strings={en:{capsInvalid:'CAPS',networkError:'NET',gatewayBusy:'BUSY',gatewayNode:'NODE',unknownError:'UNKNOWN',extensionMissing:'MISSING'}};
+  const errorText=new Function('strings','lang','t',src+';return errorText;')(strings,'en',k=>strings.en[k]);
+  assert.equal(errorText(Error('capsInvalid:accountsCap')),'CAPS (accountsCap)');
+  assert.equal(errorText(new TypeError('Failed to fetch')),'NET (Failed to fetch)');
+  assert.equal(errorText(Error('Request budget exceeded; retry shortly')),'BUSY (Request budget exceeded; retry shortly)');
+  assert.equal(errorText(Error('Node unavailable or network identity mismatch; check transaction hash before resubmitting')),
+    'NODE (Node unavailable or network identity mismatch; check transaction hash before resubmitting)');
+  assert.equal(errorText(Error('extensionMissing')),'MISSING');
+  assert.equal(errorText(Error('Some other message')),'Some other message');
+  assert.equal(errorText(null),'UNKNOWN');
+  assert.ok(app.includes("$('#job-detail').textContent=(job.error?errorText({message:job.error}):'')||"),'a job error is explained too');
+});
+test('the install dialog offers no extension package before the signed release',async()=>{
+  const{readFile}=await import('node:fs/promises');const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
+  assert.doesNotMatch(app,/PoCol-Studio-IDE-Viewer-|downloads\//);
+  assert.ok(app.includes('href="https://pocol.net/chrome-extension.html#verify-release"'));
+});

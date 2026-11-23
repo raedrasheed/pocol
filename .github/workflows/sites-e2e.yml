@@ -118,11 +118,26 @@ jobs:
         run: |
           set -o pipefail
           node deploy/websites/tests/explorer_smoke.mjs 2>&1 | tee evidence/explorer-smoke.log
+      - name: Explorer gateway host on a devnet (observer node without a miner, transaction index, reorganization)
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          set -o pipefail
+          python3 -B deploy/explorer/e2e_explorer_devnet.py "$RUNNER_TEMP/explorer-e2e" 2>&1 | tee evidence/explorer-devnet-e2e.log
       - name: Website browser security checks
         if: always() && steps.build.outcome == 'success'
         run: |
           set -o pipefail
           node deploy/websites/tests/browser_security.mjs 2>&1 | tee evidence/browser-security.log
+      # Final review (2026-11-22): the wallet's only end-to-end proof in a real browser (import, status, balance, backup
+      # and restore into a fresh profile, Send included on a devnet, a wrong-genesis endpoint refused) runs per PR.
+      - name: Extension wallet in Chromium on a v3 devnet
+        if: always() && steps.build.outcome == 'success'
+        env:
+          WALLET_E2E_WORK: ${{ runner.temp }}
+          WALLET_E2E_CONNECT_MS: '120000'
+        run: |
+          set -o pipefail
+          node prototypes/pocol-extension/tests/wallet_ui_browser.mjs 2>&1 | tee evidence/wallet-ui-browser.log
       - name: Upload evidence including failures
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

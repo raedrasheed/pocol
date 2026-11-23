@@ -11,6 +11,35 @@ const POCOL_SUMMARY_SAFE_INTEGER = 9007199254740991;
 const POCOL_SUMMARY_MAX_REPLY = 4194304;
 const POCOL_SUMMARY_CACHE_TTL = 10;
 const POCOL_SUMMARY_STALE_TTL = 300;
+// SITE-05 and the 2026-11-22 review: the eligible count comes from the gateway's pocol_getMemberCounts (the ActList's
+// counts at one head block, read by the gateway from MinerRegistry; deploy/rewards/gateway.py), not from the unpaged
+// pocol_getMiners, whose reply grows with every record, nor from pages of pocol_getMembers: those cost 5 of the
+// gateway's 80 shared request tokens each (refilled at 20 a second), 200 tokens at 10,000 members, more than the whole
+// budget that explorer visitors share. A refresh now makes two requests: [status, params, counts] (22 tokens) and the
+// 20 blocks (20 tokens), at most once per POCOL_SUMMARY_CACHE_TTL whatever the membership size.
+const POCOL_SUMMARY_MAX_MEMBERS = 10000;
+const POCOL_SUMMARY_BOND_STATES = ['NONE', 'HELD', 'BURNED', 'PAID', 'ACCRUING'];
+// The time one refresh may take, every request included (each request's own limit is at most 12 s and never more than
+// what is left of this).
+const POCOL_SUMMARY_DEADLINE = 15;
+// The explorer gateway also budgets each client (deploy/rewards/gateway.py CLIENT_BURST 40 tokens, CLIENT_RATE 10 a
+// second, EXP-02), and pocol.net's server is one client: a refresh's 22 + 20 tokens exceed that burst when its two
+// requests follow each other closely, or follow reward.php's 20-token read. A request the gateway refuses as busy (HTTP
+// 429) is sent again after its Retry-After (at least 1 s, at most 3 s), at most twice, and only within the deadline.
+const POCOL_SUMMARY_BUSY_RETRIES = 2;
+const POCOL_SUMMARY_BUSY_WAIT_MAX = 3.0;
+
+// Final review (2026-11-22): the chain's tip can reorganise between the head read and the 20-block read (more likely
+// since a busy refusal waits 1 to 3 s between them). The whole snapshot (head, then blocks) is read again once, within
+// the same deadline, instead of failing the refresh; a second inconsistent snapshot fails it.
+const POCOL_SUMMARY_REORG_RETRIES = 1;
+/** The 20 blocks read are not the chain of the head read (a reorganisation in between). */
+final class PocolSummaryReorg extends RuntimeException {}
+
+/** The gateway refused a request as busy (HTTP 429): `wait` is its Retry-After in seconds (0 when it sent none). */
+final class PocolSummaryBusy extends RuntimeException {
+    public function __construct(public readonly float $wait) { parent::__construct('Data service busy.'); }
+}
 
 function pocol_summary_integer($value): int {
     if (!is_int($value) || $value < 0 || $value > POCOL_SUMMARY_SAFE_INTEGER) {
@@ -65,8 +94,9 @@ function pocol_summary_results(array $requests, $response): array {
     return array_map(static fn(array $request) => $results[$request['id']], $requests);
 }
 
-function pocol_summary_rpc(array $requests): array {
+function pocol_summary_rpc(array $requests, float $timeout = 12.0): array {
     if (!extension_loaded('curl')) throw new RuntimeException('Data transport unavailable.');
+    $milliseconds = max(1, (int)floor(min(12.0, $timeout) * 1000));
     $body = json_encode($requests, JSON_THROW_ON_ERROR);
     $reply = '';
     $handle = curl_init(POCOL_SUMMARY_RPC);
@@ -76,8 +106,8 @@ function pocol_summary_rpc(array $requests): array {
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $body,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json'],
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT => 12,
+            CURLOPT_CONNECTTIMEOUT_MS => min(10000, $milliseconds),
+            CURLOPT_TIMEOUT_MS => $milliseconds,
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
             CURLOPT_SSL_VERIFYPEER => true,
@@ -87,8 +117,16 @@ function pocol_summary_rpc(array $requests): array {
                 $reply .= $chunk;
                 return strlen($chunk);
             },
+            CURLOPT_HEADERFUNCTION => static function ($unused, string $line) use (&$retryAfter): int {
+                if (preg_match('/^Retry-After:\s*([0-9]{1,3})\s*$/i', $line, $m) === 1) $retryAfter = (float)$m[1];
+                return strlen($line);
+            },
         ]);
-        if (curl_exec($handle) === false || curl_getinfo($handle, CURLINFO_HTTP_CODE) !== 200) {
+        $retryAfter = 0.0;
+        $done = curl_exec($handle);
+        $code = curl_getinfo($handle, CURLINFO_HTTP_CODE);
+        if ($done !== false && $code === 429) throw new PocolSummaryBusy($retryAfter);
+        if ($done === false || $code !== 200) {
             throw new RuntimeException('Data request failed.');
         }
         $decoded = json_decode($reply, false, 64, JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING);
@@ -102,29 +140,83 @@ function pocol_summary_call(int $id, string $method, array $params = []): array 
     return ['jsonrpc' => '2.0', 'id' => $id, 'method' => $method, 'params' => $params];
 }
 
-/** The injectable transport is only a PHP function argument, never a request parameter. */
+/** The eligible-miner count of a pocol_getMemberCounts answer, all at one block: every ActList member is live or a
+ * tomb, the eligible ones (live and HELD (1) or ACCRUING (4), as the node counts them, prototypes/pocold/src/wallet.rs
+ * status) are live members in one of those bond states, and the bond states add up to the membership. */
+function pocol_summary_eligible($value): int {
+    if (!is_object($value) || !is_object($value->bondStates ?? null)) throw new RuntimeException('Invalid member counts.');
+    pocol_summary_integer($value->height ?? null);
+    pocol_summary_hash($value->blockHash ?? null);
+    $active = pocol_summary_integer($value->active ?? null);
+    $live = pocol_summary_integer($value->live ?? null);
+    $eligible = pocol_summary_integer($value->eligible ?? null);
+    $tomb = pocol_summary_integer($value->tomb ?? null);
+    $states = get_object_vars($value->bondStates);
+    $names = array_keys($states); $known = POCOL_SUMMARY_BOND_STATES; sort($names); sort($known);
+    if ($names !== $known) throw new RuntimeException('Invalid member counts.');
+    $sum = 0;
+    foreach ($states as $count) $sum += pocol_summary_integer($count);
+    if ($active > POCOL_SUMMARY_MAX_MEMBERS) throw new RuntimeException('Unsupported membership size.');
+    if ($live + $tomb !== $active || $sum !== $active || $eligible > $live
+        || $eligible > $states['HELD'] + $states['ACCRUING']) throw new RuntimeException('Inconsistent member counts.');
+    return $eligible;
+}
+
+/** A transport whose requests together keep to `$seconds`: each request is given what is left (at most 12 s), and none
+ * starts once the time is spent. A busy refusal (PocolSummaryBusy) is retried after its Retry-After (1 to 3 s), at most
+ * POCOL_SUMMARY_BUSY_RETRIES times per request, and only when the wait still leaves time for the request. */
+function pocol_summary_deadline(callable $rpc, float $seconds = POCOL_SUMMARY_DEADLINE, ?callable $clock = null,
+                                ?callable $sleep = null): callable {
+    $clock ??= static fn(): float => microtime(true);
+    $sleep ??= static function (float $s): void { usleep((int)round($s * 1e6)); };
+    $end = $clock() + $seconds;
+    return static function (array $requests) use ($rpc, $end, $clock, $sleep) {
+        for ($retry = 0; ; $retry++) {
+            $left = $end - $clock();
+            if ($left <= 0) throw new RuntimeException('Summary time limit reached.');
+            try {
+                $values = $rpc($requests, min(12.0, $left));
+            } catch (PocolSummaryBusy $busy) {
+                $wait = min(POCOL_SUMMARY_BUSY_WAIT_MAX, max(1.0, $busy->wait));
+                if ($retry >= POCOL_SUMMARY_BUSY_RETRIES || $end - $clock() <= $wait + 1.0) {
+                    throw new RuntimeException('Data service busy.');
+                }
+                $sleep($wait);
+                continue;
+            }
+            if ($clock() > $end) throw new RuntimeException('Summary time limit reached.');
+            return $values;
+        }
+    };
+}
+
+/** The injectable transport is only a PHP function argument, never a request parameter. A snapshot whose blocks do
+ * not follow its head (PocolSummaryReorg) is read again, at most POCOL_SUMMARY_REORG_RETRIES times. */
 function pocol_network_summary(callable $rpc, ?int $now = null): array {
+    for ($retry = 0; ; $retry++) {
+        try { return pocol_network_snapshot($rpc, $now); }
+        catch (PocolSummaryReorg $reorg) {
+            if ($retry >= POCOL_SUMMARY_REORG_RETRIES) throw new RuntimeException('Inconsistent chain snapshot.');
+        }
+    }
+}
+
+/** One snapshot: [status, params, counts], then the 20 blocks from the head down, which must be one chain. */
+function pocol_network_snapshot(callable $rpc, ?int $now = null): array {
     $initial = $rpc([
         pocol_summary_call(1, 'pocol_status'),
         pocol_summary_call(2, 'pocol_getParams'),
-        pocol_summary_call(3, 'pocol_getMiners'),
+        pocol_summary_call(3, 'pocol_getMemberCounts'),
     ]);
     if (!is_array($initial) || count($initial) !== 3) throw new RuntimeException('Incomplete snapshot.');
-    [$status, $params, $miners] = $initial;
+    [$status, $params, $counts] = $initial;
     pocol_summary_identity($status);
     pocol_summary_identity($params);
+    $eligible = pocol_summary_eligible($counts);
     if (!isset($status->head) || !is_object($status->head)) throw new RuntimeException('Missing head.');
     $height = pocol_summary_integer($status->head->height ?? null);
     $headHash = pocol_summary_hash($status->head->hash ?? null);
     $pending = pocol_summary_integer($status->pool ?? null);
-    if (!is_array($miners) || !array_is_list($miners)) throw new RuntimeException('Invalid miners.');
-    $eligible = 0;
-    foreach ($miners as $miner) {
-        if (!is_object($miner) || !is_bool($miner->tomb ?? null)) throw new RuntimeException('Invalid miner.');
-        pocol_summary_integer($miner->status ?? null);
-        pocol_summary_integer($miner->bondState ?? null);
-        if ($miner->status === 1 && $miner->tomb === false && $miner->bondState === 1) $eligible++;
-    }
     $count = min(20, $height + 1);
     $requests = [];
     for ($i = 0; $i < $count; $i++) {
@@ -139,7 +231,7 @@ function pocol_network_summary(callable $rpc, ?int $now = null): array {
     foreach ($blocks as $i => $block) {
         if (!is_object($block) || pocol_summary_quantity($block->number ?? null) !== $height - $i
             || pocol_summary_hash($block->hash ?? null) !== $expectedHash) {
-            throw new RuntimeException('Inconsistent chain snapshot.');
+            throw new PocolSummaryReorg('Inconsistent chain snapshot.');
         }
         $timestamps[] = pocol_summary_quantity($block->timestamp ?? null);
         $expectedHash = pocol_summary_hash($block->parentHash ?? null);
@@ -270,7 +362,7 @@ function pocol_network_main(): void {
         return;
     }
     try {
-        $data = pocol_network_cached(static fn(): array => pocol_network_summary('pocol_summary_rpc'));
+        $data = pocol_network_cached(static fn(): array => pocol_network_summary(pocol_summary_deadline('pocol_summary_rpc')));
         echo json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
     } catch (Throwable $error) {
         http_response_code(503);

@@ -47,10 +47,23 @@ files that remain. Until the rebuild, pages that link the removed invitation or 
   Answers over 16 KiB are not read to the end and count as unreadable.
   `tests/test_launch_decisions.py` (`FaucetPage`) checks that, tests and READMEs aside, the only files under
   `deploy/websites` and `prototypes/pocol-studio/dist` that name the faucet are the claim page files, the home page (its card link and keys),
-  `locales.js` (the card keys) and `SHA256SUMS.txt` (the three page files), and that the only faucet URLs are those two
+  `locales.js` (the card keys), `SHA256SUMS.txt` (the three page files) and the privacy policy (`privacy.html`,
+  `privacy.js`, which name no faucet URL), and that the only faucet URLs are those two
   routes (the IDE's third-party bundle is checked for faucet links only); `tests/browser_security.mjs` runs the page against stubbed answers.
-  If the pocol.net host sends a Content-Security-Policy (none is in this repository), its `connect-src` must allow
-  `https://explorer.pocol.net`, or every claim fails as unreachable.
+  pocol.net's Content-Security-Policy (`pocol.net/.htaccess`, 2026-11-22) has `connect-src 'self'
+  https://explorer.pocol.net`; without that host every claim fails as unreachable.
+
+- **Privacy policy (2026-11-22).** `pocol.net/privacy.html` (English static text, Arabic through `privacy.js`, like the
+  faucet page; `privacy.css`) is the privacy policy of the Chrome extension and the four sites; the Chrome Web Store
+  listing links it (`prototypes/pocol-extension/store/listing.md`), and every page's footer links it (`privacyLink` in
+  `locales.js`). It states only what the repository's code does: keys and password stay in the extension; the extension
+  contacts only `https://explorer.pocol.net/studio/rpc` or a loopback node; the faucet keeps address, day and
+  transaction, and counts claims per IP (IPv6 /64) in memory for the current UTC day; the gateway, the Studio relay and
+  the faucet write no request log and the Caddy sites enable no access log; the explorer loads Google Fonts; the shared
+  host may keep its own access logs. `tests/test_privacy_page.py` checks the page against `privacy.js` and each of those
+  statements against the code it describes (a change there fails the test until the policy follows), and
+  `tests/browser_security.mjs` renders it in both languages at phone width. The owner reviews the text before the page
+  is published.
 
 Left out of Git and kept in the release asset:
 - the download archives (`*.zip`): the old native packages and the extension packages;
@@ -90,12 +103,13 @@ Sites W14 (site texts) is `tools/w14-text-edits.json`, applied once with `--edit
 no activation setting", every in-place extension update (replace the files in the same folder, Reload) by README-IDE.md's
 order without version numbers (export the wallet, Remove the old version, verify the signature, Load unpacked, compare
 the extension ID with pocol.net, import the wallet), DEPLOY-README-AR.txt sections 2 and 4 are rewritten for a fresh
-network, and the IDE's download button names the package it links (0.4.1, it said 0.4.0). Step 7 of the mainnet runbook moved that button and its link to 0.5.0 with the identity switch, recorded as the anchored edits `tools/step7-release-edits.json` on top of W14's (the W14 test undoes and redoes both). `--check` also refuses an
+network, and the IDE's download button names the package it links (0.4.1, it said 0.4.0). Step 7 of the mainnet runbook moved that button and its link to 0.5.0 with the identity switch, recorded as the anchored edits `tools/step7-release-edits.json` on top of W14's (the W14 test undoes and redoes both); `tools/release-pending-edits.json` then replaced that link with `pocol.net/chrome-extension.html#verify-release` (SITE-01, below). `--check` also refuses an
 extension version label that is not package.json's (a capability message "X or later" is exempt) and a native package
-name that is not `deploy/release/assemble_release.py`'s at `deploy/standalone/package.py`'s version; the retired
-`PoCol-Mainnet-0.4.0-Windows.zip` that the pages link, labelled as the retired network's, until the signed release (W16)
-is exempt while a page still names it (`LEGACY_NATIVE`; the retired `-Linux.zip` left it with its last link on
-2026-11-22). `--download PATH=SHA256` (repeatable) writes the `SHA256SUMS.txt` line of a release file kept
+name that is not `deploy/release/assemble_release.py`'s at `deploy/standalone/package.py`'s version. No retired name is
+exempt (`LEGACY_NATIVE` is empty): the retired `-Linux.zip` left it with its last link on 2026-11-22, and the retired
+`PoCol-Mainnet-0.4.0-Windows.zip`, which the pages linked, labelled as the retired network's, under an earlier decision
+to keep it until the signed release (W16), left it on 2026-11-23, when the owner's request for the pocol.net deployment
+(item 4: no Testnet and no 0.4.x release in the deployment content) replaced that decision. `--download PATH=SHA256` (repeatable) writes the `SHA256SUMS.txt` line of a release file kept
 out of Git (an archive, its `.sig` or `.sha256`), adds its name to the site's `keptOut` list in `site-identity.json`
 and drops the kept-out lines (and names) of other versions of the same archive family and their unversioned copies; a
 tracked file it supersedes must be removed first. Only the lines `keptOut` names are carried for files that are not in
@@ -116,33 +130,118 @@ refuses the old experimental-admission text, a fixed readiness value and a launc
 served files and in the clients' user interface sources. The Studio note and the extension's Options page also call
 PoCol Mainnet the public network. The retired
 network's upgrade, migration and Android-update texts are replaced: nothing carries over to the new network. The
-static source lists are the guide's, and the README, V3 program and CP links pin main at `4db2652`. The 0.5.0
-download links and names and the IDE's "0.4.0 or later" messages change with the signed release (W16). Since step 7
+static source lists are the guide's, and the README, V3 program and CP links pin main at `4db2652`. No site links
+or names an extension package before the signed release (SITE-01, below); the IDE's "0.4.0 or later" messages change
+with the signed release (W16); the extension
+ID and the release key fingerprint are in the snapshot (2026-11-22, below); they are public once the owner approves
+their early publication and uploads it. Since step 7
 pocol.net publishes the extension ID and the release key fingerprint users compare (the extension guide,
 `chrome-extension.html` and the home page's IDE help, in English and Arabic; `tests/test_w14_texts.py`,
-`PublishedReleaseIds`). Until then the links beside "Coming from the retired network?" (home page and
-tools page) are labelled as the retired network's 0.4.0 Windows package; W16 replaces or removes them.
+`PublishedReleaseIds`). Until 2026-11-23 the links beside "Coming from the retired network?" (home page,
+tools page and guide) offered the retired network's 0.4.0 Windows package, labelled as such; the owner's request of
+2026-11-23 replaced the earlier decision to keep them until W16, so the links, their labels (`appsWindowsUpdateDownload`)
+and the `LEGACY_NATIVE` exemption are gone, the home page's "Verify a download" says that the page links no package of
+the retired network either, and the host's copy of that package is a file to delete (`tools/host_files.py` DELETE). The
+migration warning beside it (balances do not carry over; move the old wallet folder aside) stays. No page offers a
+native package before W16: the home page's "MAINNET EDITION" buttons
+(`wallet-downloads.js`) show "No release available", and the tools page and the guide no longer offer the 0.4.0
+Windows and Linux packages as PoCol Mainnet applications, the removed invitation (`downloads/network.pocol.json`, the
+retired network's) or `downloads/PoCol-Apps-README.txt` (never in the snapshot). `tests/test_downloads.py` checks that
+every `downloads/` link is a file of the snapshot or a `keptOut` file, and that no page links or names a retired
+`PoCol-Mainnet-0.4.x` (or older) package. `api/network.php` counts a HELD (1) or ACCRUING (4) active record as an eligible miner, as the node
+does.
 `tests/test_launch_decisions.py` (`LaunchTexts`) refuses the removed texts.
 
-Withdrawn downloads (2026-11-22, owner policy kept on the integration branch: no extension package link or listed
-digest before the signed release, whose official channel will be the Chrome Web Store). Step 7 had listed an unsigned
-0.5.0 extension zip in both sites' `SHA256SUMS.txt` and `.sha256` files and linked it from the home page, the
-extension guide, Studio's install dialog, the IDE and `DEPLOY-README-AR.txt`: the digest of an unsigned build, which
-goes stale with any change to the extension and is not a signed release. Those lines and files were withdrawn
-(`--drop-download`, `keptOut` is empty), and the links now open the extension guide's install section
-(`chrome-extension.html#install`, which publishes the extension ID and the release key fingerprint); the IDE's button
-is the anchored edit `tools/release-pending-edits.json`, applied after step 7's, and `DEPLOY-README-AR.txt` section 4,
-which still said the extension ships with the IDE copy, is `tools/release-pending-text-edits.json`, applied after that.
-The home page's install steps say the package comes with the signed release, and Studio's release builder no longer
-copies the zip into `dist/downloads` or the cPanel ZIP (`prototypes/pocol-studio/tests/build-release.test.mjs`). The home page's "MAINNET EDITION"
-buttons (`wallet-downloads.js`) show "No release available", and the tools page and the guide no longer offer the
-retired network's 0.4.0 Windows and Linux packages as PoCol Mainnet applications, the retired network's invitation
-(`downloads/network.pocol.json`, removed 2026-11-13) or `downloads/PoCol-Apps-README.txt` (never in the snapshot).
-`tests/test_downloads.py` checks that no site file names the content version of a retired network's invitation, that
-every `downloads/` link is a file of the snapshot, a `keptOut` file or a `LEGACY_NATIVE` package labelled as the
-retired network's, and that no site names, links or lists an extension package. CI (`full-nonce-upgrade.yml`) packages
-the extension twice, requires the same bytes, and refuses any listed extension package line that is not this build's.
-`tests/test_guide_pages.py` checks that the static guide pages are the English render of `guide-content.js`.
+## Production readiness, sites track (2026-11-22)
+
+- **No retired extension package (SITE-01).** No page of pocol.net, the guide, Studio's install dialog or the IDE
+  links an extension package before the signed release: they link `pocol.net/chrome-extension.html#verify-release`
+  and say that the PoCol Mainnet extension is published with the signed release. The owner approved this policy on
+  2026-11-23 ("لا رابط ولا بصمة قبل الإصدار الموقّع", no link and no digest before the signed release: D4 of
+  `development/decisions/OWNER-DECISIONS-2026-11-23.md`). The IDE's button is the anchored edit
+  `tools/release-pending-edits.json` (after W14). The retired network's 0.4.1 package, its unversioned copy
+  `PoCol-Studio-Chrome.zip` and the two tracked `.sha256` files left `SHA256SUMS.txt` and `keptOut` through
+  `site_identity.py --drop-download`, so they are files to delete from the hosts. `tests/test_downloads.py` refuses any
+  extension package name other than the signed release's (`assemble_release.py`, none before the switch) recorded as a
+  kept-out download. Step 7 had also listed an unsigned 0.5.0 extension zip in both sites' `SHA256SUMS.txt`, `keptOut`
+  and tracked `.sha256` files and linked it: the digest of an unsigned build, which goes stale with any change to the
+  extension and is not a signed release. Those lines and files were withdrawn when step 7 was merged here, and until
+  `tools/release_page.py` records a signed release no site lists an extension package digest
+  (`tests/test_downloads.py`). `DEPLOY-README-AR.txt` section 4, which still said the extension ships with the IDE copy,
+  is the anchored edit `tools/release-pending-text-edits.json`, applied after `release-pending-edits.json` (the W14
+  reproduction test undoes and redoes both). The home page's install steps say the package comes with the signed
+  release, and no site text tells a user to download an extension package now. Studio's release builder no longer
+  copies the zip into `dist/downloads` or the cPanel ZIP, and refuses a `dist/app.js` that links an extension package
+  or a `dist/` that holds one (`prototypes/pocol-studio/tests/build-release.test.mjs`). CI (`full-nonce-upgrade.yml`)
+  packages the extension twice, requires the same bytes, and refuses a listed extension package line that is not this
+  build's. `tests/test_downloads.py` also checks every site's `downloads/` links (pocol.net, the IDE, Studio's `dist/`
+  and the explorer) and that no site file names the content version of a retired network's invitation.
+- **Extension ID and release key (SITE-03).** The extension page (section `verify-release`) and the guide's
+  extension topic carry, in English and Arabic, the extension ID `gggcoflmedlhlkcdhebmoepmggdnafmp` and the release
+  key fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` with `deploy/release/README.md`'s user
+  procedure; the home page's "Verify a download" carries the fingerprint only and links that section.
+  `tests/test_downloads.py` derives both from `manifest-key.pub` and `allowed_signers`. That ID is the side-loaded
+  signed release's: the Chrome Web Store item gets the ID the store assigns at its first upload (owner decision
+  2026-11-23 D2, `prototypes/pocol-extension/store/README.md`), and pocol.net publishes it with the store link (W16),
+  beside this one. The page says that no signed release is offered yet. This is the repository snapshot: nothing is public until the owner approves the early
+  publication and uploads it (pending on 2026-11-22).
+- **Download structure.** `wallet-downloads.js` has a `release` record. `tools/release_page.py RELEASE_DIR` fills the
+  buttons (URL, size, SHA-256, `.sig`) and the record (version, signed `SHA256SUMS` and `.sig`) only from a directory
+  that `deploy/release/verify_release.py` verifies with the committed `allowed_signers`, and records every release
+  file, its `.sig` and `SHA256SUMS(.sig)` as kept-out lines (`--download` accepts `SHA256SUMS` and
+  `network.pocol.json` with their `.sig`).
+- **Reward page (F-74).** `api/reward.php` and `reward.js` read `pocol-block-reward-v3` (`deploy/rewards/README.md`) and
+  show its summary with neutral labels. The headline wording ("Collaboration. Rewarded." and its subtitle) and the
+  new labels await the owner's S1 wording decision (`development/STATUS-EN.md`).
+- **Network summary (SITE-05, 2026-11-22 review).** `api/network.php` takes the eligible-miner count from the
+  gateway's `pocol_getMemberCounts` (the ActList's counts at one block, at most 10,000 members) instead of the unpaged
+  `pocol_getMiners`. Paging `pocol_getMembers` instead would cost 5 of the gateway's shared request tokens a page
+  (80, refilled at 20 a second, shared with every explorer visitor): 222 tokens a refresh at 10,000 members, refused
+  part-way from about 4,000. A refresh is now two requests, 42 tokens, at any size, and all its requests together keep
+  to 15 s. `tests/network_budget.py` replays them through the real `Gateway.charge`. The gateway that serves
+  `pocol_getMemberCounts` must be installed before this snapshot is uploaded; with an older gateway the summary
+  answers "temporarily unavailable".
+- **Deployment content (2026-11-23).** For the owner's request of 2026-11-23 (the pocol.net cPanel deployment of
+  PoCol Mainnet, item 4: no Testnet and no 0.4.x release in the deployment content), besides the retired Windows package
+  above: the i18n keys `networkTestnet`, `appsTestnet` and `appsTestnetNote`, whose values already said PoCol Mainnet,
+  are `networkName`, `appsEdition` and `appsEditionNote`; the unused design-preview strings `walletTitle`, `walletBody`,
+  `nodeTitle` and `nodeBody` ("will be published here when ready") left `locales.js`; the status page and its guide
+  topic say that PoCol Mainnet launched on 2026-11-21 (genesis time 20:20:56 UTC, `development/public-network/
+  GENESIS-RECORD-2026-11-21.md`) instead of "launches". `sitemap.xml` lists every page but `404.html` and the faucet
+  claim page (which only the files `FaucetPage` allows may name; the home page links it).
+  `tests/test_served_content.py` checks each.
+- **Source links (2026-11-23 review of the links, the same request, item 3).** 34 pinned GitHub source links of
+  pocol.net (the pages' "Sources" lists and the guide's sources in `guide-content.js`) opened the retired network's
+  material: README.md at 2bea0eb8 and 4db26529, which says the repository pins chain ID 1599846715, and the extension's
+  and Studio's sources at f0444f69 (0.2.1: README-STUDIO.md, studio-network.js and Studio's app.js pin that chain, and
+  app.js calls it Testnet) and 28c127fc (0.4.0). They name 5dd5ac7b (on GitHub; the snapshots' other source links,
+  `site-identity.json` `links`, named it then), whose README.md and extension 0.5.0 sources pin PoCol Mainnet; the README line
+  anchors follow its sections (L1-L79, L129-L137, L539-L599). The edit went through `site_identity.py --edits`, which
+  moved `guide-content.js`'s `?v=` and `SHA256SUMS.txt`. Links to the specifications (`development/m1/reference`), the
+  contracts and node sources, the decision records and the release README are unchanged: they name no retired
+  identity. `tests/test_served_content.py` reads each linked file at its commit from the local history (the websites
+  workflow checks out the full history) and refuses a missing file or line anchor, a retired identity outside
+  `development/`, and an extension or Studio source of another release than this tree's. `site_identity.py --commit`
+  moves only the `links` of `site-identity.json` (test_site_identity requires their commit to hold this tree's
+  extension source, so each later extension change moves them); these 34 stay on 5dd5ac7b while its extension and
+  Studio sources are the release this tree ships, a move of them goes through `--edits`, and that test fails on any
+  that opens earlier material.
+- **Headers, 404, robots (SITE-06, SITE-07).** `pocol.net/.htaccess` sets nosniff, the referrer and permissions
+  policies, `X-Frame-Options DENY` and a `'self'` CSP (`connect-src` adds `https://explorer.pocol.net`; style
+  attributes are allowed for the guide's illustration), refuses directory listings and `config.php`, and serves the
+  bilingual `404.html`; `robots.txt` and `sitemap.xml` are new. The host must honour `.htaccess` with `mod_headers`
+  (owner check); HSTS is the owner's decision.
+- **Uploads (SITE-02).** An overwrite upload leaves stale files served. After each upload the owner lists the document
+  root on the host and runs `tools/host_files.py --site SITE --listing FILE` (pocol.net, ide.pocol.net,
+  studio.pocol.net): it names each file to delete, each that differs and each that is missing, and keeps host
+  configuration (`api/config.php`, cPanel's `.user.ini` and `php.ini`, `error_log`, `.well-known/`, `cgi-bin/`); the
+  retired 0.4.0 Windows package is DELETE since 2026-11-23 (`LEGACY_NATIVE` is empty). A host `.htaccess` that differs is `MERGE`, never replaced: cPanel
+  writes its MultiPHP handler block and redirects there, so the owner keeps those and adds the snapshot's `.htaccess`
+  unchanged, and `--host-copy .htaccess=COPY` (a downloaded copy of the listed file) confirms that the snapshot's
+  directives are in it as one block (2026-11-22 review). Where a snapshot has no `.htaccess` the host's is kept.
+  pocol.net's deployment guides (`package/DEPLOY-pocol.net-AR.md` and `-EN.md`, shipped beside its cPanel package,
+  below), the IDE's `DEPLOY-README-AR.txt` and the Studio README give the step. `--keep-dir DIR` keeps another site's
+  document root that lies inside this one (2026-11-23).
 
 A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` and `index.html` follows, as does the
 explorer bundle's line in `tools/explorer-s1-include.txt` (a list that names any other explorer bundle fails
@@ -162,6 +261,53 @@ the repository (`.gitignore` ignores every `api/config.php`, CI fails if one is 
 refuses one in a snapshot). The pocol.net PHP files (`api/network.php`, `api/reward.php`) need none. The explorer
 snapshot has no PHP since Sites W8 (its `/api` reads are the gateway's, `deploy/explorer`), and its `SHA256SUMS.txt`
 is not served there.
+
+## pocol.net cPanel package (2026-11-23)
+
+The owner's request of 2026-11-23: the final pocol.net for PoCol Mainnet as a ZIP to extract into the cPanel Document
+Root, with SHA256SUMS and the deployment and rollback steps; only the official site (no explorer, Studio or IDE), and
+nothing deployed, merged or changed on a server.
+
+```sh
+python3 -B deploy/websites/tools/package_site.py --site pocol.net --out DIR
+```
+
+`tools/package_site.py` reads the committed blobs at HEAD (as `tools/site_snapshot.py` does: no untracked, ignored,
+autocrlf-converted or working-tree file ships) and refuses a tree with a tracked change or an untracked file under
+`deploy/websites`, a `site_identity.py --check` that fails or would change anything, a snapshot file whose
+`SHA256SUMS.txt` line is missing or wrong, a line for a file that is neither in the snapshot nor a declared kept-out
+release file, and any file a document root package must never hold (`config.php`, `.user.ini`, `php.ini`,
+`error_log`, other dotfiles, keys, databases, backups, archives, `.git`, `tests/`, `tools/`, `node_modules/`, owner
+notes such as `README*` or `DEPLOY*`). DIR receives:
+
+- `PoCol-pocol.net-site-<commit date>-<12 hex of the commit>.zip`: the document root at the top of the ZIP, every
+  snapshot file but `.htaccess`, the snapshot's `SHA256SUMS.txt` included unchanged. Entries are sorted, files 0644 and
+  folders 0755, each dated the commit time (UTC, so a later package is newer for If-Modified-Since even where a file
+  keeps its size), with no extra field: one commit gives the same bytes (CI builds it twice and compares);
+- `<zip>.sha256`, `pocol.net.htaccess` (the snapshot's `.htaccess`: the host's is merged, never replaced, because
+  cPanel writes its MultiPHP handler block there), `MANIFEST.json` (commit, chain ID, genesis hash, every file with its
+  size and SHA-256) and `PACKAGE-SHA256SUMS.txt`;
+- `DEPLOY-pocol.net-AR.md` and `DEPLOY-pocol.net-EN.md`, rendered from `package/` with the package's name, digest,
+  commit and identity: prerequisites (Document Root, nested document roots, PHP 8.3 with 8.1 the minimum and `curl`,
+  the explorer gateway's state), a backup outside the Document Root (Terminal `tar` with a file list, or File Manager
+  Compress with the archive path set to `/pocol-backups/` in the dialog itself, never a path in the Document Root, where
+  the archive and its `api/config.php` would be served: 2026-11-23 review), the ZIP's check, extraction into the Document Root, the `.htaccess` merge, permissions, the file check
+  (`sha256sum -c` and `tools/host_files.py` until OK, with the expected retired files to delete), cache purge, live
+  checks (`/api/network.php` answering this chain ID and genesis hash, or 503 until the gateway is live) and the
+  rollback (`tar` puts back the earlier files, then the files the package added are listed for review and deleted, and
+  the folders it created that are empty are removed, a nested site's files and folders kept out of both lists;
+  `tests/test_package_site.py` runs steps 2 and 10 as written and checks that the earlier site comes back byte for
+  byte).
+
+The deployment notes are no longer in the document root: `pocol.net/README-AR.txt`, which https://pocol.net/ served,
+said that this copy came before the new network (untrue since the launch of 2026-11-21) and named host internals, was
+removed from the snapshot (its live copy is a file to delete) and its steps are in the guides above.
+`tests/test_package_site.py` checks the package (scratch repositories and the repository's own snapshot) and the
+guides; `tests/test_served_content.py` refuses deployment notes in the document root. The workflow
+`.github/workflows/pocol-net-package.yml` (job "pocol.net cPanel package") runs those tests, builds the package twice,
+compares the two and uploads DIR as the artifact `pocol.net-cpanel-<12 hex of the commit>` (30 days): on the pull
+request, Checks > "pocol.net cPanel package" > Summary > Artifacts. GitHub wraps the artifact in one more ZIP: extract
+that once, and upload the inner `PoCol-pocol.net-site-*.zip`. Nothing is deployed by it.
 
 ## Live comparison, 2026-11-01 (from outside, with strict TLS)
 

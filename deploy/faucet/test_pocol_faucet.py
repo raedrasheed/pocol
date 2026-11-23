@@ -13,8 +13,10 @@ NEW = '0x' + 'ab' * 20
 class Node:
     def __init__(self):
         self.chain = CHAIN; self.nonces = {OP: 5}; self.balances = {OP: 10**21}; self.code = {}; self.sent = []; self.fail_send = None
+        self.genesis = '0x' + '5a' * 32
     def __call__(self, method, params):
         if method == 'eth_chainId': return hex(self.chain)
+        if method == 'pocol_getParams': return {'chainId': self.chain, 'genesisHash': self.genesis}
         if method == 'eth_gasPrice': return hex(10**9)
         if method == 'eth_getTransactionCount': return hex(self.nonces.get(params[0], 0) + sum(1 for s in self.sent if s[0] == params[0]))
         if method == 'eth_getBalance': return hex(self.balances.get(params[0], 0))
@@ -168,6 +170,20 @@ class FaucetRules(unittest.TestCase):
         g = self.faucet(maxFloatWei=str(10**18), ledger=str(self.dir / 'g.json'))
         self.refused(g, '0x' + 'cd' * 20, 503, 'more than the faucet float')
         with self.assertRaises(ValueError): self.faucet(maxFloatWei='0', ledger=str(self.dir / 'h.json'))
+
+    def test_a_configured_genesis_hash_must_be_the_nodes(self):
+        f = self.faucet(genesisHash='0x' + '5a' * 32)
+        self.assertEqual(f.claim(NEW, 'c1')['to'], NEW)
+        self.node.genesis = '0x' + '5A' * 32  # any letter case from the node
+        self.assertEqual(self.faucet(genesisHash='0x' + '5a' * 32, ledger=str(self.dir / 'b.json')).claim('0x' + 'ac' * 20, 'c1')['to'], '0x' + 'ac' * 20)
+        self.node.genesis = '0x' + '5b' * 32  # the same chain ID, another genesis: stopped, nothing sent
+        g = self.faucet(genesisHash='0x' + '5a' * 32, ledger=str(self.dir / 'c.json'))
+        self.refused(g, '0x' + 'cd' * 20, 503, 'different network')
+        self.node.genesis = None
+        self.refused(g, '0x' + 'cd' * 20, 503, 'different network')
+        for bad in ('0x' + '5A' * 32, '5a' * 32, '0x' + '5a' * 31, 7):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                self.faucet(genesisHash=bad, ledger=str(self.dir / 'd.json'))
 
     def test_the_mainnet_example_config_is_within_the_owner_limits(self):
         here = Path(__file__).resolve().parent

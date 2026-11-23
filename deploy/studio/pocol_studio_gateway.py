@@ -609,6 +609,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         # This is a public, credential-free relay. CORS is not authentication.
         self.send_header('Access-Control-Allow-Origin', '*')
+        # Retry-After is not a CORS-safelisted response header: without this a cross-origin page (studio.pocol.net
+        # calling explorer.pocol.net) reads it as null (2026-11-22 review).
+        self.send_header('Access-Control-Expose-Headers', 'Retry-After')
         self.send_header('Connection', 'close')
         if status == 429: self.send_header('Retry-After', '2')
         self.end_headers(); self.close_connection = True

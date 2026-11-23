@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 const STUDIO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = join(STUDIO, 'scripts', 'build-release.py');
-const RELEASE_PAGE = 'https://pocol.net/chrome-extension.html#install';
+const RELEASE_PAGE = 'https://pocol.net/chrome-extension.html#verify-release';
 const root = mkdtempSync(join(tmpdir(), 'pocol-studio-build-'));
 test.after(() => rmSync(root, { recursive: true, force: true }));
 

@@ -4730,6 +4730,7 @@
     "path": "/api/miner-locations.php",
     "headers": []
    },
+   "note": "PHP's 503 named a GeoIP gateway update that does not exist; the gateway says that the network records no miner locations (explorer_api.GEOIP_UNAVAILABLE).",
    "php": {
     "status": 503,
     "headers": {
@@ -4761,7 +4762,7 @@
      ]
     },
     "body": {
-     "error": "Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node."
+     "error": "Miner locations are unavailable: the PoCol network does not record where miners are."
     }
    }
   },
@@ -4779,6 +4780,7 @@
     "path": "/api/miner-locations.php",
     "headers": []
    },
+   "note": "PHP's 503 named a GeoIP gateway update that does not exist; the gateway says that the network records no miner locations (explorer_api.GEOIP_UNAVAILABLE).",
    "php": {
     "status": 503,
     "headers": {
@@ -4810,7 +4812,7 @@
      ]
     },
     "body": {
-     "error": "Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node."
+     "error": "Miner locations are unavailable: the PoCol network does not record where miners are."
     }
    }
   },
@@ -4828,6 +4830,7 @@
     "path": "/api/miner-locations.php",
     "headers": []
    },
+   "note": "PHP's 503 named a GeoIP gateway update that does not exist; the gateway says that the network records no miner locations (explorer_api.GEOIP_UNAVAILABLE).",
    "php": {
     "status": 503,
     "headers": {
@@ -4859,7 +4862,7 @@
      ]
     },
     "body": {
-     "error": "Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node."
+     "error": "Miner locations are unavailable: the PoCol network does not record where miners are."
     }
    }
   },
@@ -4877,6 +4880,7 @@
     "path": "/api/miner-locations.php",
     "headers": []
    },
+   "note": "PHP's 503 named a GeoIP gateway update that does not exist; the gateway says that the network records no miner locations (explorer_api.GEOIP_UNAVAILABLE).",
    "php": {
     "status": 503,
     "headers": {
@@ -4908,7 +4912,7 @@
      ]
     },
     "body": {
-     "error": "Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node."
+     "error": "Miner locations are unavailable: the PoCol network does not record where miners are."
     }
    }
   },
@@ -4926,6 +4930,7 @@
     "path": "/api/miner-locations.php",
     "headers": []
    },
+   "note": "PHP's 503 named a GeoIP gateway update that does not exist; the gateway says that the network records no miner locations (explorer_api.GEOIP_UNAVAILABLE).",
    "php": {
     "status": 503,
     "headers": {
@@ -4957,7 +4962,7 @@
      ]
     },
     "body": {
-     "error": "Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node."
+     "error": "Miner locations are unavailable: the PoCol network does not record where miners are."
     }
    }
   },
@@ -4975,6 +4980,7 @@
     "path": "/api/miner-locations.php",
     "headers": []
    },
+   "note": "PHP's 503 named a GeoIP gateway update that does not exist; the gateway says that the network records no miner locations (explorer_api.GEOIP_UNAVAILABLE).",
    "php": {
     "status": 503,
     "headers": {
@@ -5006,7 +5012,7 @@
      ]
     },
     "body": {
-     "error": "Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node."
+     "error": "Miner locations are unavailable: the PoCol network does not record where miners are."
     }
    }
   },
@@ -5026,6 +5032,7 @@
     "path": "/api/miner-locations.php",
     "headers": []
    },
+   "note": "PHP's 503 named a GeoIP gateway update that does not exist; the gateway says that the network records no miner locations (explorer_api.GEOIP_UNAVAILABLE).",
    "php": {
     "status": 503,
     "headers": {
@@ -5057,7 +5064,7 @@
      ]
     },
     "body": {
-     "error": "Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node."
+     "error": "Miner locations are unavailable: the PoCol network does not record where miners are."
     }
    }
   },
@@ -5077,6 +5084,7 @@
     "path": "/api/miner-locations.php",
     "headers": []
    },
+   "note": "PHP's 503 named a GeoIP gateway update that does not exist; the gateway says that the network records no miner locations (explorer_api.GEOIP_UNAVAILABLE).",
    "php": {
     "status": 503,
     "headers": {
@@ -5108,7 +5116,7 @@
      ]
     },
     "body": {
-     "error": "Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node."
+     "error": "Miner locations are unavailable: the PoCol network does not record where miners are."
     }
    }
   },
@@ -5131,6 +5139,7 @@
     "path": "/api/miner-locations.php",
     "headers": []
    },
+   "note": "PHP's 503 named a GeoIP gateway update that does not exist; the gateway says that the network records no miner locations (explorer_api.GEOIP_UNAVAILABLE).",
    "php": {
     "status": 503,
     "headers": {
@@ -5162,7 +5171,7 @@
      ]
     },
     "body": {
-     "error": "Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node."
+     "error": "Miner locations are unavailable: the PoCol network does not record where miners are."
     }
    }
   },
@@ -5558,6 +5567,7 @@
     "path": "/api/miner-locations.php",
     "headers": []
    },
+   "note": "PHP's 503 named a GeoIP gateway update that does not exist; the gateway says that the network records no miner locations (explorer_api.GEOIP_UNAVAILABLE).",
    "php": {
     "status": 503,
     "headers": {
@@ -5589,7 +5599,7 @@
      ]
     },
     "body": {
-     "error": "Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node."
+     "error": "Miner locations are unavailable: the PoCol network does not record where miners are."
     }
    }
   },
@@ -5671,7 +5681,7 @@
      ]
     },
     "body": {
-     "error": "Automatic GeoIP is unavailable. Install or check the GeoIP gateway update on the Linux node."
+     "error": "Miner locations are unavailable: the PoCol network does not record where miners are."
     }
    }
   },

@@ -193,7 +193,8 @@ async function main() {
     const files = Number(await pub.textContent('#fileCount'));
     ok(`publisher.html lists the ${wrote.files} files (${(wrote.bytes / 1e6).toFixed(2)} MB) and quotes fees read from the node`, files === wrote.files, `${files} files; ${await pub.textContent('#feeDetails')}`);
     // A new wallet, funded from the devnet's alice.
-    await pub.fill('#password', 'devnet-password-only'); await pub.click('details:has(#create) > summary'); await pub.click('#create');
+    await pub.click('details:has(#create) > summary');
+    await pub.fill('#password', 'devnet-password-only'); await pub.fill('#passwordConfirm', 'devnet-password-only'); await pub.click('#create');
     await pub.waitForFunction(() => /^0x[0-9a-fA-F]{40}$/.test(document.getElementById('walletAddress').textContent), null, { timeout: 60000 });
     const wallet = (await pub.textContent('#walletAddress')).trim();
     const aliceNonce = Number(await rpc(8540, 'eth_getTransactionCount', [info.accounts.find((a) => a.label === 'alice').address, 'pending']));

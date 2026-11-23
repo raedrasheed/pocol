@@ -19,13 +19,38 @@
 <body>
 <main>
   <header class="settings-brand"><img src="icons/pocol-128.png" width="40" height="40" alt=""><h1>PoCol — Studio, IDE &amp; network settings</h1></header>
+  <section id="walletSection">
+    <h2>PoCol wallet</h2>
+    <p class="out">One account for PoCol Mainnet: the same encrypted wallet that PoCol Studio and PoCol IDE sign with. Its key is stored only in this browser, encrypted with your password (PBKDF2-SHA256, 600,000 iterations, AES-256-GCM), and is used only inside the extension. Open the toolbar button for the balance, the network status and Send.</p>
+    <p id="acctState" class="out" dir="ltr">…</p>
+    <div id="acctDisclosure" hidden><p class="out">Before the wallet reads the network: to show your balance and send what you approve, the extension sends your wallet address, the transactions you approve and the files you choose to publish to the network profile's endpoint (for PoCol Mainnet, the gateway at explorer.pocol.net), which sees your IP address. Everything sent to the blockchain is public and permanent. Your password and private key never leave the extension.</p><button id="acctAccept" type="button">I understand and agree</button></div>
+    <h3>Back up (export)</h3>
+    <p class="out">Saves the encrypted wallet file. Keep it: Chrome deletes the extension's storage when the extension is removed, and the Chrome Web Store item is a separate installation, so this file (and its password) is how you move the wallet. The file is useless without the password, and the password cannot be recovered.</p>
+    <label for="backupPw">Wallet password</label><input id="backupPw" type="password" autocomplete="current-password">
+    <button id="backup" type="button">Download encrypted backup</button>
+    <h3>Create or import</h3>
+    <p class="out">Creating or importing replaces the wallet saved in this browser only after you confirm it (back that one up first). A new wallet starts empty.</p>
+    <label for="newPw">New wallet password (at least 10 characters)</label><input id="newPw" type="password" autocomplete="new-password">
+    <label for="newPw2">Repeat the password</label><input id="newPw2" type="password" autocomplete="new-password">
+    <label for="importKind">What to import</label>
+    <select id="importKind"><option value="create">Nothing: create a new wallet</option><option value="file">An encrypted PoCol wallet file (backup, Studio or IDE export)</option><option value="privateKey">A private key (64 hexadecimal digits)</option><option value="phrase">A recovery phrase (BIP-39, English, first account m/44'/60'/0'/0/0)</option></select>
+    <div id="importFile" hidden><label for="walletFile">Wallet file</label><input id="walletFile" type="file" accept=".json,.pocol-key,application/json"><label for="filePw">The file's password (empty: the new password above)</label><input id="filePw" type="password" autocomplete="off"></div>
+    <div id="importKey" hidden><label for="privateKey">Private key</label><input id="privateKey" type="password" autocomplete="off" spellcheck="false"></div>
+    <div id="importPhrase" hidden><label for="phrase">Recovery phrase</label><textarea id="phrase" rows="2" autocomplete="off" spellcheck="false"></textarea><p class="out">Only the key of the first account is kept, encrypted; the phrase itself is not stored and the extension cannot show it again. Keep your phrase where it is.</p></div>
+    <button id="acctSave" type="button">Create or import</button>
+    <p id="acctNote" class="out" role="status" dir="ltr"></p>
+    <h3>Connected sites</h3>
+    <p class="out">PoCol Studio (studio.pocol.net) and PoCol IDE (ide.pocol.net) never get your key or address on their own: each publication or contract call opens the extension's own confirmation. Websites opened in the PoCol viewer get an account only after you approve it in the viewer, for that tab only; you can end that access here.</p>
+    <ul id="connections" dir="ltr"></ul>
+  </section>
   <section>
     <h2>PoCol Studio &amp; IDE</h2>
     <p>Create a website with Studio or deploy a smart contract from IDE. PoCol Mainnet, the public network, is configured automatically through its HTTPS gateway.</p>
     <a href="https://studio.pocol.net" target="_blank" rel="noopener noreferrer">Open PoCol Studio</a>
     <p><a href="https://ide.pocol.net" target="_blank" rel="noopener noreferrer">Open PoCol IDE</a></p>
-    <p><a href="tools/Export-Studio-Wallet.ps1" download>Windows wallet export helper</a></p>
-    <p><a href="tools/export-studio-wallet.py" download>Linux wallet export helper</a></p>
+    <p id="helperWin"><a href="tools/Export-Studio-Wallet.ps1" download>Windows wallet export helper</a></p>
+    <p id="helperLinux"><a href="tools/export-studio-wallet.py" download>Linux wallet export helper</a></p>
+    <p id="helperNote" hidden>The wallet export helpers for the native Windows and Linux wallets come with the signed native release; this installation does not include them.</p>
     <h3>Publication history</h3>
     <ul id="studioJobs"></ul>
     <p class="out">Resume an interrupted publication from this list. Signed transactions are retained until the operation completes.</p>
@@ -42,8 +67,8 @@
     <ul id="profiles" dir="ltr"></ul>
   </section>
   <section>
-    <h2>Local wallet</h2>
-    <p class="out">For local networks only. The seed is password-encrypted (PBKDF2 600000 + AES-GCM), keys are derived per network, and the wallet locks after 15 minutes.</p>
+    <h2>Local development wallet (local networks only)</h2>
+    <p class="out">For websites opened from your own local test networks only; it never holds an address on PoCol Mainnet and cannot be exported. Use the PoCol wallet above for Mainnet. The seed is password-encrypted (PBKDF2 600000 + AES-GCM), keys are derived per network, and the wallet locks after 15 minutes.</p>
     <input id="pw" type="password" autocomplete="new-password" placeholder="Password">
     <button id="create" type="button">Create</button> <button id="unlock" type="button">Unlock</button> <button id="lock" type="button">Lock</button>
     <p id="wallet" class="out" dir="ltr"></p>

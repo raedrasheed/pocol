@@ -27,7 +27,7 @@ def sha256(path):
 # An extension package name (the versioned release ZIP or the old unversioned one), like the one
 # deploy/websites/tests/test_downloads.py refuses on every site.
 EXTENSION_PACKAGE = re.compile(r'PoCol-Studio-(?:IDE-Viewer-[^"\'<>\s/]+?|Chrome)\.zip')
-RELEASE_PAGE = 'https://pocol.net/chrome-extension.html#install'
+RELEASE_PAGE = 'https://pocol.net/chrome-extension.html#verify-release'
 
 
 def check_install_dialog(app_js):
