@@ -6,7 +6,8 @@ This release targets `studio.pocol.net` with the matching PoCol Studio & Viewer 
 2026-11-21 20:20:56 UTC, in its network details; its install dialog links pocol.net's extension release and
 verification page (`chrome-extension.html#verify-release`) and no extension package before the signed release. The
 extension checks the network identity against its built-in profile before it signs. Its version follows the
-extension's (0.5.0) instead of the earlier 0.1.x numbering.
+extension's (0.5.0) instead of the earlier 0.1.x numbering; the owner confirmed the jump from 0.1.1 to 0.5.0 on
+2026-11-23 (D5 of `development/decisions/OWNER-DECISIONS-2026-11-23.md`).
 
 ## Verified locally
 

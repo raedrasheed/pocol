@@ -502,7 +502,8 @@ host) could find an answer the node completed after the work deadline and send i
 of `rpc_work_deadline_skips_expired_work_and_releases_resources` on windows-2022 (a batch answered 200, expected 504;
 the assertion text of `e714a230` shows the timing of such a failure).
 
-Fix (approved by the owner on 2026-11-23: "نعم طبق الاصلاح"; local RPC code, not consensus: `pocold/src/rpc.rs` is not in `consensus-sources.lock`): each `Reply` records the instant its
+Fix (approved by the owner on 2026-11-23: "نعم طبق الاصلاح", D6 of
+[OWNER-DECISIONS-2026-11-23.md](../decisions/OWNER-DECISIONS-2026-11-23.md); local RPC code, not consensus: `pocold/src/rpc.rs` is not in `consensus-sources.lock`): each `Reply` records the instant its
 answer was complete (`done`), and `conn` sends it only if it is a BATCH_WALL close or `done < work_by`; any other
 answer is dropped (its reservation is released) and the caller gets 504, as while the work runs. An answer completed
 before the work deadline is still sent when the thread wakes late. Test: the rpc unit test

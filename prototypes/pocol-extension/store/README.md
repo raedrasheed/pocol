@@ -16,6 +16,11 @@ network and connection status (toolbar popup), Send PCOL with a confirmation pag
 extension with their status, an encrypted backup at any time, the Studio and IDE confirmations and the on-chain site
 viewer. It is not a miner. The owner decides the item name (`listing.md`).
 
+Owner decisions of 2026-11-23 ([OWNER-DECISIONS-2026-11-23.md](../../../development/decisions/OWNER-DECISIONS-2026-11-23.md)):
+the store item keeps the id the store assigns (D2, below); the on-chain site viewer stays in the store build and the
+remote-code answer is "Yes" (D3, `listing.md`); only Studio and the IDE connect to the wallet, and websites opened in the
+viewer get no account on PoCol Mainnet in this release (D1).
+
 ## Why a separate store zip
 
 - The release manifest carries `key`, the owner's public key from `release/manifest-key.pub`, which gives the
@@ -27,29 +32,29 @@ viewer. It is not a miner. The owner decides the item name (`listing.md`).
   `README-STUDIO.md`, and the store-install READMEs of `install/` (`tests/package_store_test.mjs`). The code of the
   store item and of the signed side-loaded release is the same build.
 
-## The store item's id: an OWNER DECISION
+## The store item's id: the id the store assigns (owner decision 2026-11-23 D2)
 
 A store item's id is fixed by its first upload, and Chrome keeps an extension's storage per id. The officially
 documented route (developer.chrome.com, manifest `key`: "Package tab ... View public key") goes from the store to the
-side-loaded build, not the other way. The two choices, for the owner:
+side-loaded build, not the other way. The owner decided on 2026-11-23 to accept the id the Chrome Web Store assigns
+("قبول المعرّف الذي يمنحه Chrome Web Store"):
 
-- **A. Recommended: accept the id the store assigns.** Upload the normal store zip (`npm run package:store`, no private
-  key in it). After the first upload, copy the item's public key from the dashboard (Package tab, View public key) and,
-  if side-loaded builds should share the store item's id from then on, commit it as `release/manifest-key.pub` in a
-  later release (`build.mjs` then gives `dist/` the store item's id, and `package-release.py --extension-id` prints it;
-  pocol.net publishes that id). Side-loaded installs made before that keep the old id: they are a separate extension,
-  and their users move their wallet with an encrypted backup (below). Nothing secret leaves the owner's machine.
-- **B. The historical key.pem method (unofficial, not recommended).** An archived Chromium page (not the current
-  publishing documentation) describes uploading a zip with the item's private key as `key.pem` at its root, so that the
-  store item gets that key's id (`gggcoflmedlhlkcdhebmoepmggdnafmp`). Developer reports mention upload errors for it,
-  and that a store id stays reserved even after a draft is deleted, so a failed attempt may make that id unusable.
-  It also puts the release private key into an upload. If the owner chooses it anyway:
-  `python3 scripts/package-store.py --first-upload-key /path/to/owner-manifest-key.pem --unofficial-key-pem` (the
-  packager refuses `--first-upload-key` without that acknowledgement, and checks with `openssl pkey` that the key is
-  the private key of `release/manifest-key.pub`). Upload that zip once from the owner's machine, delete it at once, never
-  publish, sign or commit it, and check the item id on the dashboard before submitting for review.
+- **The route taken: the id the store assigns.** Upload the normal store zip (`npm run package:store`, no private key
+  in it). The store item then has its own id, not the side-loaded release's `gggcoflmedlhlkcdhebmoepmggdnafmp`, so the
+  two are separate extensions with separate storage, and users move their wallet between them with an encrypted backup
+  (below). Nothing secret leaves the owner's machine. After the first upload, note the item's id; pocol.net publishes
+  it with the store link (W16). The dashboard's public key (Package tab, View public key) could later be committed as
+  `release/manifest-key.pub`, so that side-loaded builds share the store item's id (`build.mjs` then gives `dist/` that
+  id, and `package-release.py --extension-id` prints it); that is a later owner decision, and until it side-loaded
+  releases keep `gggcoflmedlhlkcdhebmoepmggdnafmp`.
+- **Not used: the historical key.pem method.** An archived Chromium page (not the current publishing documentation)
+  describes uploading a zip with the item's private key as `key.pem` at its root, so that the store item gets that
+  key's id. It is unofficial, developer reports mention upload errors and ids that stay reserved after a failed
+  attempt, and it puts the release private key into an upload; the owner did not choose it. `scripts/package-store.py`
+  still refuses `--first-upload-key` without the explicit `--unofficial-key-pem` acknowledgement
+  (`tests/package_store_test.mjs`), so the default store zip never holds a key.
 
-Whatever the choice, the owner should opt in to Verified CRX Uploads (developer.chrome.com, "Update your Chrome Web
+The owner should also opt in to Verified CRX Uploads (developer.chrome.com, "Update your Chrome Web
 Store item") with a separate RSA key kept by the owner (its loss takes up to a week to replace), and never reuse an id
 for a different item. Every later upload uses the zip without a key:
 
@@ -71,8 +76,10 @@ extension with empty storage. In every case, the supported way to keep a wallet 
    (`PoCol-Wallet-<first 8 hex digits of the address>-backup.json`). Finish or cancel open publications first (Settings, Publication history).
    A Studio wallet backup saved earlier (`PoCol-Studio-Wallet.json`) and the Windows helper's export
    (`tools/Export-Studio-Wallet.ps1`) are the same format and work too.
-2. Install the store version. If the store item has the same id as the side-loaded copy (choice B), remove the
-   side-loaded copy first: Chrome does not install both, and removing it deletes its storage, so step 1 comes first.
+2. Install the store version. Its id is the one the store assigned (D2), not the side-loaded copy's, so Chrome keeps
+   both installed side by side, each with its own storage, and both run on Studio and the IDE until step 4. (Only if a later release gave side-loaded builds the store
+   item's id would Chrome refuse to install both: then remove the side-loaded copy first, after step 1, since removing
+   it deletes its storage.)
 3. In the store version: Settings, "PoCol wallet", "An encrypted PoCol wallet file", choose the file, enter its
    password and a password for this browser: the same address comes back (`tests/account_test.mjs`, "EXT-04";
    `tests/wallet_ui_browser.mjs` restores it into a fresh browser profile).
@@ -89,7 +96,7 @@ release).
    version).
 2. `npm ci --ignore-scripts && npm test` pass; `npm run package` packages the side-loaded release (the owner signs it
    with `deploy/release`).
-3. `npm run package:store` (choice A above; choice B only with `--first-upload-key … --unofficial-key-pem`).
+3. `npm run package:store` (the store-assigned id, D2; no `--first-upload-key`).
 4. Render the images from the switched build and check `screenshots/RENDERED-FROM.json` says `"placeholderBuild": false`:
    `PLAYWRIGHT_BROWSERS_PATH=… PLAYWRIGHT=/path/to/playwright/index.mjs node store/render-store-assets.mjs`.
    The script loads `dist/` in Chromium, answers studio.pocol.net and ide.pocol.net with a local bridge page and
@@ -99,10 +106,11 @@ release).
 6. Fill the dashboard from `listing.md`: the remote-code answer is "Yes" with the justification and test instructions
    there; confirm the data-usage answers; add the support contact e-mail the dashboard asks for (not in this
    repository).
-7. Upload, note the item id (choice A) or check it (choice B), submit for review. Then publish the store link, the
-   extension id and the release key fingerprint on pocol.net (W16).
+7. Upload, note the item id the store assigned, submit for review. Then publish the store link, the store item's id
+   (beside the side-loaded release's) and the release key fingerprint on pocol.net (W16).
 
-Known review points: the viewer runs on-chain website code in the sandboxed page (disclosed in `listing.md`). EXT-10
+Known review points: the viewer runs on-chain website code in the sandboxed page (disclosed in `listing.md`; it stays
+in the store build, owner decision 2026-11-23 D3, so a longer review is expected). EXT-10
 (final review, 2026-11-22): the store zip no longer ships the wallet export helpers (`tools/`) or the Developer-mode
 READMEs; `scripts/package-store.py` writes the store-install texts of `install/` as `README-EN.md` and `README-AR.md`,
 leaves out `README-STUDIO.md`, and refuses a store text that says "Load unpacked", "Developer mode" or

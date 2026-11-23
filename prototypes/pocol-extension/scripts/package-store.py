@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Package the release build for the Chrome Web Store.
 
-    python3 scripts/package-store.py [OUTPUT.zip] [--retired FILE]          (every store upload; the recommended way)
+    python3 scripts/package-store.py [OUTPUT.zip] [--retired FILE]          (every store upload; the route decided)
     python3 scripts/package-store.py --first-upload-key KEY.pem --unofficial-key-pem [OUTPUT.zip]
-                                                     (only if the owner chooses the unofficial key.pem method, once)
+                                                     (the unofficial key.pem method; not used, see below)
 
 The release manifest has a "key" field: build.mjs writes the owner's public key of release/manifest-key.pub into it,
 which gives the side-loaded release its fixed extension id. Developer reports say the Chrome Web Store refuses an
@@ -20,11 +20,12 @@ upload in any case. This packager makes the store upload from the same dist/:
   - the archive metadata is the release zip's (scripts/package-release.py write_release_zip), so the store zip is
     reproducible too, and its `<zip>.sha256` (integrity only) is written beside it.
 
-The extension id is the owner's decision (store/README.md, "The store item's id"). The documented and recommended
-route is to upload this zip without any key, accept the id the store assigns, and, if side-loaded builds should share
-it, adopt the item's public key (dashboard, Package tab, View public key) in release/manifest-key.pub for later
-releases; users move their wallets with the encrypted backup in every case. The alternative is the historical key.pem
-method, which only an archived Chromium page describes: --first-upload-key KEY.pem writes `<name>-first-upload.zip`
+The extension id: by owner decision of 2026-11-23 (D2, development/decisions/OWNER-DECISIONS-2026-11-23.md;
+store/README.md, "The store item's id") the owner uploads this zip without any key and accepts the id the store
+assigns, the documented route. Whether side-loaded builds later share it, by adopting the item's public key
+(dashboard, Package tab, View public key) in release/manifest-key.pub, is a later owner decision; users move their
+wallets with the encrypted backup in every case. The historical key.pem method is not used; the code for it stays,
+behind its acknowledgement, and only an archived Chromium page describes it: --first-upload-key KEY.pem writes `<name>-first-upload.zip`
 with the matching private key added as key.pem, after checking with `openssl pkey` that KEY.pem is the private key of
 release/manifest-key.pub. It is refused unless --unofficial-key-pem acknowledges that the method is unofficial, that
 the zip holds the release private key, and that a failed attempt may leave the id reserved. That zip is never

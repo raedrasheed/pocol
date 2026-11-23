@@ -151,7 +151,9 @@ does.
 
 - **No retired extension package (SITE-01).** No page of pocol.net, the guide, Studio's install dialog or the IDE
   links an extension package before the signed release: they link `pocol.net/chrome-extension.html#verify-release`
-  and say that the PoCol Mainnet extension is published with the signed release. The IDE's button is the anchored edit
+  and say that the PoCol Mainnet extension is published with the signed release. The owner approved this policy on
+  2026-11-23 ("لا رابط ولا بصمة قبل الإصدار الموقّع", no link and no digest before the signed release: D4 of
+  `development/decisions/OWNER-DECISIONS-2026-11-23.md`). The IDE's button is the anchored edit
   `tools/release-pending-edits.json` (after W14). The retired network's 0.4.1 package, its unversioned copy
   `PoCol-Studio-Chrome.zip` and the two tracked `.sha256` files left `SHA256SUMS.txt` and `keptOut` through
   `site_identity.py --drop-download`, so they are files to delete from the hosts. `tests/test_downloads.py` refuses any
@@ -173,8 +175,10 @@ does.
   extension topic carry, in English and Arabic, the extension ID `gggcoflmedlhlkcdhebmoepmggdnafmp` and the release
   key fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` with `deploy/release/README.md`'s user
   procedure; the home page's "Verify a download" carries the fingerprint only and links that section.
-  `tests/test_downloads.py` derives both from `manifest-key.pub` and `allowed_signers`. The page says that no signed
-  release is offered yet. This is the repository snapshot: nothing is public until the owner approves the early
+  `tests/test_downloads.py` derives both from `manifest-key.pub` and `allowed_signers`. That ID is the side-loaded
+  signed release's: the Chrome Web Store item gets the ID the store assigns at its first upload (owner decision
+  2026-11-23 D2, `prototypes/pocol-extension/store/README.md`), and pocol.net publishes it with the store link (W16),
+  beside this one. The page says that no signed release is offered yet. This is the repository snapshot: nothing is public until the owner approves the early
   publication and uploads it (pending on 2026-11-22).
 - **Download structure.** `wallet-downloads.js` has a `release` record. `tools/release_page.py RELEASE_DIR` fills the
   buttons (URL, size, SHA-256, `.sig`) and the record (version, signed `SHA256SUMS` and `.sig`) only from a directory

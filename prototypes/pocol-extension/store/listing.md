@@ -84,7 +84,9 @@ A wallet for the PoCol blockchain: it keeps the user's PoCol key on the user's d
 user's approval, to send PCOL and to publish websites and contracts from PoCol Studio and PoCol IDE; it also opens the
 websites published on PoCol in an isolated viewer that verifies them against the chain. On PoCol Mainnet the viewer
 gives websites no account and no signature in this version (`sw.js` seedWalletAllowed); only a local development
-network the user adds can use the viewer's local wallet, after the user's approval. Every function holds the user's
+network the user adds can use the viewer's local wallet, after the user's approval. Only PoCol Studio and PoCol IDE
+connect to the wallet in this release; connections for other websites are deferred to a later release (owner decision
+2026-11-23 D1). Every function holds the user's
 PoCol key, asks the user to approve a PoCol transaction, or shows what the PoCol chain holds.
 
 ### Permission justifications
@@ -128,7 +130,9 @@ not read page content.
 
 ### Remote code
 
-**Answer: Yes, I am using remote code**, with the justification below. The Chrome Web Store program policies (Manifest
+**Answer: Yes, I am using remote code**, with the justification below: the viewer stays in the store build (owner
+decision 2026-11-23 D3, "يبقى في نسخة المتجر من الإضافة", it stays in the store version;
+`development/decisions/OWNER-DECISIONS-2026-11-23.md`). The Chrome Web Store program policies (Manifest
 V3 requirements, read 2026-11-22) exempt code in sandboxed pages from the remote-code restriction but say it "must
 still be possible to determine the full functionality" of the extension, and the dashboard rejects remote code that is
 not declared; declaring it is never a violation, while "No" with the viewer running site code risks a "Blue Argon"
@@ -160,8 +164,9 @@ https://studio.pocol.net, publish a sample site and see the extension's confirma
 the consent box and the wallet's password). A published site opens from the omnibox (`pocol pocol-public/<address>`)
 in the viewer; it runs isolated and cannot reach the network or the wallet.
 
-If the review objects to the viewer, the fallback is a store build without it (no sandbox page, viewer, omnibox or
-declarativeNetRequest, so the answer becomes "No"); that variant is not built or tested here.
+A store build without the viewer (no sandbox page, viewer, omnibox or declarativeNetRequest, so the answer would be
+"No") is not made: the owner kept the viewer (D3). If the review objects to the viewer, what to do then is a new owner
+decision; that variant is not built or tested here.
 
 ### Data usage
 
