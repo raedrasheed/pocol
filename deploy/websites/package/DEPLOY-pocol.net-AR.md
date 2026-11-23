@@ -66,9 +66,12 @@
 دوّن قيمة `STAMP` المطبوعة. وإن وُجد موقع متداخل (الخطوة 1.2) فأضف `--exclude=./ide` إلى أمر `tar`، واستخدم
 `find . -path ./ide -prune -o -type f -print0` في الأمر الأول.
 
-**من File Manager:** من Settings فعّل "Show Hidden Files (dotfiles)". افتح جذر الموقع، ثم Select All، ثم Compress
-ثم Zip Archive، وسمّ الأرشيف `pocol.net-backup-YYYYMMDD.zip`. انقله إلى المجلد الرئيسي (خارج جذر الموقع) ثم نزّل
-نسخة منه إلى جهازك، ونزّل أيضًا نسخة من `.htaccess`.
+**من File Manager:** من Settings فعّل "Show Hidden Files (dotfiles)". أنشئ في المجلد الرئيسي (خارج جذر الموقع) المجلد
+`pocol-backups` ‏(+ Folder). ثم افتح جذر الموقع، ثم Select All (وألغِ تحديد مجلد أي موقع متداخل، الخطوة 1.2)، ثم Compress
+ثم Zip Archive. تقترح نافذة الضغط مسارًا للأرشيف داخل جذر الموقع: استبدل المسار كله بـ
+`/pocol-backups/pocol.net-backup-YYYYMMDD.zip` قبل الضغط على Compress، حتى لا يُكتب الأرشيف أبدًا حيث يقدّمه الموقع
+للزوار (مسارات File Manager تبدأ من المجلد الرئيسي: `/public_html/...` هو جذر الموقع، و`/pocol-backups/...` خارجه).
+ثم نزّل إلى جهازك نسخة من الأرشيف ونسخة من `.htaccess`.
 
 في الحالتين نزّل النسخة الاحتياطية إلى جهازك قبل المتابعة.
 
@@ -175,17 +178,27 @@ Extract Files، واسمح باستبدال الملفات الموجودة.
 
     cd "$DOCROOT"
     tar -xzf ~/pocol-backups/pocol.net-docroot-$STAMP.tar.gz
-    LC_ALL=C comm -13 <(cut -c67- ~/pocol-backups/pocol.net-before-$STAMP-files.txt | LC_ALL=C sort) <(find . -type f | LC_ALL=C sort)
+    LC_ALL=C comm -13 <(cut -c67- ~/pocol-backups/pocol.net-before-$STAMP-files.txt | LC_ALL=C sort) <(find . -type f | LC_ALL=C sort) > ~/pocol-backups/added-$STAMP.txt
+    cat ~/pocol-backups/added-$STAMP.txt
 
-يعيد `tar` كل ملف سابق، ومنه ملف `.htaccess` السابق. ويسرد الأمر الأخير الملفات التي أضافتها هذه الحزمة ولم تكن في
-الموقع السابق: احذفها (وأبقِ مجلد أي موقع متداخل وملفات `KEEP`، مثل `error_log` الذي كتبه PHP بعد ذلك). ثم تحقق:
+يعيد `tar` كل ملف سابق، ومنه ملف `.htaccess` السابق. ويسرد الأمران الأخيران، في الملف
+`~/pocol-backups/added-$STAMP.txt`، الملفات التي أضافتها هذه الحزمة ولم تكن في الموقع السابق. راجع القائمة واحذف منها
+كل سطر يجب إبقاؤه (ملف `KEEP`، مثل `error_log` الذي كتبه PHP بعد ذلك). ومع موقع متداخل (الخطوة 1.2) استخدم
+`find . -path ./ide -prune -o -type f -print` في الأمر الثالث، حتى لا يُسرد أي ملف من ملفات ذلك الموقع. ثم احذف الملفات
+المسرودة، والمجلدات التي أنشأتها هذه الحزمة وصارت فارغة (تبقى مجلدات الموقع السابق، ومنها مجلد `cgi-bin/` الفارغ):
+
+    tr '\n' '\0' < ~/pocol-backups/added-$STAMP.txt | xargs -0 -r rm -f --
+    LC_ALL=C comm -13 <(tar -tzf ~/pocol-backups/pocol.net-docroot-$STAMP.tar.gz | sed -n 's#/$##p' | LC_ALL=C sort) <(find . -mindepth 1 -type d | LC_ALL=C sort) | LC_ALL=C sort -r | tr '\n' '\0' | xargs -0 -r rmdir --ignore-fail-on-non-empty --
+
+(ومع موقع متداخل: `find . -mindepth 1 -path ./ide -prune -o -type d -print` في الأمر الأخير). ثم تحقق:
 
     sha256sum -c --quiet ~/pocol-backups/pocol.net-before-$STAMP-files.txt && echo "RESTORED"
 
 لا يُطبع إلا `RESTORED` (قد يختلف ملف سجل كتبه PHP بعد النسخ الاحتياطي). ثم امسح التخزين المؤقت كما في الخطوة 8.
 
-**من File Manager:** ارفع أرشيف النسخة الاحتياطية من الخطوة 2 إلى المجلد الرئيسي، وفكّه داخل جذر الموقع (مع السماح
-بالاستبدال)، وأعد ملف `.htaccess` المحفوظ إن لزم، واحذف الملفات التي أضافتها هذه الحزمة (بمقارنتها بقائمة ملفات
-النسخة الاحتياطية)، ثم امسح التخزين المؤقت.
+**من File Manager:** حدّد أرشيف النسخة الاحتياطية من الخطوة 2 (`/pocol-backups/pocol.net-backup-YYYYMMDD.zip`، وارفعه
+إلى هناك من جهازك إن لم يعد موجودًا)، وفكّه داخل جذر الموقع (مع السماح بالاستبدال)، وأعد ملف `.htaccess` المحفوظ إن
+لزم، واحذف الملفات والمجلدات الفارغة التي أضافتها هذه الحزمة (بمقارنتها بمحتوى الأرشيف، مع إبقاء مجلد أي موقع متداخل)،
+ثم امسح التخزين المؤقت.
 
 بعد الاستعادة لا تنطبق أداة `host_files.py` (فهي تقارن بهذه الحزمة): المرجع هو قائمة ملفات النسخة الاحتياطية نفسها.

@@ -221,6 +221,61 @@ class Guides(unittest.TestCase):
         # The stale-file sentence of the earlier pocol.net/README-AR.txt (test_downloads.STALE_FILE_NOTE) moved here.
         self.assertIn(test_downloads.DownloadLinks.STALE_FILE_NOTE, ' '.join(ar.split()))
 
+    def test_no_backup_archive_is_written_inside_the_document_root(self):
+        # An archive in the Document Root is served to anyone and holds api/config.php (2026-11-23 review): the File
+        # Manager backup names its full path outside it, in the Compress dialog itself, and every backup path the
+        # guides name is under the home folder's pocol-backups/ (never a bare name, which File Manager would write
+        # into the open folder, the Document Root).
+        for lang, replace in (('EN', 'replace the\nwhole path with'), ('AR', 'استبدل المسار كله بـ')):
+            text = self.text(lang)
+            self.assertIn(replace, text, lang)
+            for m in re.finditer(r'pocol\.net-(?:backup|docroot|before)-', text):
+                self.assertEqual(text[m.start() - len('/pocol-backups/'):m.start()], '/pocol-backups/',
+                                 f'{lang}: {text[m.start() - 40:m.end() + 20]!r}')
+            self.assertGreaterEqual(len(re.findall(r'/pocol-backups/pocol\.net-backup-YYYYMMDD\.zip', text)), 2, lang)
+
+    def commands(self, text, start, stop):
+        part = text[text.index(start):]
+        part = part[:part.index(stop)]
+        return [line[4:] for line in part.splitlines() if line.startswith('    ') and not line.startswith('     ')]
+
+    def test_the_terminal_backup_and_rollback_restore_the_previous_site(self):
+        # Steps 2 and 10 of the guide, run as written in a scratch home folder: the rollback puts back every earlier
+        # file byte for byte, deletes the files the package added and the folders it created, keeps the earlier site's
+        # empty folders (cgi-bin/), and prints RESTORED. The guides run the same commands (the test above).
+        en = self.text('EN')
+        backup = self.commands(en, '## 2.', '**With File Manager:**')
+        rollback = self.commands(en, '## 10.', '**With File Manager:**')
+        self.assertIn('tar -czf ~/pocol-backups/pocol.net-docroot-$STAMP.tar.gz .', backup)
+        self.assertTrue(any('rmdir' in c for c in rollback) and any('rm -f' in c for c in rollback), rollback)
+        old = {'index.html': b'old site\n', 'downloads/PoCol-Mainnet-0.4.0-Windows.zip': b'PK old', '.htaccess': b'# cPanel\n',
+               'api/config.php': b'<?php $k = 1;\n', '.well-known/acme-challenge/t': b't', 'name with space.txt': b's'}
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / 'home'
+            docroot = home / 'public_html'
+            for rel, data in old.items():
+                (docroot / rel).parent.mkdir(parents=True, exist_ok=True)
+                (docroot / rel).write_bytes(data)
+            (docroot / 'cgi-bin').mkdir()
+            dirs_before = sorted(str(p.relative_to(docroot)) for p in docroot.rglob('*') if p.is_dir())
+            # The package's extraction (step 4): a changed page, new files, a new folder and a nested new folder.
+            deploy = ["printf 'new site\\n' > index.html", 'mkdir -p assets/icons api', "printf 'png' > assets/icons/a.png",
+                      "printf 'php' > api/network.php", "printf 'sums' > SHA256SUMS.txt"]
+            script = '\n'.join(['set -e', *backup, *deploy, *rollback])
+            env = dict(os.environ, HOME=str(home), DOCROOT=str(docroot), LC_ALL='C')
+            run = subprocess.run(['bash', '-c', script], capture_output=True, text=True, env=env, cwd=tmp, timeout=120)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertEqual(run.stdout.strip().splitlines()[-1], 'RESTORED', run.stdout)
+            after = {str(p.relative_to(docroot)): p.read_bytes() for p in docroot.rglob('*') if p.is_file()}
+            self.assertEqual(after, old)
+            self.assertEqual(sorted(str(p.relative_to(docroot)) for p in docroot.rglob('*') if p.is_dir()), dirs_before)
+        for lang in ('AR', 'EN'):
+            text = self.text(lang)
+            section = text[text.index('## 10.'):]
+            # A nested site's files and folders never enter the rollback's lists.
+            self.assertIn('`find . -path ./ide -prune -o -type f -print`', section, lang)
+            self.assertIn('`find . -mindepth 1 -path ./ide -prune -o -type d -print`', section, lang)
+
     def test_the_files_the_guides_name_for_deletion_are_delete_rows(self):
         # Each downloads/ or top-level file the guides expect host_files.py to mark DELETE is not in the snapshot, and
         # the tool says DELETE for it; the retired network's 0.4.0 Windows package among them (2026-11-23).

@@ -70,9 +70,12 @@ Keep the backup outside the Document Root: an archive inside it can be downloade
 Write down the printed `STAMP`. For a nested site (step 1.2) add `--exclude=./ide` to `tar` and use
 `find . -path ./ide -prune -o -type f -print0` in the first command.
 
-**With File Manager:** Settings > tick "Show Hidden Files (dotfiles)". Open the Document Root, Select All, Compress >
-Zip Archive, name it `pocol.net-backup-YYYYMMDD.zip`. Move that archive to your home folder (outside the Document
-Root) and Download a copy to your computer. Also download a copy of `.htaccess`.
+**With File Manager:** Settings > tick "Show Hidden Files (dotfiles)". In your home folder (outside the Document
+Root), create the folder `pocol-backups` (+ Folder). Open the Document Root, Select All (deselect a nested site's
+folder, step 1.2), Compress > Zip Archive. The dialog proposes an archive path inside the Document Root: replace the
+whole path with `/pocol-backups/pocol.net-backup-YYYYMMDD.zip` before you press Compress, so that the archive is never
+written where the site serves it (File Manager paths start at your home folder: `/public_html/...` is the Document
+Root, `/pocol-backups/...` is outside it). Then Download a copy of the archive and of `.htaccess` to your computer.
 
 Either way, download the backup to your computer before going on.
 
@@ -183,19 +186,30 @@ The retired network's files are such files.
 
     cd "$DOCROOT"
     tar -xzf ~/pocol-backups/pocol.net-docroot-$STAMP.tar.gz
-    LC_ALL=C comm -13 <(cut -c67- ~/pocol-backups/pocol.net-before-$STAMP-files.txt | LC_ALL=C sort) <(find . -type f | LC_ALL=C sort)
+    LC_ALL=C comm -13 <(cut -c67- ~/pocol-backups/pocol.net-before-$STAMP-files.txt | LC_ALL=C sort) <(find . -type f | LC_ALL=C sort) > ~/pocol-backups/added-$STAMP.txt
+    cat ~/pocol-backups/added-$STAMP.txt
 
-`tar` puts back every earlier file, the earlier `.htaccess` included. The last command lists the files that this
-package added and the earlier site did not have: delete them (keep a nested site's folder and the `KEEP` files, such as
-an `error_log` PHP wrote since). Then check:
+`tar` puts back every earlier file, the earlier `.htaccess` included. The last two commands list, in
+`~/pocol-backups/added-$STAMP.txt`, the files that this package added and the earlier site did not have. Review that
+list and remove from it every line to keep (a `KEEP` file, such as an `error_log` PHP wrote since). With a nested site
+(step 1.2), use `find . -path ./ide -prune -o -type f -print` in the third command, so that no file of that site is
+listed. Then delete the listed files, and the folders that this package created and that are now empty (the earlier
+site's folders, an empty `cgi-bin/` included, stay):
+
+    tr '\n' '\0' < ~/pocol-backups/added-$STAMP.txt | xargs -0 -r rm -f --
+    LC_ALL=C comm -13 <(tar -tzf ~/pocol-backups/pocol.net-docroot-$STAMP.tar.gz | sed -n 's#/$##p' | LC_ALL=C sort) <(find . -mindepth 1 -type d | LC_ALL=C sort) | LC_ALL=C sort -r | tr '\n' '\0' | xargs -0 -r rmdir --ignore-fail-on-non-empty --
+
+(with a nested site: `find . -mindepth 1 -path ./ide -prune -o -type d -print` in the last command). Then
+check:
 
     sha256sum -c --quiet ~/pocol-backups/pocol.net-before-$STAMP-files.txt && echo "RESTORED"
 
 No line other than `RESTORED` (a log file PHP has written since may differ). Purge the cache as in step 8.
 
-**With File Manager:** upload the backup archive of step 2 to the home folder, Extract it into the Document Root
-(allow overwrite), put back the saved `.htaccess` if needed, delete the files this package added (compare with the
-backup's file list), and purge the cache.
+**With File Manager:** select the backup archive of step 2 (`/pocol-backups/pocol.net-backup-YYYYMMDD.zip`; upload it
+there from your computer if it is gone), Extract it into the Document Root (allow overwrite), put back the saved
+`.htaccess` if needed, delete the files and the empty folders this package added (compare with the archive's content;
+keep a nested site's folder), and purge the cache.
 
 After a rollback, `host_files.py` does not apply (it compares with this package): the backup's own file list is the
 reference.
