@@ -112,6 +112,17 @@ its true notices (the migration warnings and the 404 note), and `sitemap.xml` li
 `404.html` and `faucet.html` (the faucet page stays out of it so that `FaucetPage`'s list of the files that name the
 faucet is unchanged; the home page links it).
 
+## pocol.net cPanel package (2026-11-23)
+
+`test_package_site.py` builds `tools/package_site.py`'s package from scratch Git repositories and from the repository's
+own snapshot: the ZIP holds exactly the committed snapshot but `.htaccess` (shipped beside it), each file as
+`SHA256SUMS.txt` lists it; two builds are byte-identical; entries are sorted, 0644 and 0755, dated the commit time, with
+no extra field; a later commit gets a later time and name; ignored and untracked files never ship; a dirty tree, a stale
+or incomplete `SHA256SUMS.txt`, a non-empty output folder and every file a document root must never hold are refused;
+and both guides are filled, run the same commands, keep the stale-file sentence of the earlier `README-AR.txt`, and
+name for deletion only files that `host_files.py` marks DELETE. On a clean checkout it also runs the build with
+`site_identity.py --check`.
+
 ## Site truth (owner decision 4, 2026-11-18)
 
 `test_launch_decisions.py` (`LaunchTexts`) refuses the removed launch-blocking and retired-network texts in every
@@ -127,7 +138,8 @@ The Python tests (`test_site_identity.py`) switch a temporary copy of the snapsh
 every `--check` refusal, and guard `config.php`: none is tracked, `.gitignore` ignores it, the tool never reads one.
 They also check that the explorer snapshot is static (Sites W8): no `api/`, `.php` or dotfile, which `--check` refuses.
 
-The PHP test needs PHP 8, curl and POSIX functions on Linux. Its 52 checks exercise pocol.net's network summary and
+The PHP test needs PHP 8.1 or later (the endpoints use a readonly property and a `never` return type), curl and POSIX
+functions on Linux. Its 98 checks exercise pocol.net's network summary and
 reward page (`pocol.net/api/network.php`, `reward.php`): pinned summary identity/branch consistency, the paged
 `pocol_getMembers` reads (600 and 10,000 members, a page at another block, a short page, a changed count, over 10,000),
 the v3 reward summary (pot = issued + fees - fee share + carry in; paid + burned + carried; bond fills; final and

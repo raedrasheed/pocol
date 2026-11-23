@@ -9,7 +9,10 @@
 - sitemap.xml lists exactly the served pages, each a file of the snapshot, and robots.txt names it. 404.html is not a
   page to index, and the faucet claim page faucet.html is left out on purpose: test_launch_decisions.FaucetPage keeps
   the files that name the faucet to the claim page, the home page (which links it), locales.js, SHA256SUMS.txt and the
-  privacy policy, and that rule stays.
+  privacy policy, and that rule stays;
+- the document root holds no deployment instructions or other owner notes: they ship beside the ZIP
+  (deploy/websites/tools/package_site.py), so https://pocol.net/ never serves them (2026-11-23: README-AR.txt said the
+  copy came before the new network and named host internals).
 The files are the tracked ones (git ls-files), so an ignored or untracked file in a checkout is not judged."""
 import re, subprocess, unittest
 from pathlib import Path
@@ -87,6 +90,11 @@ class ServedContent(unittest.TestCase):
             listed.add(rel)
         self.assertEqual(listed, pages)
         self.assertIn('Sitemap: https://pocol.net/sitemap.xml', (MAIN / 'robots.txt').read_text(encoding='utf-8'))
+
+    def test_the_document_root_holds_no_deployment_notes(self):
+        notes = [rel for rel in tracked() if re.search(r'(?i)(^|/)(readme|deploy|install|notes?)[^/]*$', rel)]
+        self.assertEqual(notes, [], 'deployment instructions ship beside the ZIP (tools/package_site.py), not in the '
+                                    'document root, where https://pocol.net/ would serve them')
 
 if __name__ == '__main__':
     unittest.main()

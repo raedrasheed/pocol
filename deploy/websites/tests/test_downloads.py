@@ -103,7 +103,9 @@ class DownloadLinks(unittest.TestCase):
         self.assertEqual(LINK.findall(sample), [('pocol.net', 'a.zip'), ('', 'b.zip'), ('', 'c.zip'), ('', 'd.zip'),
                                                 ('', 'e.png'), ('', 'f.zip'), ('ide.pocol.net', 'g.zip'), ('', 'h.zip')])
 
-    # The owner's upload guides (pocol.net/README-AR.txt, ide.pocol.net/DEPLOY-README-AR.txt, SITE-02) and the sentence
+    # The owner's upload guides served from a document root (ide.pocol.net/DEPLOY-README-AR.txt, SITE-02; pocol.net's
+    # README-AR.txt left the document root on 2026-11-23 for deploy/websites/package/DEPLOY-pocol.net-AR.md, which
+    # keeps the sentence and is checked by test_package_site.py) and the sentence
     # in them that names the removed invitation as an old file that stays on the host until it is deleted.
     HOST_GUIDES = ('README-AR.txt', 'DEPLOY-README-AR.txt')
     STALE_FILE_NOTE = 'يبقى على الخادم كل ملف لم يعد في هذه النسخة ويظل متاحًا للزوار، مثل ملف الشبكة القديم downloads/network.pocol.json'

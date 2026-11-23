@@ -1,0 +1,63 @@
+name: pocol.net cPanel package
+# The cPanel deployment package of pocol.net's document root (the owner's request of 2026-11-23): the ZIP to extract
+# into the Document Root, its .sha256, the .htaccess to merge by hand, the Arabic and English deployment and rollback
+# guides, MANIFEST.json and PACKAGE-SHA256SUMS.txt (deploy/websites/tools/package_site.py). It is built from the
+# committed tree only, after site_identity.py --check, and uploaded as the artifact pocol.net-cpanel-<12 hex of the
+# commit> (Summary > Artifacts of this run). Nothing is deployed and no pocol.net host is contacted.
+on:
+  pull_request:
+    paths:
+      - 'deploy/websites/**'
+      - 'deploy/mainnet/**'
+      - 'deploy/release/assemble_release.py'
+      - 'deploy/standalone/package.py'
+      - 'prototypes/pocol-extension/package.json'
+      - '.github/workflows/pocol-net-package.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/websites/**'
+      - 'deploy/mainnet/**'
+      - 'deploy/release/assemble_release.py'
+      - 'deploy/standalone/package.py'
+      - 'prototypes/pocol-extension/package.json'
+      - '.github/workflows/pocol-net-package.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pocol-net-cpanel-package:
+    name: pocol.net cPanel package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Preserve source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Package tests
+        run: python3 -B -m unittest discover -s deploy/websites/tests -p test_package_site.py -v
+      - name: Build the package
+        id: package
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/pocol.net-cpanel"
+          python3 -B deploy/websites/tools/package_site.py --site pocol.net --out "$out"
+          (cd "$out" && sha256sum -c PACKAGE-SHA256SUMS.txt)
+          echo "short=$(git -c core.abbrev=12 log -1 --format=%h | cut -c1-12)" >> "$GITHUB_OUTPUT"
+          echo "out=$out" >> "$GITHUB_OUTPUT"
+          ls -l "$out"
+      - name: The same commit builds the same bytes
+        run: |
+          set -euo pipefail
+          again="$RUNNER_TEMP/pocol.net-cpanel-again"
+          python3 -B deploy/websites/tools/package_site.py --site pocol.net --out "$again"
+          diff -r "${{ steps.package.outputs.out }}" "$again"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pocol.net-cpanel-${{ steps.package.outputs.short }}
+          path: ${{ steps.package.outputs.out }}
+          if-no-files-found: error
+          retention-days: 30

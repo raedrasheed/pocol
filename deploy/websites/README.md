@@ -223,7 +223,9 @@ does.
   writes its MultiPHP handler block and redirects there, so the owner keeps those and adds the snapshot's `.htaccess`
   unchanged, and `--host-copy .htaccess=COPY` (a downloaded copy of the listed file) confirms that the snapshot's
   directives are in it as one block (2026-11-22 review). Where a snapshot has no `.htaccess` the host's is kept.
-  `pocol.net/README-AR.txt`, the IDE's `DEPLOY-README-AR.txt` and the Studio README give the step.
+  pocol.net's deployment guides (`package/DEPLOY-pocol.net-AR.md` and `-EN.md`, shipped beside its cPanel package,
+  below), the IDE's `DEPLOY-README-AR.txt` and the Studio README give the step. `--keep-dir DIR` keeps another site's
+  document root that lies inside this one (2026-11-23).
 
 A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` and `index.html` follows, as does the
 explorer bundle's line in `tools/explorer-s1-include.txt` (a list that names any other explorer bundle fails
@@ -243,6 +245,49 @@ the repository (`.gitignore` ignores every `api/config.php`, CI fails if one is 
 refuses one in a snapshot). The pocol.net PHP files (`api/network.php`, `api/reward.php`) need none. The explorer
 snapshot has no PHP since Sites W8 (its `/api` reads are the gateway's, `deploy/explorer`), and its `SHA256SUMS.txt`
 is not served there.
+
+## pocol.net cPanel package (2026-11-23)
+
+The owner's request of 2026-11-23: the final pocol.net for PoCol Mainnet as a ZIP to extract into the cPanel Document
+Root, with SHA256SUMS and the deployment and rollback steps; only the official site (no explorer, Studio or IDE), and
+nothing deployed, merged or changed on a server.
+
+```sh
+python3 -B deploy/websites/tools/package_site.py --site pocol.net --out DIR
+```
+
+`tools/package_site.py` reads the committed blobs at HEAD (as `tools/site_snapshot.py` does: no untracked, ignored,
+autocrlf-converted or working-tree file ships) and refuses a tree with a tracked change or an untracked file under
+`deploy/websites`, a `site_identity.py --check` that fails or would change anything, a snapshot file whose
+`SHA256SUMS.txt` line is missing or wrong, a line for a file that is neither in the snapshot nor a declared kept-out
+release file, and any file a document root package must never hold (`config.php`, `.user.ini`, `php.ini`,
+`error_log`, other dotfiles, keys, databases, backups, archives, `.git`, `tests/`, `tools/`, `node_modules/`, owner
+notes such as `README*` or `DEPLOY*`). DIR receives:
+
+- `PoCol-pocol.net-site-<commit date>-<12 hex of the commit>.zip`: the document root at the top of the ZIP, every
+  snapshot file but `.htaccess`, the snapshot's `SHA256SUMS.txt` included unchanged. Entries are sorted, files 0644 and
+  folders 0755, each dated the commit time (UTC, so a later package is newer for If-Modified-Since even where a file
+  keeps its size), with no extra field: one commit gives the same bytes (CI builds it twice and compares);
+- `<zip>.sha256`, `pocol.net.htaccess` (the snapshot's `.htaccess`: the host's is merged, never replaced, because
+  cPanel writes its MultiPHP handler block there), `MANIFEST.json` (commit, chain ID, genesis hash, every file with its
+  size and SHA-256) and `PACKAGE-SHA256SUMS.txt`;
+- `DEPLOY-pocol.net-AR.md` and `DEPLOY-pocol.net-EN.md`, rendered from `package/` with the package's name, digest,
+  commit and identity: prerequisites (Document Root, nested document roots, PHP 8.3 with 8.1 the minimum and `curl`,
+  the explorer gateway's state), a backup outside the Document Root (Terminal `tar` with a file list, or File Manager
+  Compress), the ZIP's check, extraction into the Document Root, the `.htaccess` merge, permissions, the file check
+  (`sha256sum -c` and `tools/host_files.py` until OK, with the expected retired files to delete), cache purge, live
+  checks (`/api/network.php` answering this chain ID and genesis hash, or 503 until the gateway is live) and the
+  rollback.
+
+The deployment notes are no longer in the document root: `pocol.net/README-AR.txt`, which https://pocol.net/ served,
+said that this copy came before the new network (untrue since the launch of 2026-11-21) and named host internals, was
+removed from the snapshot (its live copy is a file to delete) and its steps are in the guides above.
+`tests/test_package_site.py` checks the package (scratch repositories and the repository's own snapshot) and the
+guides; `tests/test_served_content.py` refuses deployment notes in the document root. The workflow
+`.github/workflows/pocol-net-package.yml` (job "pocol.net cPanel package") runs those tests, builds the package twice,
+compares the two and uploads DIR as the artifact `pocol.net-cpanel-<12 hex of the commit>` (30 days): on the pull
+request, Checks > "pocol.net cPanel package" > Summary > Artifacts. GitHub wraps the artifact in one more ZIP: extract
+that once, and upload the inner `PoCol-pocol.net-site-*.zip`. Nothing is deployed by it.
 
 ## Live comparison, 2026-11-01 (from outside, with strict TLS)
 
