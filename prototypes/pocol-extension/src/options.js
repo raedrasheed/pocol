@@ -101,8 +101,9 @@ $('acctSave').onclick = async () => {
   }
   clear();
   if (!r.ok) { note(errText(r)); refreshAccount(); return; }
-  if (kind === 'create') { download(r.backup, 'new'); note(`New wallet ${r.address} created; its encrypted backup was saved to your downloads. Keep it with its password.`); }
-  else note(`Wallet ${r.address} imported and unlocked. Make a backup above if you have none.`);
+  const locked = r.unlocked === false ? ' It stays locked because the wallet was locked meanwhile; unlock it with its password.' : '';
+  if (kind === 'create') { download(r.backup, 'new'); note(`New wallet ${r.address} created; its encrypted backup was saved to your downloads. Keep it with its password.${locked}`); }
+  else note(`Wallet ${r.address} imported${locked ? '.' + locked : ' and unlocked.'} Make a backup above if you have none.`);
   refreshAccount();
 };
 refreshAccount();

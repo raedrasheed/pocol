@@ -494,3 +494,67 @@ test('final review: vault-guard saves a page\'s vault only when none is saved, a
   VG.checkNewPassword('long-enough-1', 'long-enough-1');
   assert.match(VG.createRefusal(A1), new RegExp(`already saved in this browser \\(${A1}\\).*Nothing was changed`));
 });
+
+// Codex review (PR #114): every writer of the vault (the worker's saveAccount and the pages' saveVaultIfNone) reads
+// the saved vault again and writes it inside one lock, and a Lock pressed while the worker encrypts is kept.
+/** Holds the next PBKDF2 key derivation (the vault encryption) until open(): `entered` resolves once it started. */
+function holdKdf() {
+  const subtle = globalThis.crypto.subtle, real = subtle.deriveKey;
+  let enter, open; const entered = new Promise((r) => (enter = r)), opened = new Promise((r) => (open = r));
+  subtle.deriveKey = async function (...args) { delete subtle.deriveKey; enter(); await opened; return real.apply(subtle, args); };
+  return { entered, open, restore: () => { if (Object.hasOwn(subtle, 'deriveKey')) delete subtle.deriveKey; } };
+}
+test('Codex review: a wallet a Studio or IDE page saves while the worker encrypts is never overwritten without replace:true', async () => {
+  const VG = await L('vault-guard.js');
+  for (const [replace, before] of [[undefined, null], [true, null], [true, KEY2]]) {
+    const w = await world();
+    if (before) assert.equal((await w.options({ type: 'account.import', kind: 'privateKey', privateKey: before, password: PW })).ok, true);
+    const pageVault = await K.exportKeyfile(H.fromHex(PHRASE_KEY), PW);
+    const kdf = holdKdf();
+    try {
+      // The settings page creates a wallet (replace:true covers only the wallet saved when it started); while the worker
+      // encrypts it, a Studio or IDE tab saves another wallet (before: none) or replaces nothing (it never replaces).
+      const pending = w.options({ type: 'account.create', password: PW, replace });
+      await kdf.entered;
+      if (before) w.mock.storage.data.delete('studio:wallet'); // the saved wallet is gone meanwhile (another tab's replace)
+      assert.deepEqual(await VG.saveVaultIfNone(chrome.storage.local, PHRASE_ADDRESS, async () => pageVault), { state: 'saved' });
+      kdf.open();
+      const r = await pending;
+      assert.equal(r.ok, false, `replace ${replace}, before ${!!before}: ${JSON.stringify(r)}`); assert.equal(r.error.code, 'exists'); assert.equal(r.error.saved, PHRASE_ADDRESS);
+      assert.deepEqual(vaultOf(w), pageVault, 'the page\'s wallet is still saved');
+      assert.equal((await w.popup({ type: 'account.status' })).unlocked, false, 'no key of another wallet is unlocked');
+    } finally { kdf.restore(); }
+  }
+});
+test('Codex review: two tabs saving a wallet at once: the second reads the first one\'s vault and writes nothing', async () => {
+  const VG = await L('vault-guard.js');
+  // A storage whose answers arrive a moment after the read (the storage IPC), so both tabs could read "none" first.
+  const data = new Map(), storage = {
+    get: (k) => { const o = data.has(k) ? { [k]: structuredClone(data.get(k)) } : {}; return new Promise((r) => setTimeout(() => r(o), 1)); },
+    set: async (o) => { for (const [k, v] of Object.entries(o)) data.set(k, structuredClone(v)); },
+  };
+  const A1 = '0x' + 'a1'.repeat(20), B1 = '0x' + 'b1'.repeat(20);
+  const out = await Promise.all([VG.saveVaultIfNone(storage, A1, async () => ({ address: A1, ct: 'one' })), VG.saveVaultIfNone(storage, B1, async () => ({ address: B1, ct: 'two' }))]);
+  const kept = data.get(VG.VAULT_KEY);
+  assert.deepEqual(out.map((x) => x.state).sort(), ['other', 'saved'], JSON.stringify(out));
+  assert.equal(out.find((x) => x.state === 'other').saved, kept.address, 'the refused tab names the wallet that was saved');
+  assert.equal(kept.ct, kept.address === A1 ? 'one' : 'two');
+});
+test('Codex review: a Lock pressed while the worker encrypts a new wallet is kept: the wallet is saved and stays locked', async () => {
+  for (const kind of ['create', 'import']) {
+    const w = await world();
+    const kdf = holdKdf();
+    try {
+      const pending = w.options(kind === 'create' ? { type: 'account.create', password: PW } : { type: 'account.import', kind: 'privateKey', privateKey: KEY2, password: PW });
+      await kdf.entered;
+      assert.equal((await w.popup({ type: 'account.lock' })).ok, true);
+      kdf.open();
+      const r = await pending; assert.equal(r.ok, true, JSON.stringify(r));
+      assert.equal(vaultOf(w).address, r.address, 'the wallet is saved'); assert.deepEqual(r.backup, vaultOf(w), 'its backup is returned');
+      assert.equal(r.unlocked, false, 'the reply says it stays locked');
+      const st = await w.popup({ type: 'account.status' }); assert.equal(st.unlocked, false, kind + ': the Lock was kept'); assert.equal(st.address, r.address);
+      assert.equal((await w.send({ type: 'send.prepare', name: 'devnet', to: TO, amount: '1' })).error.code, 4100, 'nothing can be signed');
+      assert.equal((await w.popup({ type: 'account.unlock', password: PW })).ok, true, 'it unlocks with its password');
+    } finally { kdf.restore(); }
+  }
+});

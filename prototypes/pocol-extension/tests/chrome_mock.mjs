@@ -5,8 +5,16 @@ import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 
 export function installChromeMock({ extensionId = 'mockextensionidaaaaaaaaaaaaaaaaa' } = {}) {
-  const heldLocks = new Set();
-  const locks = { request: async (name, opts, fn) => { if(heldLocks.has(name)) return fn(null); heldLocks.add(name);try{return await fn({name});}finally{heldLocks.delete(name);} } };
+  // Exclusive Web Locks: with ifAvailable a held lock gives fn(null) at once; without it the request waits its turn
+  // (FIFO), as navigator.locks does in Chrome.
+  const heldLocks = new Set(), waiting = new Map();
+  const release = (name) => { const q = waiting.get(name); if (q?.length) q.shift()(); else heldLocks.delete(name); };
+  const locks = { request: async (name, opts, fn) => {
+    if (typeof opts === 'function') { fn = opts; opts = {}; }
+    if (heldLocks.has(name)) { if (opts?.ifAvailable) return fn(null); await new Promise((r) => { if (!waiting.has(name)) waiting.set(name, []); waiting.get(name).push(r); }); }
+    else heldLocks.add(name);
+    try { return await fn({ name }); } finally { release(name); }
+  } };
   if (!globalThis.navigator) Object.defineProperty(globalThis,'navigator',{value:{locks},configurable:true});
   else Object.defineProperty(globalThis.navigator,'locks',{value:locks,configurable:true});
   const data = new Map();

@@ -5,6 +5,10 @@
 // replaced only in the extension's settings (Settings, "PoCol wallet"), where the service worker asks the user to back
 // it up first (sw.js saveAccount, replace:true). A file of another wallet is used in its tab only, in memory.
 //
+// Every writer of the vault (the worker's saveAccount and saveVaultIfNone here) reads the saved vault again and writes
+// it inside one Web Lock (withVaultLock, Codex review PR #114), so no writer replaces a wallet another context saved
+// between its read and its write. The lock is held only for that read and write, never during the slow encryption.
+//
 // The toolbar's Lock locks every page too: the worker writes LOCK_SIGNAL_KEY on account.lock, and each page that holds
 // a decrypted key watches it (watchLockSignal) and locks at once.
 export const VAULT_KEY = 'studio:wallet';
@@ -22,18 +26,33 @@ export async function savedVault(storage) {
   return (await storage.get(VAULT_KEY))[VAULT_KEY] || null;
 }
 
+/** The Web Lock every vault writer holds while it reads the saved vault again and writes it. */
+export const VAULT_LOCK = 'studio:wallet';
+let localChain = Promise.resolve();
+/** Runs `fn` holding VAULT_LOCK, shared by the worker and every extension page (navigator.locks; Chrome 130, this
+ *  extension's minimum, has it in both). Without navigator.locks (Node component tests), the calls of this context
+ *  are serialized in order, which is all such a context can coordinate. */
+export function withVaultLock(fn) {
+  const locks = globalThis.navigator?.locks;
+  if (typeof locks?.request === 'function') return locks.request(VAULT_LOCK, { mode: 'exclusive' }, () => fn());
+  const r = localChain.then(() => fn()); localChain = r.catch(() => {}); return r;
+}
+
 /** Saves `makeVault()` (the encrypted vault of `address`) only when no wallet is saved. Returns
  *  {state: 'saved'} when it was written, {state: 'same'} when that address is already saved (nothing written), and
  *  {state: 'other', saved} when another wallet is saved: then nothing is written and the key stays in the caller's
- *  memory only. The saved vault is read again right before the write. */
+ *  memory only. The saved vault is read again right before the write, inside VAULT_LOCK. */
 export async function saveVaultIfNone(storage, address, makeVault) {
+  const answer = (v) => (same(vaultAddressOf(v), address) ? { state: 'same' } : { state: 'other', saved: vaultAddressOf(v) });
   const before = await savedVault(storage);
-  if (before) return same(vaultAddressOf(before), address) ? { state: 'same' } : { state: 'other', saved: vaultAddressOf(before) };
+  if (before) return answer(before);
   const vault = await makeVault();
-  const now = await savedVault(storage);
-  if (now) return same(vaultAddressOf(now), address) ? { state: 'same' } : { state: 'other', saved: vaultAddressOf(now) };
-  await storage.set({ [VAULT_KEY]: vault });
-  return { state: 'saved' };
+  return withVaultLock(async () => {
+    const now = await savedVault(storage);
+    if (now) return answer(now);
+    await storage.set({ [VAULT_KEY]: vault });
+    return { state: 'saved' };
+  });
 }
 
 /** The refusal of a Create while a wallet is saved: a page never replaces it. */

@@ -22,7 +22,7 @@ import { readNetworkFees, ABSOLUTE_CEILING } from './lib/fees.js';
 import { JOB_PREFIX, JOB_TTL_MS, validatePublishRequest, validateSiteTarget, publicJob } from './lib/studio-bridge.js';
 import { IDE_JOB_PREFIX, isIdeOrigin, validateContractRequest, publicContractJob } from './lib/contracts.js';
 import { networkOf, blocksAccount, archiveForeignJobs, removeSideKeys } from './lib/jobs.js';
-import { LOCK_SIGNAL_KEY } from './lib/vault-guard.js';
+import { LOCK_SIGNAL_KEY, withVaultLock } from './lib/vault-guard.js';
 
 const store = chrome.storage.local;
 // Final review (2026-11-22): Chrome lets content scripts use storage.local by default, and the extension's content
@@ -630,21 +630,32 @@ async function openVault(password) {
   catch { pwFails.push(Date.now()); throw fail('Wrong password, or the saved wallet is damaged', 'password'); }
 }
 /** Saves `secret` as the vault under `password` and unlocks it. A different saved address is replaced only with
- *  replace:true (the settings page asks the user to back it up first). Returns the encrypted backup. */
+ *  replace:true (the settings page asks the user to back it up first), and replace:true covers only the wallet saved
+ *  when this started. Returns the encrypted backup, and unlocked:false when the wallet was locked meanwhile.
+ *  Codex review (PR #114): the saved vault is read again and written inside the vault lock that the Studio and IDE
+ *  pages' saveVaultIfNone hold too, so a wallet a page saved while this encrypted is never overwritten; and a Lock
+ *  (or any lock) during the encryption is kept: the new wallet is saved but stays locked. */
 async function saveAccount(secret, password, replace) {
   if (typeof password !== 'string' || password.length < acct.PASSWORD_MIN) throw fail(`Use a password of at least ${acct.PASSWORD_MIN} characters`, 'password');
   if (accountBusy) throw fail('Another wallet operation is in progress', 'busy');
   accountBusy = true;
   try {
-    const address = addressOf(secret), before = await storedVault();
-    if (before && vaultAddress(before) !== address && replace !== true)
-      throw fail('Another PoCol wallet is saved in this browser. Back it up first, then confirm that you replace it.', 'exists', { saved: vaultAddress(before) });
+    const e0 = accountEpoch, address = addressOf(secret), before = await storedVault();
+    const allowed = (v) => !v || vaultAddress(v) === address || (replace === true && !!before && vaultAddress(v) === vaultAddress(before));
+    const refusal = (v) => fail('Another PoCol wallet is saved in this browser. Back it up first, then confirm that you replace it.', 'exists', { saved: vaultAddress(v) });
+    if (!allowed(before)) throw refusal(before);
     const box = await exportKeyfile(secret, password);
-    lockAccount('wallet replaced'); const epoch = accountEpoch;
-    await store.set({ [VAULT_KEY]: box });
-    if (epoch !== accountEpoch) throw fail('The wallet changed while it was saved; unlock it again', 'changed');
-    account = { secret: secret.slice(), address, until: Date.now() + LOCK_MS };
-    return { address, backup: box };
+    return await withVaultLock(async () => {
+      const now = await storedVault();
+      if (!allowed(now)) throw refusal(now);
+      const lockedMeanwhile = e0 !== accountEpoch;
+      lockAccount('wallet replaced'); const epoch = accountEpoch;
+      await store.set({ [VAULT_KEY]: box });
+      if (epoch !== accountEpoch) throw fail('The wallet changed while it was saved; unlock it again', 'changed');
+      if (lockedMeanwhile) return { address, backup: box, unlocked: false };
+      account = { secret: secret.slice(), address, until: Date.now() + LOCK_MS };
+      return { address, backup: box, unlocked: true };
+    });
   } finally { accountBusy = false; secret.fill(0); }
 }
 /** The profile a wallet operation uses (default: the built-in one): valid and not conflicting. */
