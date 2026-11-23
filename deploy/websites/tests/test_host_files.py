@@ -6,6 +6,7 @@ a snapshot file the host lacks is missing (a kept-out release file is named as s
 differs is to merge, not to replace (cPanel writes its PHP handler there), and is kept once a copy of it holds the
 snapshot's directives unchanged. Synthetic listings only; no host is contacted."""
 import contextlib, hashlib, io, sys, tempfile, unittest
+from unittest import mock
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -50,11 +51,16 @@ class HostFiles(unittest.TestCase):
             self.assertIn(f'DELETE   {path}  (not in the snapshot)', out)
         self.assertIn('KEEP     api/config.php', out)
         self.assertIn('KEEP     .well-known/acme-challenge/x', out)
-        # The retired Windows package the pages still link, labelled as the retired network's, is kept while exempt.
+        # The retired Windows package was kept (KEEP) while the pages linked it under the LEGACY_NATIVE exemption. The
+        # owner's request of 2026-11-23 removed the links and the exemption, so the host's copy is a file to delete, like
+        # the retired Linux package; a name that LEGACY_NATIVE lists is still kept.
         _, legacy, _ = self.run_main('pocol.net', text({**listing, 'downloads/PoCol-Mainnet-0.4.0-Windows.zip': '6' * 64,
                                                        'downloads/PoCol-Mainnet-0.4.0-Linux.zip': '7' * 64}))
-        self.assertIn('KEEP     downloads/PoCol-Mainnet-0.4.0-Windows.zip', legacy)
+        self.assertIn('DELETE   downloads/PoCol-Mainnet-0.4.0-Windows.zip  (not in the snapshot)', legacy)
         self.assertIn('DELETE   downloads/PoCol-Mainnet-0.4.0-Linux.zip', legacy)
+        with mock.patch.object(hf.si, 'LEGACY_NATIVE', frozenset({'PoCol-Mainnet-0.4.0-Windows.zip'})):
+            _, exempt, _ = self.run_main('pocol.net', text({**listing, 'downloads/PoCol-Mainnet-0.4.0-Windows.zip': '6' * 64}))
+        self.assertIn('KEEP     downloads/PoCol-Mainnet-0.4.0-Windows.zip', exempt)
         self.assertIn('delete 4, differs 0, merge 0, missing 0, keep 2', out)
         rc, out, _ = self.run_main('pocol.net', text({**listing, 'notes.txt': '4' * 64}), '--keep', 'notes.txt')
         self.assertEqual(rc, 0, out)

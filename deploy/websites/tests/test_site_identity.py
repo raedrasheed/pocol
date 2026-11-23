@@ -641,7 +641,10 @@ class SiteIdentity(unittest.TestCase):
         names = set(si.release.native_names(ROOT))
         self.assertEqual(names, {f'PoCol-Mainnet-{NATIVE_VERSION}-linux-x86_64.tar.gz',
                                  f'PoCol-Mainnet-{NATIVE_VERSION}-windows-x86_64.zip', f'PoCol-Mainnet-{NATIVE_VERSION}-arm64.apk'})
-        # The exempt names are the retired packages the pages still link, and each is linked today.
+        # The exempt names are the retired packages the pages still link, and each is linked today. There is none since
+        # the owner's request of 2026-11-23 removed the last one (PoCol-Mainnet-0.4.0-Windows.zip), so a 0.4.x name is
+        # refused like any other name that is not the release's.
+        self.assertEqual(si.LEGACY_NATIVE, frozenset())
         main = '\n'.join(p.read_text(encoding='utf-8') for p in (ROOT / si.MAIN).iterdir()
                          if p.suffix in ('.html', '.js'))
         for name in si.LEGACY_NATIVE:
@@ -657,6 +660,14 @@ class SiteIdentity(unittest.TestCase):
                 self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
         p.write_bytes(original)
         self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        # The retired Windows package is refused now that it is not exempt (the owner's request of 2026-11-23), and the
+        # refused run writes nothing.
+        p.write_text(original.decode('utf-8') + '// PoCol-Mainnet-0.4.0-Windows.zip\n', encoding='utf-8')
+        before = snapshot(root)
+        self.assertEqual(self.run_tool(root), 2)
+        self.assertIn('names the native package PoCol-Mainnet-0.4.0-Windows.zip', self.last_errors)
+        self.assertEqual(snapshot(root), before)
+        p.write_bytes(original)
         # An exempt name that no file names any more fails, so the exemption is removed with the last link.
         with mock.patch.object(si, 'LEGACY_NATIVE', si.LEGACY_NATIVE | {'PoCol-Mainnet-0.3.0-Windows.zip'}):
             self.assertEqual(self.run_tool(root, '--check'), 2)

@@ -105,10 +105,11 @@ order without version numbers (export the wallet, Remove the old version, verify
 the extension ID with pocol.net, import the wallet), DEPLOY-README-AR.txt sections 2 and 4 are rewritten for a fresh
 network, and the IDE's download button names the package it links (0.4.1, it said 0.4.0). Step 7 of the mainnet runbook moved that button and its link to 0.5.0 with the identity switch, recorded as the anchored edits `tools/step7-release-edits.json` on top of W14's (the W14 test undoes and redoes both); `tools/release-pending-edits.json` then replaced that link with `pocol.net/chrome-extension.html#verify-release` (SITE-01, below). `--check` also refuses an
 extension version label that is not package.json's (a capability message "X or later" is exempt) and a native package
-name that is not `deploy/release/assemble_release.py`'s at `deploy/standalone/package.py`'s version; the retired
-`PoCol-Mainnet-0.4.0-Windows.zip` that the pages link, labelled as the retired network's, until the signed release (W16)
-is exempt while a page still names it (`LEGACY_NATIVE`; the retired `-Linux.zip` left it with its last link on
-2026-11-22). `--download PATH=SHA256` (repeatable) writes the `SHA256SUMS.txt` line of a release file kept
+name that is not `deploy/release/assemble_release.py`'s at `deploy/standalone/package.py`'s version. No retired name is
+exempt (`LEGACY_NATIVE` is empty): the retired `-Linux.zip` left it with its last link on 2026-11-22, and the retired
+`PoCol-Mainnet-0.4.0-Windows.zip`, which the pages linked, labelled as the retired network's, under an earlier decision
+to keep it until the signed release (W16), left it on 2026-11-23, when the owner's request for the pocol.net deployment
+(item 4: no Testnet and no 0.4.x release in the deployment content) replaced that decision. `--download PATH=SHA256` (repeatable) writes the `SHA256SUMS.txt` line of a release file kept
 out of Git (an archive, its `.sig` or `.sha256`), adds its name to the site's `keptOut` list in `site-identity.json`
 and drops the kept-out lines (and names) of other versions of the same archive family and their unversioned copies; a
 tracked file it supersedes must be removed first. Only the lines `keptOut` names are carried for files that are not in
@@ -136,14 +137,18 @@ ID and the release key fingerprint are in the snapshot (2026-11-22, below); they
 their early publication and uploads it. Since step 7
 pocol.net publishes the extension ID and the release key fingerprint users compare (the extension guide,
 `chrome-extension.html` and the home page's IDE help, in English and Arabic; `tests/test_w14_texts.py`,
-`PublishedReleaseIds`). Until W16 the links beside "Coming from the retired network?" (home page and
-tools page) are labelled as the retired network's 0.4.0 Windows package; W16 replaces or removes them. No other page
-offers a native package before W16 (2026-11-22): the home page's "MAINNET EDITION" buttons
+`PublishedReleaseIds`). Until 2026-11-23 the links beside "Coming from the retired network?" (home page,
+tools page and guide) offered the retired network's 0.4.0 Windows package, labelled as such; the owner's request of
+2026-11-23 replaced the earlier decision to keep them until W16, so the links, their labels (`appsWindowsUpdateDownload`)
+and the `LEGACY_NATIVE` exemption are gone, the home page's "Verify a download" says that the page links no package of
+the retired network either, and the host's copy of that package is a file to delete (`tools/host_files.py` DELETE). The
+migration warning beside it (balances do not carry over; move the old wallet folder aside) stays. No page offers a
+native package before W16: the home page's "MAINNET EDITION" buttons
 (`wallet-downloads.js`) show "No release available", and the tools page and the guide no longer offer the 0.4.0
 Windows and Linux packages as PoCol Mainnet applications, the removed invitation (`downloads/network.pocol.json`, the
 retired network's) or `downloads/PoCol-Apps-README.txt` (never in the snapshot). `tests/test_downloads.py` checks that
-every `downloads/` link is a file of the snapshot, a `keptOut` file or a `LEGACY_NATIVE` package labelled as the
-retired network's. `api/network.php` counts a HELD (1) or ACCRUING (4) active record as an eligible miner, as the node
+every `downloads/` link is a file of the snapshot or a `keptOut` file, and that no page links or names a retired
+`PoCol-Mainnet-0.4.x` (or older) package. `api/network.php` counts a HELD (1) or ACCRUING (4) active record as an eligible miner, as the node
 does.
 `tests/test_launch_decisions.py` (`LaunchTexts`) refuses the removed texts.
 
@@ -204,8 +209,8 @@ does.
 - **Uploads (SITE-02).** An overwrite upload leaves stale files served. After each upload the owner lists the document
   root on the host and runs `tools/host_files.py --site SITE --listing FILE` (pocol.net, ide.pocol.net,
   studio.pocol.net): it names each file to delete, each that differs and each that is missing, and keeps host
-  configuration (`api/config.php`, cPanel's `.user.ini` and `php.ini`, `error_log`, `.well-known/`, `cgi-bin/`) and
-  the `LEGACY_NATIVE` package while a page links it. A host `.htaccess` that differs is `MERGE`, never replaced: cPanel
+  configuration (`api/config.php`, cPanel's `.user.ini` and `php.ini`, `error_log`, `.well-known/`, `cgi-bin/`); the
+  retired 0.4.0 Windows package is DELETE since 2026-11-23 (`LEGACY_NATIVE` is empty). A host `.htaccess` that differs is `MERGE`, never replaced: cPanel
   writes its MultiPHP handler block and redirects there, so the owner keeps those and adds the snapshot's `.htaccess`
   unchanged, and `--host-copy .htaccess=COPY` (a downloaded copy of the listed file) confirms that the snapshot's
   directives are in it as one block (2026-11-22 review). Where a snapshot has no `.htaccess` the host's is kept.

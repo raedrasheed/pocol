@@ -66,8 +66,10 @@ async function serve(folder){
   return{base,origin:`http://127.0.0.1:${server.address().port}`,headers,close:()=>new Promise(r=>server.close(r))};
 }
 
-const LEGACY=new Set([...(await readFile(resolve(root,'deploy/websites/tools/site_identity.py'),'utf8'))
-  .match(/^LEGACY_NATIVE = frozenset\(\{([^}]*)\}\)/m)[1].matchAll(/'([^']+)'/g)].map(m=>m[1]));
+// LEGACY_NATIVE is `frozenset()` since the owner's request of 2026-11-23 (no retired package is linked), or a set literal.
+const LEGACY_SOURCE=(await readFile(resolve(root,'deploy/websites/tools/site_identity.py'),'utf8')).match(/^LEGACY_NATIVE = frozenset\((?:\{([^}]*)\})?\)$/m);
+if(!LEGACY_SOURCE)throw Error('site_identity.py: no LEGACY_NATIVE = frozenset(...) line');
+const LEGACY=new Set([...(LEGACY_SOURCE[1]||'').matchAll(/'([^']+)'/g)].map(m=>m[1]));
 const KEPT_OUT=JSON.parse(await readFile(resolve(root,'deploy/websites/site-identity.json'),'utf8')).keptOut;
 const servers={};
 for(const [key,site] of Object.entries(SITES))servers[key]=await serve(site.folder);

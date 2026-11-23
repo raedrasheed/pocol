@@ -84,9 +84,9 @@ that the W14 edits, undone on a copy, give back every served file byte for byte.
 
 ## Download links and privacy policy (2026-11-22)
 
-`test_downloads.py` checks that every pocol.net `downloads/` link names a file of the snapshot, a `keptOut` file or a
-`LEGACY_NATIVE` package, that the retired network's packages are only linked with a label saying so (English and
-Arabic), and that the "MAINNET EDITION" buttons offer no package before the signed release. `test_privacy_page.py`
+`test_downloads.py` checks that every pocol.net `downloads/` link names a file of the snapshot or a `keptOut` file, that
+no page links or names a retired network's package (`PoCol-Mainnet-0.4.x` or older; the owner's request of 2026-11-23
+removed the last, labelled link and the `LEGACY_NATIVE` exemption), and that the "MAINNET EDITION" buttons offer no package before the signed release. `test_privacy_page.py`
 checks `privacy.html` against `privacy.js` (English static text, Arabic for every entry, text-only rendering, the footer
 link on every page) and each statement of the policy against the code it describes. `browser_security.mjs` renders the
 policy in both languages at 390 px. `api_security.php` counts HELD (1) and ACCRUING (4) members as eligible miners. Its reward vectors each balance (paid,

@@ -17,8 +17,9 @@ files. This tool reads a listing of the host's files with their SHA-256 and says
              signed release)
     KEEP     host configuration that is never in a snapshot (api/config.php, the MultiPHP INI Editor's .user.ini and
              php.ini, PHP's error_log, .well-known/, cgi-bin/, --keep PATH), a .htaccess merged as above or where the
-             snapshot has none, and on
-             pocol.net the retired packages that site_identity.py's LEGACY_NATIVE exempts while a page links them
+             snapshot has none, everything under a --keep-dir DIR (another site's document root nested in this one),
+             and on pocol.net a retired package that site_identity.py's LEGACY_NATIVE exempts while a page links it
+             (none since the owner's request of 2026-11-23: the retired PoCol-Mainnet-0.4.0-Windows.zip is DELETE)
 
 The exit status is 0 only when nothing is to delete, differs or is missing. Nothing on the host is read or changed: the
 listing is made on the host by the owner, for example in cPanel's Terminal from the site's document root:
@@ -39,7 +40,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import site_identity as si  # noqa: E402  (LEGACY_NATIVE: the retired packages the pages still link, labelled as such)
+import site_identity as si  # noqa: E402  (LEGACY_NATIVE: retired packages a page may still link; empty since 2026-11-23)
 SITES = {
     'pocol.net': ROOT / 'deploy/websites/pocol.net',
     'ide.pocol.net': ROOT / 'deploy/websites/ide.pocol.net',

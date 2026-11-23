@@ -5,11 +5,14 @@ signed release (W16), so:
 - no site file names the content version (the first 12 hex digits of the SHA-256, the `?v=` value site_identity.py
   writes) of an invitation of a retired network;
 - every downloads/ link of a site names a file that site's snapshot holds, one that site-identity.json keeps out of Git
-  (its SHA256SUMS.txt line is kept), or, on pocol.net, a retired package that site_identity.py's LEGACY_NATIVE exempts.
-  The removed invitation (downloads/network.pocol.json, the retired network's, removed 2026-11-13),
-  PoCol-Apps-README.txt (never in the snapshot) and the retired Linux package are linked nowhere;
+  (its SHA256SUMS.txt line is kept), or, on pocol.net, a retired package that site_identity.py's LEGACY_NATIVE exempts
+  (none since the owner's request of 2026-11-23). The removed invitation (downloads/network.pocol.json, the retired
+  network's, removed 2026-11-13), PoCol-Apps-README.txt (never in the snapshot) and the retired Linux and Windows
+  packages are linked nowhere;
 - the home page's "MAINNET EDITION" buttons (wallet-downloads.js) offer no package, so they show "No release available";
-- a retired package is only ever linked with a label that says it is the retired network's, in English and Arabic;
+- no page links or names a retired package (PoCol-Mainnet-0.4.x or older): the owner's request of 2026-11-23 removed the
+  last one, the retired network's 0.4.0 Windows package that was linked, labelled as such, beside "Coming from the
+  retired network?";
 - no site names an extension package before its signed release: the retired network's 0.4.1 build (SITE-01) and the
   unsigned 0.5.0 zip step 7 listed are not offered, and after the release only the release's own package, recorded as
   a kept-out download, may be linked. Until tools/release_page.py records a signed release, no site lists an extension
@@ -43,6 +46,8 @@ SITES = {'pocol.net': MAIN, 'ide.pocol.net': IDE, 'studio.pocol.net': STUDIO, 'e
 LINK = re.compile(r'(?:https://((?:ide\.|studio\.|explorer\.)?pocol\.net)/|(?<=["\'`=(])\.?/|(?<![A-Za-z0-9_./:-]))'
                   r'downloads/([A-Za-z0-9][A-Za-z0-9._-]*)')
 RETIRED_LABEL = ('Retired network', 'للشبكة السابقة')
+# A native package of the retired network (0.4.x and older; PoCol Mainnet's first release is 0.5.0).
+RETIRED_PACKAGE = re.compile(r'PoCol-Mainnet-0\.[0-4]\.[0-9]+-[A-Za-z0-9_.-]+')
 TEXT = ('.html', '.js', '.txt', '.json', '.css', '.webmanifest', '.svg', '.md', '.php')
 
 def site_files(site):
@@ -111,9 +116,10 @@ class DownloadLinks(unittest.TestCase):
             tracked = {p.name for p in downloads.iterdir() if p.is_file()} if downloads.is_dir() else set()
             allowed[name] = tracked | {n.split('/', 1)[1] for n in kept.get(name, [])}
         allowed['pocol.net'] |= set(si.LEGACY_NATIVE)
-        found = set()
+        found, scanned = set(), 0
         for name, site in SITES.items():
             for path, text in served_text(site):
+                scanned += 1
                 if path.name in self.HOST_GUIDES:
                     # The upload step names the removed invitation as a stale file to delete from the host; it links
                     # nothing. Only that sentence is set aside, and it must say so.
@@ -126,8 +132,12 @@ class DownloadLinks(unittest.TestCase):
                     self.assertIn(file, allowed[target], f'{path.relative_to(ROOT)} links {target}/downloads/{file}, '
                                   'which is not in that snapshot, not kept out (site-identity.json) and not an exempt '
                                   'retired package')
-        self.assertTrue(found)
-        for gone in ('network.pocol.json', 'PoCol-Apps-README.txt', 'PoCol-Mainnet-0.4.0-Linux.zip'):
+        # Since the owner's request of 2026-11-23 removed the retired Windows package's links, no site links a downloads/
+        # file before the signed release (until then this checked `found` was not empty); the pattern itself is checked
+        # by test_the_link_pattern_sees_every_link_form, and every served text of the four sites was read.
+        self.assertGreater(scanned, 40)
+        for gone in ('network.pocol.json', 'PoCol-Apps-README.txt', 'PoCol-Mainnet-0.4.0-Linux.zip',
+                     'PoCol-Mainnet-0.4.0-Windows.zip'):
             self.assertNotIn(('pocol.net', gone), found)
 
     def test_the_mainnet_edition_buttons_offer_no_package_before_the_signed_release(self):
@@ -143,27 +153,33 @@ class DownloadLinks(unittest.TestCase):
             # Until W16 no native package is offered; the retired 0.4.0 packages never are.
             self.assertEqual(url, '', f'the {platform} MAINNET EDITION button offers {url}')
 
-    def test_a_retired_package_is_linked_only_as_the_retired_networks(self):
-        seen = 0
+    def test_no_page_links_a_retired_package(self):
+        # Until 2026-11-23 the home page, the tools page and the guide linked the retired network's 0.4.0 Windows
+        # package, labelled as such; this test required that label and at least one such link. The owner's request of
+        # 2026-11-23 (item 4: no Testnet and no 0.4.x release in the deployment content) removed the links, their
+        # labels and the LEGACY_NATIVE exemption, so no served file may link or name a retired package any more, with
+        # or without a label.
+        self.assertEqual(si.LEGACY_NATIVE, frozenset())
         for path, text in served_text():
-            if path.suffix != '.html':
-                continue
-            for href, label in anchors(text):
-                if 'PoCol-Mainnet-0.4.' in href:
-                    seen += 1
-                    self.assertTrue(any(word in label for word in RETIRED_LABEL), f'{path.name}: {label!r} -> {href}')
+            for href, label in anchors(text) if path.suffix == '.html' else ():
+                self.assertNotIn('PoCol-Mainnet-0.', href, f'{path.name}: {label!r} -> {href}')
+            self.assertIsNone(RETIRED_PACKAGE.search(text), f'{path.name} names a retired package')
+            for word in RETIRED_LABEL:
+                self.assertNotIn(word + '’s Windows package', text, path.name)
+            self.assertNotIn('حزمة Windows للشبكة السابقة (', text, path.name)
         for topic in guide()['topics']:
             for section in topic.get('sections', []):
                 for link in section.get('links') or []:
-                    if 'PoCol-Mainnet-0.4.' in link['url']:
-                        seen += 1
-                        self.assertIn(RETIRED_LABEL[0], link['label']['en'], link)
-                        self.assertIn(RETIRED_LABEL[1], link['label']['ar'], link)
-        self.assertGreater(seen, 0)
+                    self.assertNotIn('PoCol-Mainnet-0.', link['url'], link)
+        self.assertEqual(RETIRED_PACKAGE.findall('downloads/PoCol-Mainnet-0.4.0-Windows.zip PoCol-Mainnet-0.3.2-Linux.zip '
+                                                 'PoCol-Mainnet-0.5.0-arm64.apk'),
+                         ['PoCol-Mainnet-0.4.0-Windows.zip', 'PoCol-Mainnet-0.3.2-Linux.zip'])
 
-    def test_the_verify_text_does_not_deny_the_retired_package_the_same_section_links(self):
-        # 2026-11-22 review: "this page offers no package" was false while the same section of the home page links the
-        # retired network's 0.4.0 Windows package. The text says no PoCol Mainnet package, and names the retired one.
+    def test_the_verify_text_says_what_the_page_offers(self):
+        # 2026-11-22 review: "this page offers no package" was false while the same section of the home page linked the
+        # retired network's 0.4.0 Windows package, so the text said no PoCol Mainnet package and named the retired one.
+        # Since the owner's request of 2026-11-23 removed that link, the text says that the page links no package of the
+        # retired network either, and no package link is left beside it.
         page = (MAIN / 'index.html').read_text(encoding='utf-8')
         retired = [href for href, label in anchors(page) if 'downloads/' in href and any(w in label for w in RETIRED_LABEL)]
         about = (MAIN / 'about-locales.js').read_text(encoding='utf-8')
@@ -174,10 +190,11 @@ class DownloadLinks(unittest.TestCase):
         self.assertNotIn('أي حزمة قبل', ar)
         self.assertIn('this page offers no PoCol Mainnet package', en)
         self.assertIn('أي حزمة لشبكة PoCol Mainnet', ar)
-        if retired:
-            self.assertIn('the only package it links is the retired network’s Windows package (0.4.0)', en)
-            self.assertIn('حزمة Windows للشبكة السابقة (0.4.0)', ar)
-            self.assertTrue(all('PoCol-Mainnet-0.4.0-Windows.zip' in href for href in retired), retired)
+        self.assertEqual(retired, [])
+        self.assertEqual([href for href, _ in anchors(page) if 'downloads/' in href], [])
+        self.assertIn('this page offers no PoCol Mainnet package and links no package of the retired network', en)
+        self.assertIn('ولا تربط أي حزمة للشبكة السابقة', ar)
+        self.assertNotIn('0.4.0', en + ar)
         self.assertIn(html.escape(en, quote=False), page)
 
     def test_no_text_tells_users_to_download_a_retired_package_for_pocol_mainnet(self):
