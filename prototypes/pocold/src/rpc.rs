@@ -678,9 +678,9 @@ fn read_until(s:&mut TcpStream,tmp:&mut [u8],deadline:Instant)->std::io::Result<
     if left.is_zero(){return Err(std::io::Error::new(std::io::ErrorKind::TimedOut,"request deadline"))}
     s.set_read_timeout(Some(left.max(Duration::from_millis(1))))?;s.read(tmp)
 }
-/// Test hook: a late wake of the connection thread. A test sets it on the thread that runs `conn`; at each wait for
-/// the node's answer (1: the admission wait, 2: the work wait) the thread reports the point and then waits for the
-/// test's go before it reads its channel, as a thread woken late on a loaded host does.
+// Test hook: a late wake of the connection thread. A test sets it on the thread that runs `conn`; at each wait for
+// the node's answer (1: the admission wait, 2: the work wait) the thread reports the point and then waits for the
+// test's go before it reads its channel, as a thread woken late on a loaded host does.
 #[cfg(test)]
 thread_local!{static LATE_WAKE:std::cell::RefCell<Option<(Sender<u8>,mpsc::Receiver<()>)>>=const{std::cell::RefCell::new(None)};}
 #[cfg(test)]

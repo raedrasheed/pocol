@@ -490,7 +490,6 @@ tests/e2e_site.py. No platform code changed, so no new FFI cross-check was neede
 is committed; the third review's witnesses were not re-run (the committed tests now assert what they
 showed).
 
-
 ## 14. Addendum (2026-11-23): an answer completed after the work deadline
 
 Production readiness review, 2026-11-23. §5 (BATCH_WALL row) and the second review

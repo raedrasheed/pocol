@@ -143,8 +143,8 @@ def main(argv):
     args = parser.parse_args(argv)
     if args.first_upload_key is not None and not args.unofficial_key_pem:
         raise SystemExit('Refusing --first-upload-key without --unofficial-key-pem: the key.pem upload is not an official Chrome Web '
-                         'Store method and puts the release private key into the zip. The recommended way is the zip without a key '
-                         '(store/README.md, "The store item\'s id").')
+                         'Store method and puts the release private key into the zip. The owner decided on the zip without a key and the id the store assigns '
+                         '(OWNER-DECISIONS-2026-11-23 D2; store/README.md, "The store item\'s id").')
     dist = root / 'dist'
     version = json.loads((root / 'package.json').read_text(encoding='utf-8'))['version']
     for name in REQUIRED:
