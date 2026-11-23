@@ -397,6 +397,38 @@ test('history: a dropped transfer is watched for a bounded window when the node 
   await w.popup({ type: 'txs.refresh' }); assert.equal(w.count('eth_getTransactionReceipt'), reads, 'no longer read');
 });
 
+// Codex review (PR #114, head 1e00c82d): with more than REFRESH_MAX (20) open transfers, the newest 20 staying pending
+// or belonging to an unreachable profile never starved the older ones: a refresh still reads at most 20 entries, and
+// rotates through all of them, least recently checked first.
+test('Codex review: the bounded history refresh rotates through every open transfer; the newest 20 staying pending or unreachable do not starve an older one', async () => {
+  const hex = (v) => '0x' + BigInt(v).toString(16);
+  const w = await world({ extra: { eth_chainId: (_, { url }) => (String(url).includes(':8596') ? { __raw: () => 'down' } : hex(spec.chainId)) } });
+  assert.equal((await w.options({ type: 'profiles.add', profile: profile('far', 'http://127.0.0.1:8596') })).ok, true);
+  const entry = (i, network) => ({ hash: '0x' + i.toString(16).padStart(64, '0'), network, chainId: spec.chainId, genesisHash: spec.hash, from: ADDRESS2, to: TO, value: '1', nonce: String(i), status: 'pending', createdAt: 1000 - i, updatedAt: 1000 - i });
+  // 25 open transfers, newest first: 10 on the unreachable profile, then 15 on the devnet that stay pending (nonce
+  // unused, no receipt) except the oldest, whose receipt is now available.
+  const history = Array.from({ length: 25 }, (_, i) => entry(i + 1, i < 10 ? 'far' : 'devnet'));
+  await w.mock.storage.set({ 'wallet:history': history });
+  const oldest = history[24].hash;
+  w.env.receipts.set(oldest, { transactionHash: oldest, status: '0x1', blockNumber: '0x2b', blockHash: '0x' + 'b2'.repeat(32), gasUsed: '0x5208' });
+  const readOf = (h) => w.log.filter((x) => x.method === 'eth_getTransactionReceipt' && x.params[0] === h).length;
+  let t;
+  for (let i = 0; i < 2; i++) {
+    const before = w.count('eth_getTransactionReceipt');
+    t = (await w.popup({ type: 'txs.refresh' })).transactions.find((x) => x.hash === oldest);
+    assert.ok(w.count('eth_getTransactionReceipt') - before <= 20, 'at most REFRESH_MAX receipts a refresh');
+  }
+  assert.equal(t.status, 'included', 'the oldest open transfer is checked within two refreshes'); assert.equal(t.blockNumber, 43);
+  for (const e of history.slice(10)) assert.ok(readOf(e.hash) >= 1, 'every reachable open transfer was read: ' + e.nonce);
+  // The rotation goes on: the next refreshes read the entries least recently checked first, every one in turn.
+  const counts = () => history.slice(10, 24).map((e) => readOf(e.hash));
+  const c0 = counts();
+  for (let i = 0; i < 2; i++) await w.popup({ type: 'txs.refresh' });
+  assert.ok(counts().every((c, i) => c > c0[i]), 'each pending devnet entry is read again within two more refreshes');
+  const list = (await w.popup({ type: 'txs.list' })).transactions;
+  assert.equal(list.length, 25); assert.deepEqual(list.slice(0, 24).map((x) => x.status), Array(24).fill('pending'), 'the others stay pending');
+});
+
 test('EXT-03: a site\'s account grant is listed and revocable in Settings; after revoking it gets no account until it asks again', async () => {
   const w = await world();
   await w.mock.send({ type: 'wallet.create', password: PW, seedHex: '0x' + '42'.repeat(32) });

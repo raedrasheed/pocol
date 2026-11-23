@@ -828,7 +828,20 @@ async function refreshHistory() {
   const list = await profiles(); const checked = new Map(), heads = new Map();
   const profileOf = (t) => list.find((x) => x.name === t.network && !x.invalid && x.chainId === t.chainId && x.genesisHash === t.genesisHash);
   // Entries whose profile is gone or is the placeholder are skipped before the bound, so they never crowd out the rest.
-  const open = (await readHistory()).filter((x) => (OPEN_STATES.includes(x.status) || ((RECHECK_STATES.includes(x.status) || x.status === 'dropped') && !x.settled)) && profileOf(x) && !isPlaceholder(profileOf(x))).slice(0, REFRESH_MAX);
+  // Codex review (PR #114, head 1e00c82d): the bound rotates through all eligible entries. Each refresh takes the
+  // REFRESH_MAX least recently checked ones (never checked first, then newest first) and stamps them with the next
+  // `checkSeq` numbers, under the history lock, before any request: entries that stay pending or unknown, or whose
+  // profile is unreachable, move to the back, so older transfers are checked again in turn.
+  const open = await historyLocked(async () => {
+    const h = await readHistory();
+    const picked = h.map((x, i) => [x, i]).filter(([x]) => (OPEN_STATES.includes(x.status) || ((RECHECK_STATES.includes(x.status) || x.status === 'dropped') && !x.settled)) && profileOf(x) && !isPlaceholder(profileOf(x)))
+      .sort(([a, i], [b, j]) => (Number(a.checkSeq) || 0) - (Number(b.checkSeq) || 0) || i - j).slice(0, REFRESH_MAX);
+    if (!picked.length) return [];
+    let seq = h.reduce((m, x) => Math.max(m, Number(x.checkSeq) || 0), 0);
+    for (const [, i] of picked) h[i] = { ...h[i], checkSeq: ++seq };
+    await store.set({ [HISTORY_KEY]: h });
+    return picked.map(([x]) => x);
+  });
   for (const t of open) {
     const p = profileOf(t);
     const rpc = rpcFor(p, pools.trust, null, http.inflight, { attempts: 2, deadlineMs: 15000 });
