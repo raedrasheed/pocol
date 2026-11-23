@@ -490,3 +490,22 @@ tests/e2e_site.py. No platform code changed, so no new FFI cross-check was neede
 is committed; the third review's witnesses were not re-run (the committed tests now assert what they
 showed).
 
+
+## 14. Addendum (2026-11-23): an answer completed after the work deadline
+
+Production readiness review, 2026-11-23. §5 (BATCH_WALL row) and the second review
+(`evidence/reviews-2026-10-24/R2-rpcguard.md`, "The 504 at the work deadline drops a Reply computed afterwards")
+state that after the work deadline the connection answers 504 and sends no answer. `conn` did not fully hold to it:
+its waits for the node's answer (`recv_timeout`, first until the admission deadline, then until the work deadline)
+return a message that is already queued before they look at the time, so a connection thread that woke late (a loaded
+host) could find an answer the node completed after the work deadline and send it as 200. This matches the one failure
+of `rpc_work_deadline_skips_expired_work_and_releases_resources` on windows-2022 (a batch answered 200, expected 504;
+the assertion text of `e714a230` shows the timing of such a failure).
+
+Fix (approved by the owner on 2026-11-23: "نعم طبق الاصلاح"; local RPC code, not consensus: `pocold/src/rpc.rs` is not in `consensus-sources.lock`): each `Reply` records the instant its
+answer was complete (`done`), and `conn` sends it only if it is a BATCH_WALL close or `done < work_by`; any other
+answer is dropped (its reservation is released) and the caller gets 504, as while the work runs. An answer completed
+before the work deadline is still sent when the thread wakes late. Test: the rpc unit test
+`an_answer_completed_after_the_work_deadline_is_answered_504_even_when_the_connection_wakes_late` holds the connection
+thread at each wait (a `cfg(test)` hook, `late_wake`) until the answer is queued, so no timing decides the outcome; it
+fails without the fix at both waits (200 with the late answer's body) and passes with it.
