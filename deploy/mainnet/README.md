@@ -96,7 +96,7 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    and set `POCOL_DATA_REQUIRED=1`, then check that
    `sudo python3 -I -B /opt/pocol-disk-monitor/pocol_disk_monitor.py --status` reports the PoCol data directory
    `/var/lib/pocol-standalone` present, with its size (not `not present`), and that the next daily report shows it.
-   From then on a missing or unreadable data directory raises a CRITICAL alert.
+   From then on a missing or unreadable data directory raises a CRITICAL alert. The owner's report of the real genesis of 2026-11-21 and what followed it is in [GENESIS-RECORD-2026-11-21.md](../../development/public-network/GENESIS-RECORD-2026-11-21.md).
 7. **Pin the identity in the clients.** Switch every client from the identity the tree pins today to the new
    one with `set_network_identity.py` (below), in one reviewed PR, and release the clients: rebuild the native
    packages and the 0.5.0 extension from the switched tree, then assemble, sign and verify them

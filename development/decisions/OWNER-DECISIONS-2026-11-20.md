@@ -159,3 +159,18 @@ profile in ExperimentalDevnet scope for both fresh-network chains) is marked the
 chain. `deploy/websites/tests/test_owner_decision_record.py` keeps this section listing every pending id the node
 reports for PoCol Mainnet, with every ledger entry of each open gate, and every approval reference naming a decision
 of an existing record.
+
+### Addendum of 2026-11-22: entries recorded after these decisions
+
+This addendum was added on 2026-11-22 on the owner's instruction of that day. It is not a decision of 2026-11-20 and
+changes none of the decisions above, their words or their dates.
+
+F-95, F-96, F-97 and F-98 were found after the genesis of PoCol Mainnet (2026-11-21 20:20:56 UTC), from the owner's
+post-genesis report ([GENESIS-RECORD-2026-11-21.md](../public-network/GENESIS-RECORD-2026-11-21.md)), so after the
+decisions of this record. They are open findings in [FINDINGS.md](../public-network/FINDINGS.md), not accepted risks:
+
+- F-95, F-97 and F-98 are under `plan-gate-L1`;
+- F-96 is under `plan-gate-K1`.
+
+D1 and the other decisions of this record did not accept them, and do not accept them now. They are named here only
+because this section lists every ledger entry of each open gate. Accepting any of them needs a new owner decision.

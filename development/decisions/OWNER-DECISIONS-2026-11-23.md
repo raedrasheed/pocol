@@ -43,7 +43,7 @@ the fix of D6 and asked for this record.
      networks the user adds, after the user's approval. No code changes.
    - *What stays open.* Connections for arbitrary sites are deferred, not rejected: a later release may design them
      (per-site optional permissions); that needs its own owner decision.
-   - *Affected.* Findings ledger F-95 ([FINDINGS.md](../public-network/FINDINGS.md)), `prototypes/pocol-extension`
+   - *Affected.* Findings ledger F-99 ([FINDINGS.md](../public-network/FINDINGS.md)), `prototypes/pocol-extension`
      README-IDE.md, README-AR.md and README-STUDIO.md, `store/listing.md`.
 2. **D2: the Chrome Web Store item keeps the id the store assigns (route A).**
    - *Question.* A store item's id is fixed by its first upload. Route A: upload the store zip without a key and accept
@@ -61,7 +61,7 @@ the fix of D6 and asked for this record.
      the store link (W16), beside the side-loaded release's id. Whether a later side-loaded release adopts the store
      item's public key as `release/manifest-key.pub` (so that both share the store's id) is a later owner decision;
      until then side-loaded releases keep `gggcoflmedlhlkcdhebmoepmggdnafmp`.
-   - *Affected.* F-69 and F-96, `prototypes/pocol-extension/store/README.md`, README-STUDIO.md, README-IDE.md,
+   - *Affected.* F-69 and F-100, `prototypes/pocol-extension/store/README.md`, README-STUDIO.md, README-IDE.md,
      README-AR.md, `deploy/websites/README.md` (SITE-03).
 3. **D3: the on-chain site viewer stays in the store build; the remote-code answer is "Yes".**
    - *Question.* The viewer runs the code of websites published on PoCol in the manifest's sandboxed page. Keep it in
@@ -73,7 +73,7 @@ the fix of D6 and asked for this record.
      test instructions of `store/listing.md`. The store variant without the viewer is not built.
    - *What stays open.* The store's review decides; a longer review is expected. If the review objects to the viewer,
      what to do then (a variant without it, or another answer) is a new owner decision.
-   - *Affected.* F-96, `store/listing.md` ("Remote code"), `store/README.md`.
+   - *Affected.* F-100, `store/listing.md` ("Remote code"), `store/README.md`.
 4. **D4 (SITE-01): no extension link and no extension digest on any site before the signed release.**
    - *Question.* The sites track withdrew every extension package link and every listed extension package digest
      until the signed release (SITE-01). Does the owner approve that policy, with the Chrome Web Store as the official
@@ -115,5 +115,5 @@ D1, D3, D4 and D5 confirm what the branch already does; D2 chooses the documente
 it is; D6 is applied. The texts that presented these as open questions or recommendations now state the decisions:
 `prototypes/pocol-extension/store/README.md` and `store/listing.md`, the extension READMEs, the Studio release notes,
 `deploy/websites/README.md`, [FINDINGS.md](../public-network/FINDINGS.md) (F-57 and F-69, and the accepted risks
-F-95 and F-96) and [STATUS-EN.md](../STATUS-EN.md). Still the owner's: the Chrome Web Store account, the first upload
+F-99 and F-100) and [STATUS-EN.md](../STATUS-EN.md). Still the owner's: the Chrome Web Store account, the first upload
 and the review, the item name and category (`store/listing.md`), the signed release and the site uploads (W16).
