@@ -148,6 +148,9 @@ let eligibilityEpoch = 0, walletEpoch = 0;
 const approvals = new Set(); // {sess, cancel(code, message)}
 const epochs = () => ({ profile: eligibilityEpoch, wallet: walletEpoch });
 function cancelApprovals(pred, code, message) { for (const a of [...approvals]) if (pred(a.sess)) a.cancel(code, message); }
+// The PoCol wallet's signed transfers not yet sent (confirmTransfer): a lock or a profile change aborts the queued request.
+const transfersQueued = new Set(); // AbortController
+const abortTransfers = () => { for (const c of [...transfersQueued]) c.abort(); };
 function walletChanged(message) { walletEpoch++; cancelApprovals(() => true, 4100, message); }
 const lockWallet = (message) => { unlocked = null; walletChanged(message); };
 const isUnlocked = () => { if (unlocked && Date.now() > unlocked.until) lockWallet('wallet locked (timeout)'); return !!unlocked; };
@@ -189,11 +192,11 @@ async function identity(sess) {
 }
 /** A profile change begins (under ProfileMutex, before its storage write): requests in flight
  *  can no longer rely on the old profile set, so approvals and queued submissions end (4901). */
-function profilesChanging() { eligibilityEpoch++; cancelApprovals(() => true, 4901, 'network profiles changing'); }
+function profilesChanging() { eligibilityEpoch++; cancelApprovals(() => true, 4901, 'network profiles changing'); abortTransfers(); }
 /** After a profile change (under ProfileMutex): sessions whose profile was removed, changed or
  *  invalidated end with 4901; a session whose profile became conflicting stays read-only. */
 async function profilesChanged() {
-  eligibilityEpoch++; cancelApprovals(() => true, 4901, 'network profiles changed');
+  eligibilityEpoch++; cancelApprovals(() => true, 4901, 'network profiles changed'); abortTransfers();
   const list = await profiles();
   for (const s of [...sessions.values()]) { const cur = list.find((p) => p.name === s.profile.name); if (!cur || cur.invalid || !sameProfile(cur, s.profile)) s.revoke(4901, 'network profile changed'); }
 }
@@ -610,7 +613,7 @@ function lockAccount(why) {
   if (account) account.secret.fill(0);
   account = null; accountEpoch++;
   for (const r of reviews.values()) r.cancelled = why;
-  reviews.clear();
+  reviews.clear(); abortTransfers();
 }
 const accountUnlocked = () => { if (account && Date.now() > account.until) lockAccount('timeout'); return !!account; };
 const touchAccount = () => { if (account) account.until = Date.now() + LOCK_MS; };
@@ -634,14 +637,21 @@ async function openVault(password) {
  *  when this started. Returns the encrypted backup, and unlocked:false when the wallet was locked meanwhile.
  *  Codex review (PR #114): the saved vault is read again and written inside the vault lock that the Studio and IDE
  *  pages' saveVaultIfNone hold too, so a wallet a page saved while this encrypted is never overwritten; and a Lock
- *  (or any lock) during the encryption is kept: the new wallet is saved but stays locked. */
-async function saveAccount(secret, password, replace) {
+ *  (or any lock) during the encryption is kept: the new wallet is saved but stays locked.
+ *  Codex review (PR #114, head 7f91bb9e): `replaceAddress` is the saved address the refusal reported, which the
+ *  settings page's confirmation showed (and the user backed up); replace:true then covers only that wallet, compared
+ *  with the saved vault again inside the vault lock, so a wallet another Settings tab saved meanwhile is refused
+ *  ('exists', a new confirmation). Without it, replace:true covers the wallet saved when this started, as before. */
+async function saveAccount(secret, password, replace, replaceAddress) {
   if (typeof password !== 'string' || password.length < acct.PASSWORD_MIN) throw fail(`Use a password of at least ${acct.PASSWORD_MIN} characters`, 'password');
   if (accountBusy) throw fail('Another wallet operation is in progress', 'busy');
   accountBusy = true;
   try {
     const e0 = accountEpoch, address = addressOf(secret), before = await storedVault();
-    const allowed = (v) => !v || vaultAddress(v) === address || (replace === true && !!before && vaultAddress(v) === vaultAddress(before));
+    // The confirmed wallet: a lowercase address, or null for a saved vault without a readable one; anything else never matches.
+    const confirmed = replaceAddress === undefined ? undefined : replaceAddress === null ? null : typeof replaceAddress === 'string' ? replaceAddress.toLowerCase() : false;
+    const covered = (v) => (confirmed === undefined ? !!before && vaultAddress(v) === vaultAddress(before) : vaultAddress(v) === confirmed);
+    const allowed = (v) => !v || vaultAddress(v) === address || (replace === true && covered(v));
     const refusal = (v) => fail('Another PoCol wallet is saved in this browser. Back it up first, then confirm that you replace it.', 'exists', { saved: vaultAddress(v) });
     if (!allowed(before)) throw refusal(before);
     const box = await exportKeyfile(secret, password);
@@ -752,6 +762,9 @@ async function confirmTransfer(msg, sender) {
   // The publisher and contract pages hold this lock while they sign: a transfer never interleaves with their nonces.
   return navigator.locks.request(`pocol:publish:${r.tx.chainId}:${r.address}`, { mode: 'exclusive', ifAvailable: true }, async (lease) => {
     if (!lease) throw fail('Another tab is publishing from this wallet; finish or pause it first', 'busy');
+    // Codex review (PR #114): a Studio or IDE job that signed after the review (and paused before its transaction reached
+    // the node) holds the reviewed nonce. Checked again here, under the lock every job signs under, as they do.
+    if (r.profile.name === NETWORK.name) { const all = await store.get(null); if (Object.entries(all).some(([k, j]) => (k.startsWith(JOB_PREFIX) || k.startsWith(IDE_JOB_PREFIX)) && blocksAccount(j, r.address, NETWORK))) throw fail('Resume or cancel the unfinished Studio or IDE operation of this wallet first (Settings, Publication history)', 'busy'); }
     const signed = await profileLocked(async () => {
       const cur = await walletProfile(r.profile.name);
       if (!sameProfile(cur, r.profile) || r.ep.profile !== eligibilityEpoch) throw fail('The network profile changed; review the transfer again', 4901);
@@ -764,23 +777,38 @@ async function confirmTransfer(msg, sender) {
     });
     const entry = { network: r.profile.name, chainId: r.tx.chainId, genesisHash: r.profile.genesisHash, from: r.address, to: r.tx.to, value: r.tx.value.toString(), nonce: r.tx.nonce.toString(),
       gas: r.tx.gas.toString(), maxFeePerGas: r.tx.maxFee.toString(), status: 'sending' };
-    await updateHistory(signed.hash, entry); // recorded before it is sent, so a lost answer is still tracked by its hash
+    // Codex review (PR #114): a Lock, a wallet change or a profile change until the request starts stops it, as the
+    // viewer wallet's submit() does: the queued request is aborted (lockAccount, profilesChanging), and the account
+    // epoch and the profiles are checked again after the history write and, synchronously after the transport
+    // reservation, immediately before the request starts. A transfer stopped so was not sent, and its entry says so.
+    const ineligible = () => (r.ep.profile !== eligibilityEpoch ? fail('The network profiles changed before the transfer was sent; it was not sent. Review it again', 4901)
+      : !accountUnlocked() || account.address !== r.address || r.ep.account !== accountEpoch ? fail('The wallet was locked or changed before the transfer was sent; it was not sent. Review it again', 4100) : null);
+    const notSent = async (e) => { await updateHistory(signed.hash, { status: 'cancelled', note: 'Not sent: ' + e.message }); throw e; };
+    const queued = new AbortController(); transfersQueued.add(queued);
     try {
-      const result = await rpcFor(r.profile, pools.trust, null, http.inflight, false)('eth_sendRawTransaction', [signed.raw], RPC_TIMEOUT_MS);
-      const ok = typeof result === 'string' && result.toLowerCase() === signed.hash;
-      await updateHistory(signed.hash, ok ? { status: 'pending' } : { status: 'unknown', note: 'The node answered with another hash' });
-      return { hash: signed.hash, status: ok ? 'pending' : 'unknown' };
-    } catch (e) {
-      // Only an answer that proves a refusal is final (lib/account.js sendRefused). Any other error, such as the
-      // gateway's "check transaction hash before resubmitting" after a broadcast it could not complete, may have
-      // reached the node: the transfer stays "unknown" and refreshHistory follows its receipt, as the publisher does.
-      const said = e?.rpc ? String(e.rpc.message || '').slice(0, 200) : null;
-      if (e?.rpc && acct.sendRefused(e.rpc)) { await updateHistory(signed.hash, { status: 'rejected', note: said }); throw fail('The node did not accept the transaction: ' + said, 'rejected', { hash: signed.hash }); }
-      const note = said === null ? 'No answer from the node; the transaction may have been sent'
-        : `The node answered "${said}", which does not show that it refused the transaction; it may have been sent`;
-      await updateHistory(signed.hash, { status: 'unknown', note });
-      return { hash: signed.hash, status: 'unknown', note };
-    }
+      await updateHistory(signed.hash, entry); // recorded before it is sent, so a lost answer is still tracked by its hash
+      let stopped = ineligible();
+      if (stopped || queued.signal.aborted) return await notSent(stopped || fail('The transfer was stopped before it was sent; it was not sent. Review it again', 'changed'));
+      try {
+        const result = await rpcFor(r.profile, pools.trust, null, http.inflight, false)('eth_sendRawTransaction', [signed.raw], RPC_TIMEOUT_MS,
+          { signal: queued.signal, beforeSend: () => !!(stopped = ineligible()) });
+        const ok = typeof result === 'string' && result.toLowerCase() === signed.hash;
+        await updateHistory(signed.hash, ok ? { status: 'pending' } : { status: 'unknown', note: 'The node answered with another hash' });
+        return { hash: signed.hash, status: ok ? 'pending' : 'unknown' };
+      } catch (e) {
+        // lib/transport.js answers 'cancelled' only before the request started (aborted or refused by beforeSend).
+        if (e?.transport === 'cancelled') return await notSent(stopped || ineligible() || fail('The transfer was stopped before it was sent; it was not sent. Review it again', 'changed'));
+        // Only an answer that proves a refusal is final (lib/account.js sendRefused). Any other error, such as the
+        // gateway's "check transaction hash before resubmitting" after a broadcast it could not complete, may have
+        // reached the node: the transfer stays "unknown" and refreshHistory follows its receipt, as the publisher does.
+        const said = e?.rpc ? String(e.rpc.message || '').slice(0, 200) : null;
+        if (e?.rpc && acct.sendRefused(e.rpc)) { await updateHistory(signed.hash, { status: 'rejected', note: said }); throw fail('The node did not accept the transaction: ' + said, 'rejected', { hash: signed.hash }); }
+        const note = said === null ? 'No answer from the node; the transaction may have been sent'
+          : `The node answered "${said}", which does not show that it refused the transaction; it may have been sent`;
+        await updateHistory(signed.hash, { status: 'unknown', note });
+        return { hash: signed.hash, status: 'unknown', note };
+      }
+    } finally { transfersQueued.delete(queued); }
   });
 }
 /** Receipts of this extension's open transfers (at most REFRESH_MAX): included (status and block, on the canonical
@@ -856,7 +884,7 @@ async function accountRequest(msg, sender) {
     case 'account.create': {
       fromPages(sender, PAGES.manage);
       let key; do { key = crypto.getRandomValues(new Uint8Array(32)); try { addressOf(key); break; } catch { key.fill(0); } } while (true);
-      return saveAccount(key, msg.password, msg.replace);
+      return saveAccount(key, msg.password, msg.replace, msg.replaceAddress);
     }
     case 'account.import': {
       fromPages(sender, PAGES.manage);
@@ -869,7 +897,7 @@ async function accountRequest(msg, sender) {
         passwordGate();
         try { secret = await importKeyfile(bytes, msg.filePassword ?? msg.password); } catch (e) { pwFails.push(Date.now()); throw fail(e.message, 'file'); } finally { bytes.fill(0); }
       } else throw fail('Choose what to import', 'kind');
-      return saveAccount(secret, msg.password, msg.replace);
+      return saveAccount(secret, msg.password, msg.replace, msg.replaceAddress);
     }
     case 'account.unlock': {
       fromPages(sender, PAGES.unlock);

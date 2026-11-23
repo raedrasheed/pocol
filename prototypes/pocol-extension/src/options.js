@@ -97,7 +97,9 @@ $('acctSave').onclick = async () => {
   let r = await call(msg);
   if (!r.ok && r.error?.code === 'exists') {
     if (!confirm(`Another PoCol wallet (${r.error.saved}) is saved in this browser. Replacing it removes it from this browser; only its backup file can bring it back. Did you back it up, and do you want to replace it?`)) { clear(); note('Nothing was changed.'); return; }
-    r = await call({ ...msg, replace: true });
+    // Codex review (PR #114): the confirmation covers only the wallet it named; the worker refuses ('exists', a new
+    // confirmation) when another Settings tab saved a different wallet meanwhile.
+    r = await call({ ...msg, replace: true, replaceAddress: r.error.saved ?? null });
   }
   clear();
   if (!r.ok) { note(errText(r)); refreshAccount(); return; }

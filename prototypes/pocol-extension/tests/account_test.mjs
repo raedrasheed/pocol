@@ -540,6 +540,100 @@ test('Codex review: two tabs saving a wallet at once: the second reads the first
   assert.equal(out.find((x) => x.state === 'other').saved, kept.address, 'the refused tab names the wallet that was saved');
   assert.equal(kept.ct, kept.address === A1 ? 'one' : 'two');
 });
+// Codex review (PR #114, head 7f91bb9e): the settings page's replacement confirmation names one wallet. The confirmed
+// request carries that address, and the worker compares it with the saved vault inside the vault lock, so a wallet
+// another Settings tab saved meanwhile is never overwritten by a confirmation (and a backup) that named another one.
+test('Codex review: a confirmed replacement covers only the wallet its confirmation named, never one another tab saved meanwhile', async () => {
+  const w = await world();
+  assert.equal((await w.options({ type: 'account.import', kind: 'privateKey', privateKey: KEY2, password: PW })).ok, true);
+  // Tab 1 asks to create a wallet; the worker refuses and names the saved wallet A, which tab 1's confirmation shows.
+  const first = await w.options({ type: 'account.create', password: PW }); assert.equal(first.error.code, 'exists'); assert.equal(first.error.saved, ADDRESS2);
+  // Meanwhile tab 2 replaces A with B after its own confirmation of A.
+  const other = await w.mock.send({ type: 'account.import', kind: 'phrase', phrase: PHRASE, password: PW, replace: true, replaceAddress: ADDRESS2 }, 8, 'options.html');
+  assert.equal(other.ok, true, JSON.stringify(other)); assert.equal(other.address, PHRASE_ADDRESS);
+  const b = vaultOf(w);
+  // Tab 1's user confirms replacing A: B is not replaced, and the refusal names B for a new confirmation.
+  const r = await w.options({ type: 'account.create', password: PW, replace: true, replaceAddress: first.error.saved });
+  assert.equal(r.ok, false, JSON.stringify(r)); assert.equal(r.error.code, 'exists'); assert.equal(r.error.saved, PHRASE_ADDRESS);
+  assert.deepEqual(vaultOf(w), b, 'B is still saved');
+  const st = await w.popup({ type: 'account.status' }); assert.equal(st.address, PHRASE_ADDRESS); assert.equal(st.unlocked, true, 'B stays unlocked');
+  // A replacement naming a malformed or missing address replaces nothing either.
+  for (const replaceAddress of [ADDRESS2.toUpperCase(), 'nonsense', 42]) {
+    const x = await w.options({ type: 'account.create', password: PW, replace: true, replaceAddress: replaceAddress === ADDRESS2.toUpperCase() ? '0x' + ADDRESS2.slice(2).toUpperCase() : replaceAddress });
+    assert.equal(x.error.code, 'exists', String(replaceAddress)); assert.deepEqual(vaultOf(w), b);
+  }
+  // The settings page sends the address its confirmation showed; a confirmation naming B replaces B.
+  assert.match(readFileSync(join(dist, 'options.js'), 'utf8'), /\{ \.\.\.msg, replace: true, replaceAddress: r\.error\.saved \?\? null \}/);
+  const ok = await w.options({ type: 'account.create', password: PW, replace: true, replaceAddress: '0x' + PHRASE_ADDRESS.slice(2).toUpperCase() });
+  assert.equal(ok.ok, true, JSON.stringify(ok)); assert.equal(vaultOf(w).address, ok.address); assert.notEqual(ok.address, PHRASE_ADDRESS);
+});
+// Codex review (PR #114, head 7f91bb9e): a Studio publication or an IDE contract request of this wallet that signs
+// after the transfer was reviewed, and pauses before its transaction reached the node, holds the reviewed nonce. The
+// unfinished-job check runs again under the transfer lock, before signing, as the publisher and contract flows do.
+test('Codex review: an unfinished Studio or IDE job that signed after the review blocks the confirmation (checked under the transfer lock)', async () => {
+  const w = await world();
+  w.env.chainId = Number(N.NETWORK.chainId); w.env.genesis = N.NETWORK.genesisHash.toLowerCase();
+  assert.equal((await w.options({ type: 'account.import', kind: 'privateKey', privateKey: KEY2, password: PW })).ok, true);
+  for (const key of ['studio:job:after-review', 'ide:job:after-review']) {
+    const p = await w.send({ type: 'send.prepare', to: TO, amount: '1' }); assert.equal(p.ok, true, JSON.stringify(p)); assert.equal(p.network, N.NETWORK.name);
+    await w.mock.storage.set({ [key]: { id: 'after-review', status: 'paused', createdAt: Date.now(), walletAddress: ADDRESS2,
+      network: { chainId: String(N.NETWORK.chainId), genesisHash: N.NETWORK.genesisHash.toLowerCase() },
+      checkpoint: { transactions: { ['0x' + 'cd'.repeat(32)]: { tx: { chainId: String(N.NETWORK.chainId), nonce: '0' } } } } } });
+    const c = await w.send({ type: 'send.confirm', id: p.id });
+    assert.equal(c.ok, false, key + ': ' + JSON.stringify(c)); assert.equal(c.error.code, 'busy'); assert.match(c.error.message, /unfinished Studio or IDE operation/);
+    await w.mock.storage.remove(key);
+  }
+  assert.equal(w.count('eth_sendRawTransaction'), 0, 'nothing was sent'); assert.equal((await w.popup({ type: 'txs.list' })).transactions.length, 0, 'nothing was signed or recorded');
+  const p = await w.send({ type: 'send.prepare', to: TO, amount: '1' }); assert.equal((await w.send({ type: 'send.confirm', id: p.id })).status, 'pending', 'without the job the transfer is sent');
+});
+// Codex review (PR #114, head 7f91bb9e): a Lock or a profile change while the transfer's history entry is written (or
+// while the request waits for its transport reservation) stops it: the account epoch and the profiles are checked
+// again immediately before the request starts, as the viewer wallet's submit() does, and its entry says "not sent".
+test('Codex review: a Lock or a profile change while the transfer is recorded stops it before it is sent; its history entry says it was not sent', async () => {
+  for (const [what, change, code] of [['lock', (w) => w.popup({ type: 'account.lock' }), 4100], ['profile', (w) => w.options({ type: 'profiles.add', profile: profile('third', 'http://127.0.0.1:8597') }), 4901]]) {
+    const w = await world();
+    const p = await prepared(w);
+    w.mock.storage.holdSets = 1; // the history write made before the broadcast waits
+    const pending = w.send({ type: 'send.confirm', id: p.id });
+    for (let i = 0; i < 1000 && !w.mock.storage.held.length; i++) await new Promise((r) => realTimeout(r, 2));
+    assert.equal(w.mock.storage.held.length, 1, what + ': the history write is pending');
+    assert.equal((await change(w)).ok, true, what);
+    w.mock.storage.release();
+    const c = await pending;
+    assert.equal(c.ok, false, what + ': ' + JSON.stringify(c)); assert.equal(c.error.code, code, what);
+    assert.equal(w.count('eth_sendRawTransaction'), 0, what + ': nothing was sent');
+    const list = (await w.popup({ type: 'txs.list' })).transactions; assert.equal(list.length, 1);
+    assert.equal(list[0].status, 'cancelled', what); assert.match(list[0].note, /^Not sent/, what);
+    const reads = w.count('eth_getTransactionReceipt'); await w.popup({ type: 'txs.refresh' });
+    assert.equal(w.count('eth_getTransactionReceipt'), reads, what + ': a transfer that was not sent is not followed');
+  }
+});
+test('Codex review: a Lock while the transfer waits for its transport reservation aborts the queued request at once; nothing is sent', async () => {
+  let open; const gate = new Promise((r) => (open = r)); let holding = false;
+  const w = await world({ extra: { eth_getBalance: async () => { if (holding) await gate; return '0x' + (10n ** 21n).toString(16); } } });
+  const p = await prepared(w);
+  w.mock.storage.holdSets = 1; // the history write waits while the trust pool is filled
+  const pending = w.send({ type: 'send.confirm', id: p.id });
+  for (let i = 0; i < 1000 && !w.mock.storage.held.length; i++) await new Promise((r) => realTimeout(r, 2));
+  assert.equal(w.mock.storage.held.length, 1, 'the history write is pending');
+  // 512 balance reads of 4 KiB each hold the whole 2 MiB trust pool (lib/transport.js TRUST_POOL), so the send queues.
+  holding = true; const reads = w.count('eth_getBalance');
+  const balances = Array.from({ length: 512 }, () => w.popup({ type: 'account.balance', name: 'devnet' }));
+  for (let i = 0; i < 2000 && w.count('eth_getBalance') < reads + 512; i++) await new Promise((r) => realTimeout(r, 2));
+  assert.equal(w.count('eth_getBalance'), reads + 512, 'the trust pool is full');
+  w.mock.storage.release();
+  await new Promise((r) => realTimeout(r, 50)); // the send request is now waiting for its reservation
+  assert.equal(w.count('eth_sendRawTransaction'), 0);
+  let settled = false; pending.then(() => { settled = true; });
+  assert.equal((await w.popup({ type: 'account.lock' })).ok, true);
+  for (let i = 0; i < 200 && !settled; i++) await new Promise((r) => realTimeout(r, 2));
+  assert.equal(settled, true, 'the queued request ends at once, while the pool is still full');
+  const c = await pending; assert.equal(c.ok, false, JSON.stringify(c)); assert.equal(c.error.code, 4100);
+  open(); await Promise.all(balances);
+  await new Promise((r) => realTimeout(r, 50));
+  assert.equal(w.count('eth_sendRawTransaction'), 0, 'nothing was sent, also after the pool emptied');
+  const [t] = (await w.popup({ type: 'txs.list' })).transactions; assert.equal(t.status, 'cancelled'); assert.match(t.note, /^Not sent/);
+});
 test('Codex review: a Lock pressed while the worker encrypts a new wallet is kept: the wallet is saved and stays locked', async () => {
   for (const kind of ['create', 'import']) {
     const w = await world();

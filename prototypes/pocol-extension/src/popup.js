@@ -71,7 +71,7 @@ async function renderAccount(net, gen) {
   $('send').disabled = !net?.ok || !!net.placeholder || !net.reachable || !net.chainOk || !net.genesisOk;
 }
 
-const STATUS_WORDS = { sending: 'sending', pending: 'pending', unknown: 'outcome unknown', included: 'included', failed: 'failed (included, reverted)', dropped: 'dropped (not included)', rejected: 'rejected by the node' };
+const STATUS_WORDS = { sending: 'sending', pending: 'pending', unknown: 'outcome unknown', included: 'included', failed: 'failed (included, reverted)', dropped: 'dropped (not included)', rejected: 'rejected by the node', cancelled: 'not sent (stopped before sending)' };
 async function renderTxs(refresh = false, gen = generation) {
   const r = await call({ type: refresh ? 'txs.refresh' : 'txs.list' });
   if (!current(gen)) return;
