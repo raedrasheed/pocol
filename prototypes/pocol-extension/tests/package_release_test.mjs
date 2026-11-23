@@ -3,7 +3,8 @@
 // another sandbox page or background, an open or stale sandbox CSP, another endpoint or trust level, a chatgpt.site
 // origin, the D1 placeholder (Sites W9: its mark or its identity), a retired identity (in the built-in profile or shown
 // by any file), or a missing or other manifest key (W14: release/manifest-key.pub, the owner key of the fixed extension
-// id). The tree as it is carries both placeholders until the identity switch, so it is never packaged. The release zip
+// id). The tree as it is carries the network placeholder until the identity switch, so it is not packaged before it
+// (the placeholder refusals are tested on a copy that carries it either way). The release zip
 // is reproducible (W14): it depends only on the bytes and relative paths of dist/.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,6 +44,29 @@ const RETIRED_ID = JSON.parse(readFileSync(RETIRED, 'utf8')).retired[0];
 const MARK = /\/\/ PLACEHOLDER \(decision D1\)[^]*?export const NETWORK_PLACEHOLDER = true;\n/;
 const dropMark = (t) => t.replace(MARK, '');
 const releaseIdentity = (t) => dropMark(t).replace(/"chainId": \d+/, '"chainId": 4242').replace(/"genesisHash": "0x[0-9a-f]{64}"/, `"genesisHash": "0x${'42'.repeat(32)}"`);
+// The D1 placeholder (deploy/mainnet/placeholder-network.pocol.json) and its mark, written here into a copy of the
+// release build, so the placeholder refusals are tested whether or not the tree still carries the placeholder (before
+// and after the identity switch). The mark is set_network_identity.py's PLACEHOLDER_MARK.
+const PH_DOC = JSON.parse(readFileSync(join(EXT, '..', '..', 'deploy', 'mainnet', 'placeholder-network.pocol.json'), 'utf8'));
+const PH_INFO = JSON.parse(PH_DOC.files['devnet.json']);
+const PH_MARK = '// PLACEHOLDER (decision D1): not a network. The built-in profile above is a spec-2 GenesisSpec made from the\n'
+  + '// devnet spec fixture under a chain ID of no network, so the extension pins no retired identity before the new\n'
+  + '// genesis exists. deploy/mainnet/set_network_identity.py replaces it with the network at the identity switch, and\n'
+  + '// scripts/package-release.py refuses a build that carries it.\n'
+  + 'export const NETWORK_PLACEHOLDER = true;\n';
+const withPlaceholder = (t) => {
+  if (MARK.test(t)) return t;
+  const u = t.replace(/"chainId": \d+/, `"chainId": ${PH_INFO.chainId}`).replace(/"genesisHash": "0x[0-9a-f]{64}"/, `"genesisHash": "${PH_INFO.genesisHash}"`)
+    .replace(/"genesisPre": "0x[0-9a-f]+"/, `"genesisPre": "${PH_DOC.files['genesis.spec.hex']}"`);
+  const i = u.indexOf('\n});\n') + 5; return u.slice(0, i) + PH_MARK + u.slice(i);
+};
+const TREE_HAS_PLACEHOLDER = MARK.test(readFileSync(join(EXT, 'src', 'lib', 'studio-network.js'), 'utf8'));
+const placeholderBuild = join(root, 'placeholder');
+cpSync(rel, placeholderBuild, { recursive: true });
+{ const p = join(placeholderBuild, 'lib', 'studio-network.js'); writeFileSync(p, withPlaceholder(readFileSync(p, 'utf8'))); }
+// The chain ID chip of the pages that show the network: empty in the build (filled from NETWORK at run time).
+const CHIP = ' id="networkChain" title="Chain ID"></span>';
+const showChain = (chain) => (t) => t.replace(CHIP, ` id="networkChain" title="Chain ID">${chain}</span>`);
 // As deploy/mainnet/set_network_identity.py does, every page and README that shows the network is repinned too.
 const shownIdentity = (t) => t.replaceAll(String(RETIRED_ID.chainId), '4242').replaceAll(RETIRED_ID.genesisHash.slice(2), '42'.repeat(32));
 const TEXT = /\.(js|html|md|json|txt)$/;
@@ -117,7 +141,8 @@ test('a release without the committed owner key, or with another key, is refused
   refused(pack({ slot: slotWith(TEST_KEY) + OTHER_KEY + '\n' }), /exactly one key line/);
 });
 test('the placeholder tree is refused as the network placeholder first, whatever the key slot holds', () => {
-  for (const [slot, key] of [[PLACEHOLDER_SLOT, null], [slotWith(TEST_KEY), TEST_KEY], [slotWith(TEST_KEY), null]]) refused(pack({ asBuilt: true, slot, key }), /network placeholder \(NETWORK_PLACEHOLDER\)/);
+  assert.match(readFileSync(join(placeholderBuild, 'lib', 'studio-network.js'), 'utf8'), MARK);
+  for (const [slot, key] of [[PLACEHOLDER_SLOT, null], [slotWith(TEST_KEY), TEST_KEY], [slotWith(TEST_KEY), null]]) refused(pack({ from: placeholderBuild, asBuilt: true, slot, key }), /network placeholder \(NETWORK_PLACEHOLDER\)/);
 });
 test('build.mjs puts the slot key into the release manifest only: never into a fault or testGateway build; a malformed slot fails the build', () => {
   const slot = join(root, 'slot.pub'); writeFileSync(slot, slotWith(TEST_KEY));
@@ -138,19 +163,23 @@ test('the packager\'s sandbox CSP is build.mjs SANDBOX_CSP(hash, false)', () => 
   const py = spawnSync('python3', ['-B', '-c', `import importlib.util,sys;s=importlib.util.spec_from_file_location('p',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print(m.sandbox_csp(sys.argv[2]),end='')`, join(EXT, 'scripts', 'package-release.py'), hash], { encoding: 'utf8' });
   assert.equal(py.stdout, SANDBOX_CSP(hash, false)); assert.equal(JSON.parse(readFileSync(join(rel, 'manifest.json'), 'utf8')).content_security_policy.sandbox, py.stdout);
 });
-test('the tree as it is (the D1 network placeholder) is refused as a release', () => {
-  assert.match(readFileSync(join(rel, 'lib', 'studio-network.js'), 'utf8'), MARK);
-  refused(pack({ asBuilt: true }), /network placeholder \(NETWORK_PLACEHOLDER\)/);
+test('the tree as it is is refused as a release while it carries the D1 network placeholder, and packaged after the switch', () => {
+  // Before the identity switch the tree carries the placeholder; the switch (deploy/mainnet/README.md, step 7) pins the
+  // network in its place and removes the mark, and the tree as built is then the release build.
+  assert.equal(MARK.test(readFileSync(join(rel, 'lib', 'studio-network.js'), 'utf8')), TREE_HAS_PLACEHOLDER);
+  if (TREE_HAS_PLACEHOLDER) refused(pack({ asBuilt: true }), /network placeholder \(NETWORK_PLACEHOLDER\)/);
+  else { const r = pack({ asBuilt: true }); assert.equal(r.status, 0, r.stderr); assert.equal(r.zip, true); }
   // Every other refusal still applies to the tree as it is; the placeholder refusal does not hide them.
-  refused(pack({ asBuilt: true, edits: [manifest((m) => ({ ...m, host_permissions: [...m.host_permissions, '<all_urls>'] }))] }), /host_permissions/);
-  refused(pack({ asBuilt: true, edits: [manifest((m) => ({ ...m, name: '[REHEARSAL] ' + m.name }))] }), /not the release name/);
+  for (const from of [rel, placeholderBuild]) {
+    refused(pack({ from, asBuilt: true, edits: [manifest((m) => ({ ...m, host_permissions: [...m.host_permissions, '<all_urls>'] }))] }), /host_permissions/);
+    refused(pack({ from, asBuilt: true, edits: [manifest((m) => ({ ...m, name: '[REHEARSAL] ' + m.name }))] }), /not the release name/);
+  }
 });
 test('the placeholder identity without its mark is refused', () => {
-  refused(pack({ asBuilt: true, edits: [['lib/studio-network.js', dropMark]] }), /network placeholder identity/);
+  refused(pack({ from: placeholderBuild, asBuilt: true, edits: [['lib/studio-network.js', dropMark]] }), /network placeholder identity/);
 });
 test('a build repinned to a retired network is refused, with every file that shows it', () => {
-  const back = (t) => t.replaceAll('42'.repeat(32), RETIRED_ID.genesisHash.slice(2)).replace('"chainId": 4242', `"chainId": ${RETIRED_ID.chainId}`)
-    .replace('>4242<', `>${RETIRED_ID.chainId}<`);
+  const back = (t) => showChain(RETIRED_ID.chainId)(t.replaceAll('42'.repeat(32), RETIRED_ID.genesisHash.slice(2)).replace('"chainId": 4242', `"chainId": ${RETIRED_ID.chainId}`));
   const r = pack({ edits: [['lib/studio-network.js', back], ['publisher.html', back], ['contract.html', back]] });
   refused(r, new RegExp(`pins the retired network ${RETIRED_ID.chainId}`));
   for (const f of ['publisher.html', 'contract.html', 'lib/studio-network.js']) assert.ok(r.stderr.includes(f + ' shows the retired network'), r.stderr);
@@ -172,8 +201,9 @@ test('widened permissions, extra manifest keys, another sandbox page or backgrou
   refused(pack({ edits: [manifest((m) => ({ ...m, chrome_url_overrides: { newtab: 'options.html' } }))] }), /keys the release does not: chrome_url_overrides$/m);
 });
 test('a page that still shows a retired network is refused, even with NETWORK repinned', () => {
-  refused(pack({ edits: [['publisher.html', (t) => t.replace('<span class="chip">4242</span>', `<span class="chip">${RETIRED_ID.chainId}</span>`)]] }), new RegExp(`publisher\\.html shows the retired network chain ID ${RETIRED_ID.chainId}`));
-  refused(pack({ edits: [['contract.html', (t) => t.replace('<span class="network-id">4242</span>', `<span class="network-id">${RETIRED_ID.chainId}</span>`)]] }), /contract\.html shows the retired network chain ID/);
+  for (const page of ['publisher.html', 'contract.html']) assert.ok(readFileSync(join(rel, page), 'utf8').includes(CHIP), page);
+  refused(pack({ edits: [['publisher.html', showChain(RETIRED_ID.chainId)]] }), new RegExp(`publisher\\.html shows the retired network chain ID ${RETIRED_ID.chainId}`));
+  refused(pack({ edits: [['contract.html', showChain(RETIRED_ID.chainId)]] }), /contract\.html shows the retired network chain ID/);
   refused(pack({ edits: [['README-EN.md', (t) => t + '\ngenesis ' + RETIRED_ID.genesisHash.toUpperCase().replace('0X', '0x') + '\n']] }), new RegExp(`README-EN\\.md shows the retired network genesis ${RETIRED_ID.genesisHash.toLowerCase()}`));
   // A decimal word only: the digits inside a longer number or a hex string are not the chain ID.
   const r = pack({ edits: [['README-EN.md', (t) => t + `\nid 9${RETIRED_ID.chainId} hash a${RETIRED_ID.chainId}f\n`]] }); assert.equal(r.status, 0, r.stderr);

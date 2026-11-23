@@ -102,7 +102,9 @@ async function main() {
     // ---- a temporary copy switched to the devnet with the W9 tool ----
     const tree = join(work, 'tree');
     for (const top of ['deploy/websites', 'prototypes/pocol-studio/dist']) cpSync(join(ROOT, top), join(tree, top), { recursive: true, filter: (s) => !/__pycache__|[\\/]config\.php$/.test(s) });
-    for (const f of ['deploy/mainnet/retired-networks.json', 'prototypes/pocol-extension/package.json', 'deploy/standalone/package.py']) { mkdirSync(dirname(join(tree, f)), { recursive: true }); cpSync(join(ROOT, f), join(tree, f)); }
+    // The W9 tool reads the public network chains and the node's GenesisSpec version from the --root tree (step 7).
+    for (const f of ['deploy/mainnet/retired-networks.json', 'prototypes/pocol-extension/package.json', 'deploy/standalone/package.py',
+      'prototypes/lp1-node/src/genesis_spec.rs', 'prototypes/lp4-execution/src/p1_profile.rs']) { mkdirSync(dirname(join(tree, f)), { recursive: true }); cpSync(join(ROOT, f), join(tree, f)); }
     const genesisHash = info.genesisHash.toLowerCase();
     const invitation = { schema: 'pocol-network-v2', consensusRulesVersion: 2, seeds: ['192.0.2.10:30300', '192.0.2.11:30300', '192.0.2.12:30300'],
       files: { 'genesis.spec.hex': spec.startsWith('0x') ? spec : '0x' + spec, 'devnet.json': JSON.stringify({ chainId: info.chainId, genesisHash }) } };

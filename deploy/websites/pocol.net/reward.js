@@ -1,7 +1,7 @@
 (() => {
   'use strict';
-  const CHAIN_ID = 1599846715;
-  const GENESIS = '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca';
+  const CHAIN_ID = 2656089850;
+  const GENESIS = '0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e';
   const SOURCE = 'https://explorer.pocol.net';
   const UNIT = 10n ** 18n;
   const MAX_UINT = (1n << 256n) - 1n;

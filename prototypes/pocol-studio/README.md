@@ -24,8 +24,13 @@ python3 prototypes/pocol-studio/scripts/build-release.py --output-dir /tmp/pocol
 
 The builder creates the Chrome ZIP, cPanel ZIP, checksum-verified gateway
 installer, gateway source ZIP, `release-manifest.json` and `SHA256SUMS.txt`.
-It also refreshes the editor's `dist/downloads/PoCol-Studio-IDE-Viewer-<version>.zip` from the
-matching extension build. Generated ZIPs are release artifacts, not source.
+Generated ZIPs are release artifacts, not source. Until the signed release
+(owner policy 2026-11-22: no extension package link or listed digest before it),
+the Chrome ZIP is only an artifact for signing: the builder does not copy it into
+`dist/downloads` or the cPanel ZIP, refuses a `dist/` that holds an extension
+package, and requires Studio's install dialog (`dist/app.js`) to link
+`https://pocol.net/chrome-extension.html#install` and no package
+(`tests/build-release.test.mjs`).
 An optional `--guide /path/to/quick-start.txt` adds the Arabic quick-start.
 For separate checkouts, pass `--studio-dir`, `--extension-dir` and
 `--gateway-dir` explicitly. ZIP metadata is fixed for reproducible output.
@@ -56,7 +61,7 @@ The hosted preview is for inspecting the editor. Neither source publication nor 
 
 ## Signing and connection model
 
-The public profile identifies chain `1599846715` and genesis `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`. RN means a trusted remote node: the extension checks network identity and content hashes, but does not reexecute the complete chain locally.
+The public profile identifies chain `2656089850` and genesis `0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e`. RN means a trusted remote node: the extension checks network identity and content hashes, but does not reexecute the complete chain locally.
 
 For an existing Windows desktop wallet, `identity.pocol-key` is protected with Windows DPAPI under the current user. The provided one-time Windows export helper produces a password-encrypted portable file for local import in the extension. The private key is never sent to Studio or the relay. New users can create an encrypted Studio wallet; viewing sites does not require a wallet. Signing requires a funded PoCol Mainnet account.
 

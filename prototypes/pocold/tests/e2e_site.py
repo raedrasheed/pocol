@@ -100,6 +100,23 @@ def stop_confirmed(work, what, wait_s=90):
     left = dn.stop(work, wait_s=wait_s)
     if left: raise AssertionError(f"{what}: node(s) {', '.join(left)} still running {wait_s} s after SIGTERM\n" + "\n".join(log_tail(work, l) for l in left))
 
+# A node answers RPC only after Node::open has replayed its whole journal (every block re-executed, the derived
+# stores rebuilt), so a restart's wait grows with the chain, and the chain with the run's wall time (a block every
+# 2 s). sites-e2e on PR #115 (44ad1c94, pocold e395d57a, the same binary as PR #114's passing run): after the
+# partition, c reopened 567 records in 78 s (status "open": replayMs 78375, replayRetainMs 29231 after its
+# adoption), and a and b had written no line of their new start, nor exited, when the 90 s wait for "nodes up again"
+# ended (their partition opens of 409 records had taken 53.6 s and 51.5 s, c's 36.5 s). Locally on 4 cores that
+# restart took 56-68 s for 503-535 records; on 2 cores (taskset) it failed as in CI, and took a 113.5 s for 577
+# records in a run that waited longer. The starts after the partition wait this long, and say what each open cost.
+OPEN_S = 240
+
+def open_cost():
+    """Each node's last open as pocol_status reports it: journal records replayed and the open's milliseconds. Only
+    reported: a node that has just opened may answer "busy" (RpcGuard) while it catches up, so it is asked again."""
+    try: opens = wait(lambda: [dn.rpc(8540 + i, "pocol_status")["open"] for i in range(3)], 30, "pocol_status open")
+    except AssertionError as e: return f"not read ({e})"
+    return ", ".join(f"{'abc'[i]} {o['replayRecords']} records in {o['totalMs']} ms" for i, o in enumerate(opens))
+
 def wait_up(work, alive, ready, timeout, what):
     """Waits until `ready()` holds; fails at once, with the node's log tail, when a node of `alive` (label ->
     callable, true while that node's process runs) exited, and on a timeout gives every node's log tail."""
@@ -426,7 +443,8 @@ def main():
         def stop(p): os.killpg(p.pid, signal.SIGTERM); p.wait(60)
         pa, pb_ = node(0, [1], what="partition: a with b"), node(1, [0], what="partition: b with a"); pc = node(2, [], listen=False, what="partition: c alone")
         wait_up(work, {"a": lambda: pa.poll() is None, "b": lambda: pb_.poll() is None, "c": lambda: pc.poll() is None},
-                lambda: all(rpc(i, "pocol_status") for i in range(3)), 120, "partitioned nodes up")
+                lambda: all(rpc(i, "pocol_status") for i in range(3)), OPEN_S, "partitioned nodes up")
+        print(f"note: partition start: {open_cost()}", flush=True)
         wait(lambda: rpc(2, "pocol_status")["peers"] == [] and rpc(0, "pocol_status")["peers"], 60, "c isolated, a and b meshed")
         x = b"<!doctype html><p>chunk X, first stored by bob on a branch that loses"
         xd = os.path.join(work, "bobx"); os.makedirs(xd); open(os.path.join(xd, "index.html"), "wb").write(x)
@@ -457,12 +475,15 @@ def main():
         extra_procs.clear(); time.sleep(1)
 
         # ---- restart every node: identical digests before and after ----
-        dn.start(work, log=True); wait(lambda: all(head(i) > 0 for i in range(3)), 90, "nodes up again")
+        pids = dn.start(work, log=True)
+        wait_up(work, {l: (lambda p=p: dn._alive(p)) for l, p in pids.items()}, lambda: all(head(i) > 0 for i in range(3)), OPEN_S, "nodes up again")
+        print(f"note: start after the partition: {open_cost()}", flush=True)
         wait(lambda: len({rpc(i, "eth_getBlockByNumber", [hex(min(head(j) for j in range(3)) - 1), False])["hash"] for i in range(3)}) == 1, 180, "nodes agree")
         before = {s: digest(fetch(8540, s)[1]) for s in (site, site256)}
         ok("before the restart every node serves identical digests (W10 site and 256-file site)", all(digest(fetch(8540 + i, s)[1]) == before[s] for i in range(3) for s in before), before)
         stop_confirmed(work, "before the restart"); time.sleep(1); pids = dn.start(work, log=True)
-        wait_up(work, {l: (lambda p=p: dn._alive(p)) for l, p in pids.items()}, lambda: all(rpc(i, "pocol_status") for i in range(3)), 120, "restart")
+        wait_up(work, {l: (lambda p=p: dn._alive(p)) for l, p in pids.items()}, lambda: all(rpc(i, "pocol_status") for i in range(3)), OPEN_S, "restart")
+        print(f"note: restart: {open_cost()}", flush=True)
         for i in range(3): ok(f"after restart node {'abc'[i]} serves the current versions unchanged", all(digest(fetch(8540 + i, s)[1]) == before[s] for s in before) and fetch(8540 + i, site)[1] == fa)
         dn.stop(work); time.sleep(2)
 

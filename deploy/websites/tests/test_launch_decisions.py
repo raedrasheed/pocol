@@ -92,6 +92,15 @@ class ExplorerHost(unittest.TestCase):
         self.assertNotIn('gateway.pocol.net', notes)
         self.assertIn(f'`{HOST}/studio/rpc`', notes)
 
+    def test_the_shipped_studio_release_notes_lead_with_the_package_version(self):
+        # The notes are shipped with every Studio release: their first heading names the release they describe (they were
+        # titled 0.1.1 after the step-7 release set package.json to 0.5.0).
+        studio = ROOT / 'prototypes' / 'pocol-studio'
+        version = json.loads((studio / 'package.json').read_text(encoding='utf-8'))['version']
+        first = (studio / 'RELEASE-NOTES.md').read_text(encoding='utf-8').splitlines()[0]
+        self.assertRegex(first, r'^# PoCol Studio [0-9]+\.[0-9]+\.[0-9]+ ')
+        self.assertEqual(re.match(r'^# PoCol Studio ([0-9.]+) ', first).group(1), version, first)
+
     def test_the_gateway_readmes_say_the_explorer_dns_record_moves_at_launch(self):
         # The installer's TLS self-test needs explorer.pocol.net to point at the gateway server, which happens only
         # when the owner moves its record at launch; both language versions say so.

@@ -3,17 +3,12 @@
 export const STUDIO_ORIGINS = Object.freeze(['https://studio.pocol.net']);
 /*@fault testGateway*/export const NETWORK/*@else*/const PINNED_NETWORK/*@end*/ = Object.freeze({
   "name": "pocol-public",
-  "chainId": 1234567891,
-  "genesisHash": "0x3130bfed4d9f4b4f6df657220d94035c21bfe7cc445df9d5572979dc4767f74f",
-  "genesisPre": "0xf9018f0284499602d3f8c2846553f1009fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff042801021903200282010004088203e88201f4881bc16d674ec8000089056bc75e2d631000008040018220001040102040102804822000837a1200843b9aca008302000083030000828000832000008401000000824e2082c350824e20830100008208008201008202008405b8d800824e208465ec8780824a388465ec607081a08180028401e187e087de0b6b3a7640008213888398968004288209c4a0acd7f9fa70897180ca0f80cedcde70dc080e6d23a576499abbc046a0e09b28b9f881ea9486a412863a3eb23f4b7a9ffbc69a42fd25dea73f94e590a831d626d1c20da9f3763c97a4cd7a3da9b1ea94eb59c60584bb0fb67132cc4a3f9639c31cdb4935943e381e57ba2c894cd43b25bf592754bd3451c219ea94fcd55660d527e67fabf17f27c4038a3799512ba094b9abf100add97b76683bf6e9ad4372875d897db1a0a1d91673b4b4a2c88ff75d4828dc1932dbaa2831284a66f4b1ea77b4c5e666a2",
+  "chainId": 2656089850,
+  "genesisHash": "0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e",
+  "genesisPre": "0xf901bc02849e50b6faf8c4846b01fd289d331c14db73ff371e10c5b505558d8473ed9318cdd6f79aab68f276a6ae0a82025801025a08200282010004088203e88201f4883782dace9d9000008901158e460913d0000004822710018260001040102082016882016882017c04822000837a1200843b9aca00830200008303000082800084400000008401000000824e20833d0900830f4240830240008210008201008202008405b8d8008080808082010081800283c09cc08801bc16d674ec8000821388839896800482017c8209c4a03e8d8110695bcc118f6c63032c868154d596aa2651ed9a78bd1fd4bcaa8295fff8acea9415df38aaba05b83fb8c58d2dd9d804654278a96f9415df38aaba05b83fb8c58d2dd9d804654278a96fea944479d23cb5580b912a8402230071b8a7f0a701ec94bf335311d1a3ffc8c0efd1dc422f727f48e6de11ea94c319eeced588afe03515508bab5f27805534b3079456bd8b1a42a6a3b09c04ebdd91e6fa3cc944b6bdea94e45343ea8d6d54fb693a6ad424fac11d85624b6e944ce8b7625efc6898e59d7436c3a5a7569e91b3fca0a1d91673b4b4a2c88ff75d4828dc1932dbaa2831284a66f4b1ea77b4c5e666a2",
   "endpoint": "https://explorer.pocol.net/studio/rpc",
   "trustLevel": "RN"
 });
-// PLACEHOLDER (decision D1): not a network. The built-in profile above is a spec-2 GenesisSpec made from the
-// devnet spec fixture under a chain ID of no network, so the extension pins no retired identity before the new
-// genesis exists. deploy/mainnet/set_network_identity.py replaces it with the network at the identity switch, and
-// scripts/package-release.py refuses a build that carries it.
-export const NETWORK_PLACEHOLDER = true;
 // Sites W11 test build only (build.mjs `testGateway`, a "[TEST FAULT testGateway]" build in dist-fault-testGateway/,
 // refused by scripts/package-release.py): the built-in RN profile is the devnet given to the build, served by a local
 // Studio gateway at http://127.0.0.1:<port>/studio/rpc, so the release RN path (validateEndpoint's exact endpoint

@@ -139,7 +139,7 @@ def local_json(port, path, payload=None):
 
 def verify_health():
     value = local_json(8089, '/studio/health')
-    if value.get('ready') is not True or not same_identity(value, 1599846715, '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'):
+    if value.get('ready') is not True or not same_identity(value, 2656089850, '0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e'):
         raise RuntimeError('Studio gateway identity verification failed')
 
 
@@ -169,15 +169,15 @@ def tls_json(path, payload=None):
 
 
 def verify_https_routes():
-    expected_genesis = '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
+    expected_genesis = '0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e'
     health = tls_json('/studio/health')
     if (health.get('service') != 'pocol-studio-gateway' or health.get('ready') is not True
-            or not same_identity(health, 1599846715, expected_genesis)):
+            or not same_identity(health, 2656089850, expected_genesis)):
         raise RuntimeError('Studio HTTPS route or network identity verification failed')
     answer = tls_json('/rpc', {'jsonrpc': '2.0', 'id': 1, 'method': 'pocol_getParams', 'params': []})
     params = answer.get('result')
     if (answer.get('jsonrpc') != '2.0' or answer.get('id') != 1 or 'error' in answer
-            or not same_identity(params, 1599846715, expected_genesis)):
+            or not same_identity(params, 2656089850, expected_genesis)):
         raise RuntimeError('Existing Explorer HTTPS route or network identity verification failed')
 
 

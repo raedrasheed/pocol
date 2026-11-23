@@ -55,7 +55,7 @@ $mixed = static function(array $requests) use ($rpc): array {
 };
 rejected('summary mixed branch refused', static fn()=>pocol_network_summary($mixed,$now));
 
-$reward = (object)['schema'=>POCOL_REWARD_SCHEMA,'chainId'=>1599846715,'genesisHash'=>POCOL_REWARD_GENESIS,
+$reward = (object)['schema'=>POCOL_REWARD_SCHEMA,'chainId'=>2656089850,'genesisHash'=>POCOL_REWARD_GENESIS,
     'source'=>'https://explorer.pocol.net','status'=>'pending','blockHeight'=>3,'blockHash'=>$hash(3),
     'settlementHeight'=>5,'shareCount'=>0,'beneficiaryCount'=>1,'fetchedAt'=>gmdate('Y-m-d\TH:i:s\Z',$now),
     'subsidyWei'=>'10','grossRewardWei'=>'11','projectedPaidWei'=>'10','projectedBurnedWei'=>'1',

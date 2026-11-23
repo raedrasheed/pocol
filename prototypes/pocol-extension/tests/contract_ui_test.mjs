@@ -17,7 +17,7 @@ async function fixture(options = {}) {
   class Clock extends Date { static now() { return now; } }
   const elements = new Map([...HTML.matchAll(/id="([^"]+)"/g)].map(match => [match[1], makeElement(match[1])]));
   const state = { prepared:0, submitted:0, signed:0, locks:[], generatedKeys:[], ...options };
-  const baseReview = {from:ADDRESS,to:null,predictedAddress:'0x2222222222222222222222222222222222222222',gas:'100000',valueWei:'0',maxFeeWei:'100000000000000',maxCostWei:'100000000000000',calldataHash:HASH,dataBytes:2,expiresAt:121000,requestHash:HASH,tx:{chainId:'1599846715',nonce:'0',maxPriority:'1000000000',maxFee:'1000000000',gas:'100000',to:null,value:'0',data:'0x6000'}};
+  const baseReview = {from:ADDRESS,to:null,predictedAddress:'0x2222222222222222222222222222222222222222',gas:'100000',valueWei:'0',maxFeeWei:'100000000000000',maxCostWei:'100000000000000',calldataHash:HASH,dataBytes:2,expiresAt:121000,requestHash:HASH,tx:{chainId:'2656089850',nonce:'0',maxPriority:'1000000000',maxFee:'1000000000',gas:'100000',to:null,value:'0',data:'0x6000'}};
   const job = {id:JOB_ID,origin:'https://ide.pocol.net',request:{schema:1,action:'deploy',title:'Counter',bytecode:'0x6000',abi:[],args:[],valueWei:'0'},status:'awaitingApproval',...options.job};
   const storage = new Map([[KEY,structuredClone(job)],['studio:wallet',{schema:'pocol-studio-vault-v1'}]]);
   if(options.otherJob)storage.set(options.otherJob[0],options.otherJob[1]);
@@ -26,7 +26,7 @@ async function fixture(options = {}) {
     Date:Clock, Uint8Array, TextEncoder, structuredClone, AbortController, console,
     location:{hash:'#'+JOB_ID}, document:{getElementById:id=>{assert.ok(elements.has(id),id);return elements.get(id)},createElement:tag=>makeElement(tag)},
     window:{addEventListener:(name,callback)=>listeners.set(name,callback)},setInterval:fn=>{tick=fn},
-    NETWORK:{chainId:1599846715,genesisHash:'0x'+'ab'.repeat(32),endpoint:'https://explorer.pocol.net/studio/rpc'},LOCK_MS:900000,
+    NETWORK:{chainId:2656089850,genesisHash:'0x'+'ab'.repeat(32),endpoint:'https://explorer.pocol.net/studio/rpc'},LOCK_MS:900000,
     extendLease:LEASE.extendLease,JOB_DEADLINE_DEFAULT_MS:LEASE.JOB_DEADLINE_DEFAULT_MS,isForeignJob:JOBS.isForeignJob,networkOf:JOBS.networkOf,
     addressOf:()=>ADDRESS, importKeyfile:async()=>{state.importEntered=true;const key = options.importGate ? await options.importGate : new Uint8Array(32).fill(7);state.generatedKeys.push(key);return key;}, exportKeyfile:async()=>({encrypted:true}),
     signTx:()=>{state.signed++;return{raw:'0x02',hash:HASH}}, Pool:class{},TRUST_POOL:1,RESERVE_WAIT_MS:2000,withRetry,transportRequest:async()=>{throw Error('No network should be used by this mocked UI test')},
@@ -46,6 +46,12 @@ async function fixture(options = {}) {
   return {elements,storage,state,context,click,unlock,consent,review:baseReview,tick:()=>tick(),setNow:value=>{now=value},dispatch:name=>listeners.get(name)?.()};
 }
 
+test('the chain ID chip shows the built-in profile\'s chain ID; the page names no network of its own', async()=>{
+  const f=await fixture();
+  assert.equal(f.elements.get('networkChain').textContent, String(f.context.NETWORK.chainId));
+  assert.match(HTML, /<span class="network-id" id="networkChain" title="Chain ID"><\/span>/);
+  assert.doesNotMatch(HTML, /(?<![0-9A-Za-z])[0-9]{7,}(?![0-9A-Za-z])/, 'no chain ID in the page');
+});
 test('unsigned reload discards a stored review and never signs automatically', async()=>{
   const f=await fixture({job:{review:{expiresAt:999999}}});
   assert.equal(f.elements.get('confirm').disabled,true);
@@ -83,7 +89,7 @@ test('signed resume restores the original review despite expiry and keeps exact 
   await f.click('confirm');assert.equal(f.state.submitted,1);assert.equal(f.state.prepared,0);assert.equal(f.state.signed,0);
   assert.equal((await f.state.submitArgs.loadCheckpoint()).transactions.contract.raw,'0x02');
   assert.equal(f.storage.get(KEY).status,'pending');
-  assert.ok(f.state.locks.includes('pocol:publish:1599846715:'+ADDRESS));
+  assert.ok(f.state.locks.includes('pocol:publish:2656089850:'+ADDRESS));
 });
 test('another unresolved Studio transaction blocks the same wallet',async()=>{
   const f=await fixture({otherJob:['studio:job:old',{id:'old',walletAddress:ADDRESS,status:'paused',checkpoint:{transactions:{upload:{raw:'0x02'}}}}]});await f.unlock();await f.click('prepare');
@@ -169,9 +175,9 @@ test('W4: an unresolved job of another network does not block the wallet',async(
   await f.unlock();await f.click('prepare');assert.equal(f.state.prepared,1);assert.equal(f.elements.get('earlierJob').hidden,true);
 });
 test('W4: the approved contract job extends the key lease by LOCK_MS at its signature, and records its network',async()=>{
-  const f=await fixture({submit:async(args,state)=>{f.setNow(601000);await args.sign({chainId:'1599846715'});return {state:'pending',hash:HASH,address:null,from:ADDRESS,receipt:null};}});
+  const f=await fixture({submit:async(args,state)=>{f.setNow(601000);await args.sign({chainId:'2656089850'});return {state:'pending',hash:HASH,address:null,from:ADDRESS,receipt:null};}});
   await f.unlock();await f.click('prepare');f.consent();await f.click('confirm');
   assert.equal(f.state.signed,1);assert.equal(vm.runInContext('until',f.context),601000+900000,'extended from the signature');
-  assert.deepEqual(f.storage.get(KEY).network,{chainId:'1599846715',genesisHash:'0x'+'ab'.repeat(32)});
+  assert.deepEqual(f.storage.get(KEY).network,{chainId:'2656089850',genesisHash:'0x'+'ab'.repeat(32)});
   assert.equal(vm.runInContext('extendLease(2000,1500,900000,5000)',f.context),5000,'never past the job deadline');
 });

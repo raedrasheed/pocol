@@ -8,6 +8,9 @@ import { extendLease, JOB_DEADLINE_DEFAULT_MS } from './lib/lease.js';
 import { isForeignJob, networkOf } from './lib/jobs.js';
 
 const $ = id => document.getElementById(id);
+// The chain ID chip shows the built-in profile's chain ID (lib/studio-network.js), the one this page checks the node
+// against, so the page never names a network of its own.
+$('networkChain').textContent = String(NETWORK.chainId);
 const JOB_PREFIX = 'ide:job:', STUDIO_PREFIX = 'studio:job:', VAULT_KEY = 'studio:wallet';
 const jobId = location.hash.slice(1), storageKey = JOB_PREFIX + jobId;
 const allowedOrigins = new Set(['https://ide.pocol.net']);

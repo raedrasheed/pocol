@@ -8,7 +8,7 @@ new network has a new chain ID and genesis and drop the old network's check and 
 
     python3 -B -m unittest discover -s deploy/websites/tests -p 'test_*.py' -v
 """
-import json, re, unittest
+import base64, hashlib, json, re, unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -61,6 +61,51 @@ def in_order(text, steps):
             return False
         at = m.end()
     return True
+
+def published_ids():
+    """(extension ID, release key fingerprint), computed here from the committed keys: Chrome's ID of the manifest key
+    (sha256 of its DER, first 32 hex digits as a-p) and ssh-keygen's SHA256 fingerprint of the one allowed_signers key."""
+    key_lines = [line.strip() for line in (ROOT / 'prototypes/pocol-extension/release/manifest-key.pub').read_text(encoding='utf-8').splitlines()
+                 if line.strip() and not line.strip().startswith('#')]
+    assert len(key_lines) == 1 and not key_lines[0].startswith('PLACEHOLDER'), key_lines
+    digest = hashlib.sha256(base64.b64decode(key_lines[0], validate=True)).hexdigest()[:32]
+    ext_id = ''.join(chr(ord('a') + int(c, 16)) for c in digest)
+    signers = [line.split() for line in (ROOT / 'deploy/release/allowed_signers').read_text(encoding='utf-8').splitlines()
+               if line.strip() and not line.startswith('#')]
+    assert len(signers) == 1 and signers[0][2] == 'ssh-ed25519', signers
+    blob = base64.b64decode(signers[0][3], validate=True)
+    fingerprint = 'SHA256:' + base64.b64encode(hashlib.sha256(blob).digest()).decode('ascii').rstrip('=')
+    return ext_id, fingerprint
+
+class PublishedReleaseIds(unittest.TestCase):
+    """Runbook step 7: the pages that tell users to compare the extension ID with "the one published on pocol.net" and
+    to verify the release signature publish both values: the extension ID of the committed manifest key and the
+    fingerprint of the committed release key, in English and Arabic."""
+    def test_the_extension_and_download_pages_publish_the_extension_id_and_the_release_key_fingerprint(self):
+        ext_id, fingerprint = published_ids()
+        # The values the runbook and the release README name.
+        self.assertEqual(ext_id, 'gggcoflmedlhlkcdhebmoepmggdnafmp')
+        self.assertIn(f'256 {fingerprint} release@pocol.net (ED25519)', (ROOT / 'deploy/release/README.md').read_text(encoding='utf-8'))
+        guide = data(MAIN / 'guide-content.js', 'window.POCOL_GUIDE = ')
+        install = next(s for t in guide['topics'] if t['id'] == 'extension' for s in t['sections'] if s['id'] == 'install')
+        locales = data(MAIN / 'about-locales.js', 'const extra = ')
+        for lang in ('en', 'ar'):
+            bullets = [b[lang] for b in install['bullets'] if ext_id in b[lang]]
+            self.assertEqual(len(bullets), 1, (lang, 'the guide names the extension ID in one install bullet'))
+            self.assertIn(fingerprint, bullets[0], lang)
+            self.assertIn(ext_id, locales[lang]['ideReleaseIds'], lang)
+            self.assertIn(fingerprint, locales[lang]['ideReleaseIds'], lang)
+        for page in ('chrome-extension.html', 'index.html'):
+            text = (MAIN / page).read_text(encoding='utf-8')
+            self.assertIn('published on pocol.net', text, page)
+            self.assertIn(ext_id, text, page)
+            self.assertIn(fingerprint, text, page)
+        index = (MAIN / 'index.html').read_text(encoding='utf-8')
+        self.assertIn(f'data-i18n="ideReleaseIds">{locales["en"]["ideReleaseIds"]}</p>', index)
+        # No page names another extension ID or release key fingerprint.
+        for path, text in texts():
+            for other in set(re.findall(r'SHA256:[A-Za-z0-9+/]{43}\b', text)) - {fingerprint}:
+                self.fail(f'{path.relative_to(ROOT).as_posix()} names another key fingerprint {other}')
 
 class RetiredTexts(unittest.TestCase):
     def test_no_served_file_names_the_activation_setting_or_an_in_place_update(self):
