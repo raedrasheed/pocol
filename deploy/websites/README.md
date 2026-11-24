@@ -178,7 +178,7 @@ does.
   and the explorer) and that no site file names the content version of a retired network's invitation.
 - **Extension ID and release key (SITE-03).** The extension page (section `verify-release`) and the guide's
   extension topic carry, in English and Arabic, the extension ID `gggcoflmedlhlkcdhebmoepmggdnafmp` and the release
-  key fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` with `deploy/release/README.md`'s user
+  key fingerprint `SHA256:r/IMxkMr+wv3OyAbiX3XYhSV4pqy3Lv5/z/VV06DJyc` with `deploy/release/README.md`'s user
   procedure; the home page's "Verify a download" carries the fingerprint only and links that section.
   `tests/test_downloads.py` derives both from `manifest-key.pub` and `allowed_signers`. That ID is the side-loaded
   signed release's: the Chrome Web Store item gets the ID the store assigns at its first upload (owner decision

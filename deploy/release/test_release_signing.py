@@ -12,8 +12,8 @@ ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 import verify_release as vr  # noqa: E402
 # The owner's release key (allowed_signers, committed 2026-11-18) and its published fingerprint.
-OWNER_RELEASE_KEY = 'AAAAC3NzaC1lZDI1NTE5AAAAIH4XZvQEqPlwD2oNZyyn4QGfrE2IvRzLg8RXeIJTOe/t'
-OWNER_RELEASE_FINGERPRINT = 'SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8'
+OWNER_RELEASE_KEY = 'AAAAC3NzaC1lZDI1NTE5AAAAICfqlk8IMpc0B0XDYNM2k2OrbeZuLehFEz0wOXplO82c'
+OWNER_RELEASE_FINGERPRINT = 'SHA256:r/IMxkMr+wv3OyAbiX3XYhSV4pqy3Lv5/z/VV06DJyc'
 import assemble_release as ar  # noqa: E402
 
 KEYGEN = shutil.which('ssh-keygen')
