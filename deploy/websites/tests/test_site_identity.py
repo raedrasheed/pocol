@@ -183,7 +183,7 @@ class SiteIdentity(unittest.TestCase):
                 if (root / site / name).exists():
                     self.assertEqual(hashlib.sha256((root / site / name).read_bytes()).hexdigest(), digest, name)
                 else:
-                    self.assertRegex(name, r'^downloads/[^/]+\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?$')
+                    self.assertRegex(name, r'^downloads/(?:[^/]+\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?|SHA256SUMS(?:\.sig)?)$')
                     missing.add(name)
             self.assertEqual(missing, set(kept_out[Path(site).name]), site)
             listed = {line.split('  ', 1)[1] for line in (root / site / si.SUMS).read_text(encoding='utf-8').splitlines()}
