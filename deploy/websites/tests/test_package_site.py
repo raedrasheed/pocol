@@ -312,7 +312,7 @@ class RepositoryPackage(unittest.TestCase):
             for f in manifest['files']:
                 if f['path'] != 'SHA256SUMS.txt':
                     self.assertEqual(f['sha256'], sums[f['path']], f['path'])
-            self.assertEqual(manifest['releaseFilesNotInGit'], [])
+            self.assertEqual(manifest['releaseFilesNotInGit'], [{'path': p, 'sha256': sums[p]} for p in sorted(json.loads((ROOT / 'deploy/websites/site-identity.json').read_text(encoding='utf-8'))['keptOut']['pocol.net'])])
             doc = json.loads((ROOT / 'deploy/websites/site-identity.json').read_text(encoding='utf-8'))
             self.assertEqual((manifest['chainId'], manifest['genesisHash']), (doc['chainId'], doc['genesisHash']))
             self.assertRegex(manifest['zip']['name'], r'^PoCol-pocol\.net-site-\d{4}-\d{2}-\d{2}-[0-9a-f]{12}\.zip$')

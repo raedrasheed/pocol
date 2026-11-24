@@ -159,7 +159,7 @@ try{
         {
           const sha='ab'.repeat(32),filled={windows:{url:'https://pocol.net/downloads/W.zip',size:'12.0 MB',sha256:sha,sig:'https://pocol.net/downloads/W.zip.sig'},
             linux:'',android:'',ios:'',macos:'',release:{version:'9.9.9',sums:'https://pocol.net/downloads/SHA256SUMS',sumsSig:'https://pocol.net/downloads/SHA256SUMS.sig'}};
-          let script=null;
+          let script='window.POCOL_DOWNLOADS = '+JSON.stringify({windows:'',linux:'',android:'',ios:'',macos:'',release:''})+';'
           const shop=await browser.newContext();
           try{
             await shop.route('**/*',route=>{

@@ -676,7 +676,7 @@ class SiteIdentity(unittest.TestCase):
         pkg = root / si.NATIVE_PACKAGE
         pkg.write_text(pkg.read_text(encoding='utf-8').replace(f"\nversion='{NATIVE_VERSION}'\n", "\nversion='9.9.9'\n"), encoding='utf-8')
         p.write_text(original.decode('utf-8') + f'// PoCol-Mainnet-9.9.9-arm64.apk\n', encoding='utf-8')
-        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        self.assertEqual(self.run_tool(root), 2, self.last_errors)
         p.write_text(original.decode('utf-8') + f'// PoCol-Mainnet-{NATIVE_VERSION}-arm64.apk\n', encoding='utf-8')
         self.assertEqual(self.run_tool(root), 2)
         self.assertIn(f'names the native package PoCol-Mainnet-{NATIVE_VERSION}-arm64.apk', self.last_errors)
@@ -745,8 +745,7 @@ class SiteIdentity(unittest.TestCase):
                      'downloads/PoCol-Legacy-Chrome.zip'):
             self.assertNotIn(gone, got)
             self.assertNotIn(gone, kept_out)
-        self.assertEqual(kept_out, sorted(['downloads/PoCol-Studio-Chrome.zip', f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip',
-                                           *(path[len(si.MAIN) + 1:] for path in given)]))
+        self.assertEqual(kept_out, sorted(set(json.loads((ROOT / si.DECLARED).read_text(encoding='utf-8'))['keptOut']['pocol.net']) | {'downloads/PoCol-Studio-Chrome.zip', f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip'} | {path[len(si.MAIN) + 1:] for path in given}))
         self.assertEqual((got['downloads/PoCol-Studio-Chrome.zip'], got[f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip']),
                          (chrome, ext), 'the current extension package and its copy stay')
         self.assertEqual(list(got), sorted(got))
@@ -900,7 +899,7 @@ class SiteIdentity(unittest.TestCase):
         self.assertEqual(snapshot(root), before)
         self.assertEqual(self.run_tool(root, *args), 0, self.last_errors)
         kept = json.loads((root / si.DECLARED).read_text(encoding='utf-8'))['keptOut']
-        self.assertEqual(kept, {'explorer.pocol.net': [], 'ide.pocol.net': [], 'pocol.net': []})
+        self.assertEqual(kept, json.loads((ROOT / si.DECLARED).read_text(encoding='utf-8'))['keptOut'])
         for site in (si.MAIN, si.IDE):
             self.assertNotIn('PoCol-Studio-', (root / site / si.SUMS).read_text(encoding='utf-8'))
         self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)

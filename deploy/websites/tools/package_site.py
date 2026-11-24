@@ -205,7 +205,7 @@ def build(out, site='pocol.net', repo=ROOT, check=True):
         require_clean(repo)
         identity_report = identity_check(repo)
     declared = json.loads(git(repo, 'show', f'{info["commit"]}:{DECLARED}'))
-    kept_out = {n.split('/', 1)[1] for n in declared.get('keptOut', {}).get(site, [])}
+    kept_out = set(declared.get('keptOut', {}).get(site, []))
     blobs = site_snapshot.tracked_snapshot(repo, info['commit'], SITES[site])
     files = {p.lstrip('/'): d for p, d in blobs.items()}
     zip_files, beside, release_files = select(files, kept_out)
