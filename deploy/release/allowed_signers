@@ -8,9 +8,9 @@
 # Its fingerprint (ssh-keygen -lf <offline path>/pocol-release.pub), published in deploy/release/README.md and, with the
 # first signed release, on pocol.net:
 #
-#     256 SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8 release@pocol.net (ED25519)
+#     256 SHA256:r/IMxkMr+wv3OyAbiX3XYhSV4pqy3Lv5/z/VV06DJyc release@pocol.net (ED25519)
 #
 # The private key never enters this repository, a CI runner, a server or a chat.
 # Exactly one key line is allowed: a rotation replaces it by a reviewed pull request, and an old release's signatures
 # stay checkable against the allowed_signers of that release's tagged commit.
-release@pocol.net namespaces="pocol-release" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH4XZvQEqPlwD2oNZyyn4QGfrE2IvRzLg8RXeIJTOe/t
+release@pocol.net namespaces="pocol-release" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICfqlk8IMpc0B0XDYNM2k2OrbeZuLehFEz0wOXplO82c

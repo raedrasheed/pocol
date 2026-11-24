@@ -106,7 +106,7 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    `technicalReadiness` still lists what is open. The two values users compare are in the pocol.net snapshot
    (2026-11-22, SITE-03; they do not depend on the invitation): the extension ID `gggcoflmedlhlkcdhebmoepmggdnafmp`
    (`prototypes/pocol-extension/release/manifest-key.pub`) on the extension page and in the guide, and the release key
-   fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` (`deploy/release/allowed_signers`) there and in
+   fingerprint `SHA256:r/IMxkMr+wv3OyAbiX3XYhSV4pqy3Lv5/z/VV06DJyc` (`deploy/release/allowed_signers`) there and in
    the home page's "Verify a download"; `deploy/websites/tests/test_downloads.py` derives both from those files. They
    are public only once the owner approves their early publication and uploads that snapshot (not done on
    2026-11-22). Before the release is announced, check that the live https://pocol.net/chrome-extension.html shows

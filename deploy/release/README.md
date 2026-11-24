@@ -34,7 +34,7 @@ The owner's release key, committed in `allowed_signers` on 2026-11-18. Every sig
 fingerprint, the one `ssh-keygen -Y verify` and the directory verifiers print:
 
 ```
-256 SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8 release@pocol.net (ED25519)
+256 SHA256:r/IMxkMr+wv3OyAbiX3XYhSV4pqy3Lv5/z/VV06DJyc release@pocol.net (ED25519)
 ```
 
 ## Owner procedure
