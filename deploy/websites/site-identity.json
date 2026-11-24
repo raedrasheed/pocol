@@ -21,6 +21,15 @@
   "keptOut": {
     "explorer.pocol.net": [],
     "ide.pocol.net": [],
-    "pocol.net": []
+    "pocol.net": [
+      "downloads/PoCol-Mainnet-0.5.0-arm64.apk",
+      "downloads/PoCol-Mainnet-0.5.0-arm64.apk.sig",
+      "downloads/PoCol-Mainnet-0.5.0-linux-x86_64.tar.gz",
+      "downloads/PoCol-Mainnet-0.5.0-linux-x86_64.tar.gz.sig",
+      "downloads/PoCol-Mainnet-0.5.0-windows-x86_64.zip",
+      "downloads/PoCol-Mainnet-0.5.0-windows-x86_64.zip.sig",
+      "downloads/SHA256SUMS",
+      "downloads/SHA256SUMS.sig"
+    ]
   }
 }

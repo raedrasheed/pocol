@@ -142,18 +142,35 @@ class DownloadLinks(unittest.TestCase):
                      'PoCol-Mainnet-0.4.0-Windows.zip'):
             self.assertNotIn(('pocol.net', gone), found)
 
-    def test_the_mainnet_edition_buttons_offer_no_package_before_the_signed_release(self):
+    def test_the_mainnet_edition_buttons_match_signed_release(self):
         text = (MAIN / 'wallet-downloads.js').read_text(encoding='utf-8')
         prefix = 'window.POCOL_DOWNLOADS = '
         self.assertTrue(text.startswith(prefix))
         downloads = json.loads(text[len(prefix):].rstrip().rstrip(';'))
-        # The five platforms and the release record (tools/release_page.py fills them from a verified signed release).
         self.assertEqual(set(downloads), {'windows', 'linux', 'android', 'ios', 'macos', 'release'})
-        self.assertEqual(downloads.pop('release'), '', 'no signed release is recorded before W16')
-        for platform, value in downloads.items():
-            url = value if isinstance(value, str) else value.get('url', '')
-            # Until W16 no native package is offered; the retired 0.4.0 packages never are.
-            self.assertEqual(url, '', f'the {platform} MAINNET EDITION button offers {url}')
+        version = si.release.native_version(ROOT)
+        record = downloads['release']
+        self.assertEqual(record['version'], version)
+        self.assertEqual(record['sums'], 'https://pocol.net/downloads/SHA256SUMS')
+        self.assertEqual(record['sumsSig'], 'https://pocol.net/downloads/SHA256SUMS.sig')
+        for platform in ('ios', 'macos'):
+            self.assertEqual(downloads[platform], '')
+        sums = dict(line.split('  ', 1)[::-1] for line in (MAIN / si.SUMS).read_text(encoding='utf-8').splitlines())
+        kept = set(declared()['keptOut']['pocol.net'])
+        for name in ('SHA256SUMS', 'SHA256SUMS.sig'):
+            self.assertIn('downloads/' + name, kept)
+            self.assertIn('downloads/' + name, sums)
+        packages = {'windows': f'PoCol-Mainnet-{version}-windows-x86_64.zip', 'linux': f'PoCol-Mainnet-{version}-linux-x86_64.tar.gz', 'android': f'PoCol-Mainnet-{version}-arm64.apk'}
+        for platform, name in packages.items():
+            item = downloads[platform]
+            url = 'https://pocol.net/downloads/' + name
+            self.assertEqual(item['url'], url)
+            self.assertEqual(item['sig'], url + '.sig')
+            self.assertRegex(item['sha256'], r'^[0-9a-f]{64}$')
+            self.assertEqual(sums['downloads/' + name], item['sha256'])
+            self.assertIn('downloads/' + name, kept)
+            self.assertIn('downloads/' + name + '.sig', kept)
+            self.assertIn('downloads/' + name + '.sig', sums)
 
     def test_no_page_links_a_retired_package(self):
         # Until 2026-11-23 the home page, the tools page and the guide linked the retired network's 0.4.0 Windows
