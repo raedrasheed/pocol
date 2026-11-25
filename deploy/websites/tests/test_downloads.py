@@ -138,7 +138,9 @@ class DownloadLinks(unittest.TestCase):
         # file before the signed release (until then this checked `found` was not empty); the pattern itself is checked
         # by test_the_link_pattern_sees_every_link_form, and every served text of the four sites was read.
         self.assertGreater(scanned, 40)
-        for gone in ('network.pocol.json', 'PoCol-Apps-README.txt', 'PoCol-Mainnet-0.4.0-Linux.zip',
+        self.assertIn(('pocol.net', 'network.pocol.json'), found)
+        self.assertIn(('pocol.net', 'network.pocol.json.sig'), found)
+        for gone in ('PoCol-Apps-README.txt', 'PoCol-Mainnet-0.4.0-Linux.zip',
                      'PoCol-Mainnet-0.4.0-Windows.zip'):
             self.assertNotIn(('pocol.net', gone), found)
 
@@ -207,12 +209,12 @@ class DownloadLinks(unittest.TestCase):
         en, ar = extra['en']['appsVerifyBody'], extra['ar']['appsVerifyBody']
         self.assertNotIn('offers no package', en)
         self.assertNotIn('أي حزمة قبل', ar)
-        self.assertIn('this page offers no PoCol Mainnet package', en)
-        self.assertIn('أي حزمة لشبكة PoCol Mainnet', ar)
+        self.assertIn('PoCol Mainnet 0.5.0 packages and the signed network file are available here', en)
+        self.assertIn('PoCol Mainnet 0.5.0', ar)
         self.assertEqual(retired, [])
-        self.assertEqual([href for href, _ in anchors(page) if 'downloads/' in href], [])
-        self.assertIn('this page offers no PoCol Mainnet package and links no package of the retired network', en)
-        self.assertIn('ولا تربط أي حزمة للشبكة السابقة', ar)
+        self.assertEqual(sorted(href for href, _ in anchors(page) if 'downloads/' in href), ['downloads/network.pocol.json.sig?v=bb9663b1defa', 'downloads/network.pocol.json?v=a74c1cf432e7'])
+        self.assertIn('this page links no packages from the retired network', en)
+        self.assertIn('\u0627\u0644\u0634\u0628\u0643\u0629 \u0627\u0644\u0633\u0627\u0628\u0642\u0629', ar)
         self.assertNotIn('0.4.0', en + ar)
         self.assertIn(html.escape(en, quote=False), page)
 

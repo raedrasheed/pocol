@@ -60,7 +60,7 @@ class ServedContent(unittest.TestCase):
     # judged here.
     KEPT = ('do not carry over', 'لا تنتقل', 'cannot be used on this network', 'لا يمكن استخدام',
             'belonged to the retired network', 'تخص الشبكة السابقة', 'does not update', 'لا يحدّث',
-            'Coming from the', 'هل كنت تستخدم', 'links no package of the retired network', 'ولا تربط أي حزمة للشبكة السابقة')
+            'Coming from the', 'هل كنت تستخدم', 'links no package of the retired network', 'this page links no packages from the retired network', 'ولا تتضمن هذه الصفحة روابط لحزم الشبكة السابقة', 'ولا تربط أي حزمة للشبكة السابقة')
     # A sentence ends at a full stop before a space, quote or tag (not one inside org.pocol.node), at ? ؟ or a newline,
     # and a text at a quote or a tag.
     END = re.compile(r'\.(?=[\s"<]|$)|[?؟\n"<>]')

@@ -115,8 +115,9 @@ Extract Files، واسمح باستبدال الملفات الموجودة.
 
 ## 7. تحقق من الملفات واحذف القديمة
 
-لا يكفي فك الأرشيف فوق الموقع القديم: يبقى على الخادم كل ملف لم يعد في هذه النسخة ويظل متاحًا للزوار، مثل ملف الشبكة
-القديم downloads/network.pocol.json وحزمة الإضافة القديمة وحزمة Windows للشبكة السابقة.
+لا يكفي فك الأرشيف فوق الموقع القديم؛ فقد تبقى ملفات الشبكة السابقة متاحة للزوار. يجب استبدال ملف دعوة الشبكة القديم بالملف الموقّع للشبكة الرئيسية والتحقق من بصمته وتوقيعه، وليس حذف الملف الجديد. الملفات التي تحمل الحالة DIFFERS تُستبدل بنسختها الصحيحة، أما DELETE فتُحذف بعد المراجعة، وتبقى ملفات KEEP محفوظة.
+
+مسار ملف دعوة الشبكة الذي يجب استبداله، وليس حذفه: `downloads/network.pocol.json`. تحقّق من مطابقة بصمته وتوقيعه للإصدار الموقّع قبل نشر الموقع.
 
 1. كل ملف من ملفات الحزمة في مكانه (لا يُطبع شيء ثم `FILES OK`):
 
@@ -141,7 +142,7 @@ Extract Files، واسمح باستبدال الملفات الموجودة.
 
    الملفات المتوقع ظهورها بعلامة `DELETE`، وقد تركها موقع الشبكة السابقة: `README-AR.txt` (ملاحظة الرفع القديمة)،
    و`NETWORK-UPDATE-15000.txt`، و`RETAINED-NATIVE-DOWNLOADS.json`، و`README-MAINNET-UPDATE-AR.txt`،
-   و`downloads/network.pocol.json` (ملف الشبكة السابقة)، و`downloads/PoCol-Apps-SHA256SUMS.txt`، وحزمتا التطبيقات
+   و`downloads/PoCol-Apps-SHA256SUMS.txt`، وحزمتا التطبيقات
    السابقتان `downloads/PoCol-Mainnet-0.4.0-Windows.zip` و`downloads/PoCol-Mainnet-0.4.0-Linux.zip`، وحزم الإضافة
    السابقة `downloads/PoCol-Studio-IDE-Viewer-0.4.0.zip` و`downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip`
    و`downloads/PoCol-Studio-Chrome.zip`، وملفات `.sha256` الخاصة بها. والمرجع هو قائمة الأداة.

@@ -218,8 +218,12 @@ class Guides(unittest.TestCase):
                            'sha256sum -c --quiet ~/pocol-backups/pocol.net-before-$STAMP-files.txt', '"chainId":{{CHAIN_ID}}',
                            '"genesisHash":"{{GENESIS}}"', 'PHP {{PHP_RECOMMENDED}}', '`curl`', '{{GATEWAY}}'):
                 self.assertIn(needed, text)
-        # The stale-file sentence of the earlier pocol.net/README-AR.txt (test_downloads.STALE_FILE_NOTE) moved here.
-        self.assertIn(test_downloads.DownloadLinks.STALE_FILE_NOTE, ' '.join(ar.split()))
+        # Both guides distinguish replacement of an obsolete invitation (DIFFERS) from deletion of retired files (DELETE).
+        for text in (ar, en):
+            self.assertIn('downloads/network.pocol.json', text)
+            self.assertIn('DIFFERS', text)
+            self.assertIn('DELETE', text)
+        self.assertNotIn(test_downloads.DownloadLinks.STALE_FILE_NOTE, ar)
 
     def test_no_backup_archive_is_written_inside_the_document_root(self):
         # An archive in the Document Root is served to anyone and holds api/config.php (2026-11-23 review): the File

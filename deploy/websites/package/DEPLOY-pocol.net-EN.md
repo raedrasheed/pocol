@@ -146,11 +146,13 @@ The retired network's files are such files.
 
    Expected `DELETE` files, left by the retired network's site: `README-AR.txt` (the old upload note),
    `NETWORK-UPDATE-15000.txt`, `RETAINED-NATIVE-DOWNLOADS.json`, `README-MAINNET-UPDATE-AR.txt`,
-   `downloads/network.pocol.json` (the retired network's file), `downloads/PoCol-Apps-SHA256SUMS.txt`, the retired
+   `downloads/PoCol-Apps-SHA256SUMS.txt`, the retired
    native packages `downloads/PoCol-Mainnet-0.4.0-Windows.zip` and `downloads/PoCol-Mainnet-0.4.0-Linux.zip`, the
    retired extension packages `downloads/PoCol-Studio-IDE-Viewer-0.4.0.zip`,
    `downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip` and `downloads/PoCol-Studio-Chrome.zip`, and their `.sha256` files.
    The tool's list is the one to follow.
+
+   If an older downloads/network.pocol.json is found on the host, host_files.py must report DIFFERS: replace it with the verified signed Mainnet 0.5.0 invitation. Do not delete the current invitation or its signature. Verify the new SHA256SUMS and SHA256SUMS.sig before deploying the updated website.
 
    **Without the repository**, this lists the host files that are not in the package (review it, then delete them,
    except the `KEEP` names above and a nested site's folder):
