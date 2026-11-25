@@ -23,8 +23,15 @@
 // victim read, the same for a successful one (the vm test covers an exited victim's label).
 // Production readiness (2026-11-22): the gateway runs with the transaction index (POCOL_TX_DB, pocol_transactions.py):
 // /api/transactions.php lists the devnet's transactions newest first and the Transactions tab shows them in that order
-// with the index's status; the Miner map says miner locations are not available (no GeoIP module: the network records
-// none, and peers are not placed by IP address), with none of the map's GeoIP texts beside it. At 390 and 1366 px the Overview, Blocks, Transactions, Miners and
+// with the index's status. Explorer insights (2026-11-25, development/explorer/MINERS-MAP-HOLDERS.md): the gateway also
+// runs the holders index (POCOL_HOLDERS_DB) and the miner map with a GeoIP database built from the synthetic test CSV
+// (POCOL_GEOIP_DB) and no reporters' credential. /api/holders.php ranks the devnet's holders (the newcomer's bond on
+// its ID, the sum of Total equal to the current supply), /api/holders-stats.php answers the same snapshot,
+// /api/miner-geography.php counts every registered miner as Unknown (no operator report) with the observer as its
+// only source, and POST /api/geo-report.php is 503. In the page, the Holders tab (assets/pocol-insights.js) lists the
+// index's holders with its statistics, the Miner map tab shows the map with the registry's counts and the Unknown
+// row, and the Overview's map card the same counts; none of the old one-node notice is left. At 390 and 1366 px the
+// Overview, Blocks, Transactions, Miners, Holders and
 // Miner map tabs and the block, transaction and account views have no horizontal scroll (screenshots in the work
 // directory); the Overview's head moves without a reload (automatic refresh); with the gateway stopped the page says
 // "Data delayed" and returns to "Connected" when it is back; no page shows the test-fixture banner.
@@ -131,8 +138,13 @@ async function main() {
     ok('explorer_site.py validates the switched static copy (its files without SHA256SUMS.txt) and writes the loopback Caddy site', conf.status === 0 && existsSync(caddyfile), (conf.stderr || conf.stdout).slice(-300));
     const block = readFileSync(caddyfile, 'utf8');
     writeFileSync(join(work, 'v3-network.json'), JSON.stringify({ chainId: info.chainId, genesisHash, specVersion: 2, v3: true }));
+    // The miner map's GeoIP database, built from the synthetic test CSV (not DB-IP data; release 2000-01 names none).
+    const geoipDb = join(work, 'geoip-test.bin');
+    const built = spawnSync('python3', ['-B', join(ROOT, 'deploy', 'rewards', 'pocol_geoip.py'), 'build', '--input', join(ROOT, 'deploy', 'rewards', 'testdata', 'geoip-sample.csv'), '--release', '2000-01', '--output', geoipDb], { encoding: 'utf8' });
+    if (built.status !== 0) throw new Error('pocol_geoip.py build: ' + built.stderr);
     const gatewayArgs = ['-B', join(ROOT, 'deploy', 'rewards', 'gateway.py'), '--port', String(EXPLORER_GW), '--rpc-port', '8540', '--v3-network', join(work, 'v3-network.json'), '--site-origin', `http://127.0.0.1:${FRONT}`];
-    const gatewayEnv = { env: { ...process.env, POCOL_TX_DB: join(work, 'transactions.sqlite3') } };
+    const gatewayEnv = { env: { ...process.env, POCOL_TX_DB: join(work, 'transactions.sqlite3'), POCOL_HOLDERS_DB: join(work, 'holders.sqlite3'), POCOL_GEOIP_DB: geoipDb } };
+    delete gatewayEnv.env.CREDENTIALS_DIRECTORY; // no reporters' credential: operator reports are off (503)
     let egw = spawnLogged('explorer-gateway', 'python3', gatewayArgs, gatewayEnv);
     await wait(async () => (await rpc(EXPLORER_GW, 'eth_blockNumber', [], '/rpc')) !== undefined, 30000, 'explorer gateway').catch((e) => { throw new Error(e.message + ' ' + egw.out.slice(-300)); });
     // ---- W7: an ACCRUING newcomer (e, with a quarter of B_reg) and a registerReplacing call naming a miner (f) ----
@@ -220,6 +232,45 @@ async function main() {
     ok('/api/transactions.php lists the two Registry calls newest first from the transaction index (schema pocol-transactions-v1, a snapshot, the index state)',
       txPage.schema === 'pocol-transactions-v1' && JSON.stringify(txPage.rows.map((r) => r.hash)) === JSON.stringify(newestFirst) && txPage.rows.every((r) => r.kind === 'Contract call') && txPage.snapshot && ['ready', 'syncing'].includes(txPage.index.state),
       JSON.stringify(txPage).slice(0, 300));
+    // ---- the holders index and the miner map (MINERS-MAP-HOLDERS.md §5) ----
+    const getJson = async (path) => { for (let i = 0; i < 20; i++) { const r = await fetch(base + path); const v = await r.json().catch(() => null); if (r.status !== 429) return [r.status, v]; await sleep(1000); } return [429, null]; };
+    const holders = await wait(async () => { const [s, v] = await getJson('/api/holders.php?size=100'); return s === 200 && v.data.index.state === 'ready' && v.data.snapshot.height >= Number(receipts[0].blockNumber) && v.data; }, 120000, 'the holders index').catch((e) => ({ error: e.message }));
+    const holderOf = (a) => (holders.rows || []).find((r) => r.address === a);
+    ok('/api/holders.php ranks the devnet\'s holders from the holders index: ranks 1..total by Total, the newcomer as a miner ID with its bond',
+      holders.schema === 'pocol-holders-v1' && holders.total === holders.rows.length && holders.rows.every((r, i) => r.rank === i + 1)
+      && holders.rows.every((r, i) => i === 0 || BigInt(holders.rows[i - 1].totalWei) >= BigInt(r.totalWei))
+      && holderOf(newcomer)?.type === 'miner' && BigInt(holderOf(newcomer).bondedWei) === bond,
+      JSON.stringify({ total: holders.total, supply: holders.supply, verification: holders.verification, newcomer: holderOf(newcomer), error: holders.error }).slice(0, 300));
+    const stats = await wait(async () => { const [s, v] = await getJson('/api/holders-stats.php'); const [, p] = await getJson('/api/holders.php?size=100');
+      return s === 200 && p && JSON.stringify(v.data.snapshot) === JSON.stringify(p.data.snapshot) && [v.data, p.data]; }, 60000, 'the holder statistics of one snapshot').catch((e) => [{ error: e.message }, {}]);
+    const people = (stats[1].rows || []).filter((r) => r.type !== 'system');
+    // The holders index takes the profile's genesis supply (|M_0List| x 10^24 wei, PoCol Mainnet's rule); this devnet's
+    // is its alloc.json plus the founders' bonds (B_reg each, in RewardEscrow), so the index publishes the exact
+    // difference as unlocatedWei with complete false. The sum of Total is the balances' sum less the protocol burns.
+    const alloc = JSON.parse(readFileSync(join(work, 'dn', 'net', 'alloc.json'), 'utf8'));
+    const devnetGenesis = Object.values(alloc).reduce((s, a) => s + BigInt(a.balance), 0n) + BigInt(info.miners.length) * bReg;
+    const S = stats[0].supply || {}, V = stats[0].verification || {};
+    ok('/api/holders-stats.php answers the page\'s snapshot: holders = the non-system rows, sum of Total = balances - protocol burns, the devnet\'s genesis difference published exactly',
+      stats[0].schema === 'pocol-holders-stats-v1' && stats[0].holders.count === people.length && S.currentSupplyWei === stats[1].supply.currentSupplyWei
+      && BigInt(S.currentSupplyWei) === BigInt(S.mintedWei) - BigInt(S.totalBurnedWei)
+      && (stats[1].rows || []).reduce((s, r) => s + BigInt(r.totalWei), 0n) === BigInt(S.availableWei) - BigInt(S.protocolBurnedWei)
+      && BigInt(V.unlocatedWei ?? -1) === BigInt(S.genesisWei) - devnetGenesis && V.complete === false && stats[1].verification.complete === false,
+      JSON.stringify({ supply: S, verification: V, devnetGenesis: String(devnetGenesis) }).slice(0, 400));
+    await sleep(4500); // this test is one client of the gateway's budget (10 tokens a second): let it refill
+    const members = await wait(() => rpc(EXPLORER_GW, 'pocol_getMembers', [0, 256], '/rpc'), 30000, 'a members page');
+    // The map's registry is the holders index's newest snapshot: on a devnet a heavier branch can be shorter, so the
+    // answer is read again until its snapshot holds every member of the page (the newcomer's registration included).
+    let geoStatus = 0;
+    const geoData = await wait(async () => { const [s, v] = await getJson('/api/miner-geography.php'); geoStatus = s;
+      return s === 200 && v.data.miners.registered === members.members.length && v.data; }, 60000, 'the miner map with every member').catch(() => ({}));
+    ok('/api/miner-geography.php: every registered miner Unknown (no operator report), the observer its only source, the test database named',
+      geoStatus === 200 && geoData.schema === 'pocol-miners-geography-v2' && !!geoData.miners && geoData.miners.registered === members.members.length && geoData.miners.located === 0
+      && geoData.miners.unknown === geoData.miners.registered && geoData.unknown.miners === geoData.miners.registered && geoData.countries.every((c) => c.miners.located === 0)
+      && JSON.stringify(geoData.sources.map((s) => s.kind)) === '["observer"]' && geoData.database?.release === '2000-01',
+      JSON.stringify({ members: members.members.length, membersHeight: members.height, height: geoData.height, miners: geoData.miners, unknown: geoData.unknown, sources: geoData.sources, database: geoData.database }));
+    const report = await fetch(`${base}/api/geo-report.php`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-pocol-reporter': 'founder-1', 'x-pocol-signature': '0'.repeat(64) }, body: '{}' });
+    const [badHolders] = await getJson('/api/holders.php?size=7');
+    ok('without the reporters\' credential POST /api/geo-report.php is 503; a holders size outside 25/50/100 is 400', report.status === 503 && badHolders === 400, `${report.status} ${badHolders}`);
     const hidden = {}, bare = {};
     for (const path of ['/api/config.php', '/api/lib.php', '/api/', '/.htaccess', '/SHA256SUMS.txt', '/site-identity.json', '/index.php', '/assets/index.js.map', '/assets/', '/missing.html']) {
       const r = await fetch(base + path); hidden[path] = r.status; await r.arrayBuffer();
@@ -299,13 +350,32 @@ async function main() {
       ok('the Transactions tab lists the Registry calls newest first, with the index status and "Contract call"',
         history.rows.length === 2 && history.rows[0].includes(newestFirst[0].slice(0, 8)) && history.rows[1].includes(newestFirst[1].slice(0, 8)) && history.rows.every((r) => r.includes('Contract call')),
         JSON.stringify(history.rows).slice(0, 400) + ' ' + String(history.t).slice(String(history.t).indexOf('History'), String(history.t).indexOf('History') + 120));
+      // ---- the Holders tab, the Miner map tab and the Overview's map card (assets/pocol-insights.js) ----
+      await page.click('nav button:has-text("Holders")');
+      const known = new Set((holders.rows || []).map((r) => r.address));
+      const shownHolders = await wait(async () => { const rows = await page.evaluate(() => [...document.querySelectorAll('#pocol-holders table.pocol-holders-table tbody tr')]
+        .map((tr) => ({ rank: tr.querySelector('.pocol-rank')?.innerText.trim(), address: tr.querySelector('.pocol-address')?.title, text: tr.innerText.replace(/\s+/g, ' ') })));
+        const t = await page.evaluate(() => document.querySelector('#pocol-holders')?.innerText || '');
+        return rows.length === known.size && /Data at block #[\d,]+/.test(t) && /Current supply/.test(t) && { rows, t }; }, 60000, 'the Holders tab').catch(async (e) => ({ rows: [], t: e.message + ' | ' + (await page.evaluate(() => document.querySelector('#pocol-holders')?.innerText || '')).slice(0, 300) }));
+      ok('the Holders tab lists the holders index\'s accounts (every holder of the snapshot, ranks 1..n, the newcomer as a Miner) with its statistics',
+        shownHolders.rows.length === known.size && shownHolders.rows.every((r, i) => r.rank === String(i + 1) && known.has(r.address))
+        && shownHolders.rows.some((r) => r.address === newcomer && r.text.includes('Miner')) && /PCOL holders/.test(shownHolders.t),
+        JSON.stringify(shownHolders.rows.map((r) => r.rank + ' ' + r.address)).slice(0, 200) + ' ' + String(shownHolders.t).slice(0, 200));
       await page.click('nav button:has-text("Miner map")');
-      const map = await wait(async () => { const t = await text(); return /Miner locations are unavailable:/.test(t) && t; }, 30000, 'the Miner map').catch((e) => e.message);
-      // Without geography the panel is only its notice: none of the GeoIP texts the map shows with data.
-      const claims = ['GeoIP', 'Countries detected from', 'estimated from IP', 'Located public IPs', 'country level', 'Detecting countries', 'DB-IP'].filter((c) => String(map).includes(c));
-      ok('the Miner map says miner locations are unavailable and that peers are not placed by IP address, with no GeoIP text beside it',
-        /Miner locations are not published: the network does not record them\./.test(map) && /does not place peers by their IP addresses/.test(map) && claims.length === 0,
-        `claims ${JSON.stringify(claims)}: ` + String(map).slice(String(map).indexOf('Miner locations'), String(map).indexOf('Miner locations') + 300));
+      const registeredMiners = geoData.miners?.registered ?? -1;
+      const map = await wait(async () => { const t = await text(); const m = await page.evaluate(() => document.querySelector('#pocol-miners-map')?.innerText || '');
+        return (await page.evaluate(() => !!document.querySelector('#pocol-miners-map .pocol-map-panel svg'))) && /Unknown \(no operator report\)/.test(m) && { t, m }; }, 60000, 'the Miner map').catch((e) => ({ t: e.message, m: '' }));
+      const unknownRow = await page.evaluate(() => document.querySelector('#pocol-miners-map tr.pocol-unknown-row')?.innerText.replace(/\s+/g, ' ') || '');
+      const old = ['Miner locations are unavailable', 'Miner locations are not published', 'does not place peers by their IP addresses'].filter((c) => String(map.t).includes(c));
+      const mapChecks = { subtitle: /Registered miners by country where an operator node reports it; every other miner is Unknown\./.test(map.t), noOldNotice: old.length === 0,
+        registered: new RegExp(`Registered miners\\s+${registeredMiners}\\b`).test(map.m), unknownRow: unknownRow.startsWith(`Unknown (no operator report) ${registeredMiners} `),
+        noReporter: /No operator node reports a miner yet/.test(map.m), attribution: /IP Geolocation by\s*DB-IP/.test(map.m) };
+      ok(`the Miner map tab shows the map with the registry's counts (${registeredMiners} registered, all Unknown: no operator report), the GeoIP attribution and none of the old one-node notice`,
+        Object.values(mapChecks).every(Boolean),
+        `failed ${JSON.stringify(Object.keys(mapChecks).filter((k) => !mapChecks[k]))}; old ${JSON.stringify(old)}; unknown row "${unknownRow}"; ` + String(map.m).replace(/\s+/g, ' ').slice(-160));
+      await page.click('nav button:has-text("Overview")');
+      const card = await wait(async () => { const t = await page.evaluate(() => document.querySelector('#pocol-miners-map-compact .pocol-compact-sub')?.innerText || ''); return /registered miners/.test(t) && t; }, 30000, 'the Overview map card').catch((e) => e.message);
+      ok('the Overview\'s map card gives the same counts', new RegExp(`^${registeredMiners} registered miners · 0 located · ${registeredMiners} Unknown · \\d+ network nodes$`).test(String(card)), card);
       await page.click('nav button:has-text("Overview")');
       await sleep(16000); // past one 15 s refresh of the overview and the transaction history
       const biggest = Math.max(0, ...answers.map((a) => a.bytes));
@@ -334,7 +404,7 @@ async function main() {
         const wide = async (what) => { const w = await p2.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]); if (w[0] > w[1] + 1) overflow[`${width}px ${what}`] = w; await p2.screenshot({ path: join(work, `explorer-${width}-${what.replace(/\W+/g, '-')}.png`), fullPage: false }); };
         const menu = async (name) => { const nav = p2.locator(`nav button:has-text("${name}")`); if (!(await nav.first().isVisible())) { const toggle = p2.locator('button[aria-label="Open navigation"]'); if (await toggle.count()) await toggle.first().click(); } await nav.first().click(); await sleep(1500); };
         await wide('overview');
-        for (const tab of ['Blocks', 'Transactions', 'Miners', 'Miner map']) { await menu(tab); await wide(tab); }
+        for (const tab of ['Blocks', 'Transactions', 'Miners', 'Holders', 'Miner map']) { await menu(tab); await wide(tab); }
         await menu('Overview');
         for (const [what, q] of [['block', String(Number(receipts[1].blockNumber))], ['transaction', replacing], ['account', newcomer]]) {
           await p2.fill('input[aria-label="Search block, transaction or address"]', q); await p2.press('input[aria-label="Search block, transaction or address"]', 'Enter');

@@ -134,11 +134,14 @@ class TrackedSnapshot(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'include list'):
                     S.build(pathlib.Path(tmp) / ('o-' + listed.replace('/', '_')), 'site', inc, repo=repo)
 
-    def test_the_explorer_include_list_gives_twelve_files_of_the_tracked_explorer(self):
+    def test_the_explorer_include_list_gives_fourteen_files_of_the_tracked_explorer(self):
+        # Twelve before the Holders page and Miners map module (assets/pocol-insights.js and .css, MINERS-MAP-HOLDERS.md §6).
         with tempfile.TemporaryDirectory() as tmp:
             r = S.build(pathlib.Path(tmp) / 'explorer', 'deploy/websites/explorer.pocol.net', ROOT / 'deploy/websites/tools/explorer-s1-include.txt')
             paths = [f['path'] for f in r['files']]
-            self.assertEqual(len(paths), 12)
+            self.assertEqual(len(paths), 14)
+            self.assertIn('/assets/pocol-insights.js', paths)
+            self.assertIn('/assets/pocol-insights.css', paths)
             self.assertIn('/favicon.ico', paths)
             self.assertIn('/site.webmanifest', paths)
             # Sites W8: the tracked explorer is static, so its checksum list is the only file left out.

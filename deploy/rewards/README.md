@@ -147,6 +147,25 @@ relays' behaviour:
   snapshot height and hash), 400 otherwise; a changed chain is 409 `{"error": ..., "reset": true}`; 503 without the
   transaction index or for a page of another network or with more rows than asked.
 
+The explorer insights (2026-11-25, [MINERS-MAP-HOLDERS.md](../../development/explorer/MINERS-MAP-HOLDERS.md), the
+contract) add four paths that never had a PHP relay:
+
+- `/api/holders.php`: GET or HEAD; the holders index's page (`pocol-holders-v1`) for `page`, `size` (25/50/100),
+  `order` (`balance_desc`, `balance_asc`), `type`, `q` and an optional pinned `height` and `hash`; 400 for a bad or
+  repeated key; 409 `{"error":"The holder snapshot changed. Refreshing.","reset":true}` for a pinned snapshot that is
+  gone or no longer canonical; 503 without the index or before its first snapshot.
+- `/api/holders-stats.php`: GET or HEAD; the statistics of the newest snapshot (`pocol-holders-stats-v1`).
+- `/api/miner-geography.php`: GET or HEAD; the miner map (`pocol-miners-geography-v2`): registry counts, located and
+  Unknown miners, network nodes by country and the sources; 503 before the holders index has a registry snapshot.
+- `/api/geo-report.php`: POST only; an operator node report signed with its reporter's key (204, or 400, 401, 409, 413,
+  415, 429, 503 without the reporters' credential).
+
+Their internal reads (`pocol_getHolders` costing 2 tokens, `pocol_getHolderStats` 1, `pocol_getMinerGeography` 5, a
+report 1) are refused on `/rpc` and `/api/rpc.php`; only these routes call them, with the options the route parsed.
+Every answer is checked against the contract's exact key sets before it is sent (`explorer_api.holders_page`,
+`holders_stats`, `miner_geography`), so no IP address, keyed id or unlisted field can reach a public answer. A spent
+budget, busy relay slots or the gateway's two holder slots (`HOLDER_SLOTS`) answer 429 with `Retry-After: 3`.
+
 Every answer is `application/json; charset=utf-8` with `Cache-Control: no-store`, nosniff and the explorer's security
 headers; errors are `{"error": "..."}` with PHP's messages. The four paths share four relay slots (PHP's lock slots;
 busy is 429, with `Retry-After: 3` on `/api/rpc.php` only as rpc.php sent it, and 503 for transactions, as in PHP)
@@ -176,6 +195,16 @@ filtering, error mapping, headers, pocol.net's two summary batches), and `testda
 requests answered by the PHP relays themselves (php -S on the snapshot at e8974fa in front of this gateway, recorded by
 `testdata/record_explorer_php_vectors.py`) next to these handlers' answers; each matches or carries the note that says
 why it differs.
+
+`test_pocol_holders.py` runs the holders index on an in-process fake node (`holders_fakes.py`: branches, the 32-block
+state window, the registry, receipts and reward flows): the supply identity, the account types and bonds, rewards
+since the index start and their gap, reorganizations and pinned pages (409), retention, the index states, and a
+100,000-account set (publication 1.4-1.6 s, pages 0.4-0.6 ms, 3 ms for a one-digit search, no sort or table scan in
+any page's query plan). `test_pocol_geoip.py` builds a database from the synthetic `testdata/geoip-sample.csv` (not
+DB-IP data) and checks lookups, the public-address filter, keyed ids, credentials, report verification and the map
+answer; `test_gateway_limits.py` and `test_explorer_api.py` cover the four insights routes, their budgets, slots and
+exact key sets. `deploy/explorer/e2e_explorer_devnet.py` runs all of it on a local v3 devnet against the node's own
+state.
 
 The tests check the network configuration (required, no default) and the GenesisSpec proof (nonceMode 1 only), and the reward arithmetic against the
 independent model's vectors (`prototypes/lp4-execution/tests/v3/*.json`: the M3 schedule, for every closed pot of
@@ -213,13 +242,22 @@ gateway, the static copy and the Caddy site (`deploy/explorer/README.md`).
 
 `gateway.py` is the explorer gateway with this adapter integrated (a required import, installed beside it). The transaction index
 `pocol_transactions.py` is installed beside it too and runs when `POCOL_TX_DB` names its file (the installer's unit
-sets it; `deploy/explorer/README.md`, Transaction index). There is no GeoIP module: the network gives no truthful
-miner location (`deploy/explorer/README.md`, Miner map). The public `pocol_getBlockReward` method still accepts exactly
+sets it; `deploy/explorer/README.md`, Transaction index). So are the holders index `pocol_holders.py`, which runs when
+`POCOL_HOLDERS_DB` names its file (the unit sets `/var/lib/pocol-explorer-gateway/holders.sqlite3`), and the miner
+map's `pocol_geoip.py`: the GeoIP database when `POCOL_GEOIP_DB` or the default
+`/opt/pocol-explorer-gateway/geoip/dbip-country.bin` exists (nothing is located otherwise), and operator node reports
+when the systemd credential `geo-reporters` is loaded (`$CREDENTIALS_DIRECTORY/geo-reporters`). A damaged database or
+credential is named on stderr, without any secret, and the gateway runs without it. The holders index takes the
+genesis supply of the profile rule (`|M_0List| x 10^24` wei, PoCol Mainnet's four founders); on a network with other
+genesis accounts it publishes that difference as `verification.unlocatedWei` with `complete: false`. Neither the
+network nor the peers' addresses are a geolocation of miners: a miner is placed only by its own operator node's report
+(`deploy/explorer/README.md`, Holders index and Miner map). The public `pocol_getBlockReward` method still accepts exactly
 `params: []`; clients cannot supply a network or a schedule. The gateway passes its immutable, locally validated
 configuration to the adapter on every reward read. No HTTP/RPC input can replace it.
 
 For an operator-approved deployment, `deploy/explorer/install_explorer_gateway.py` installs `gateway.py`,
-`pocol_rewards.py` and `explorer_api.py` together in the `/opt/pocol-explorer-gateway` service directory with its
+`pocol_rewards.py`, `explorer_api.py`, `pocol_transactions.py`, `pocol_holders.py` and `pocol_geoip.py` together in
+the `/opt/pocol-explorer-gateway` service directory with its
 systemd unit (`pocol-explorer-gateway.service`). Create operator-controlled files outside the website's document
 root, writable only by the operator (they are not downloadable public configuration) and readable by others (`0644`,
 in a directory others may enter, `0755`: the service runs as its own unprivileged user, and the installer refuses

@@ -9,19 +9,21 @@
 //    (a 503 without an error field: "Data source unavailable") still reads as two sentences.
 // 2. The same read answered: the panel lists the transactions. No transactions in the window: the empty state.
 // 4. An open account view follows the loaded window (accountFollowsWindow).
-// 3. The map's summary counts the loaded members page ("256 members on the loaded page"), not "registered miners",
-//    beside "Active members 300". The summary is part of the map, shown only with geography data: these Overview runs
-//    serve a one-peer geography answer of the declared network (the gateway itself never serves one; 7 is that case).
+// 3. The Overview never presents the loaded members page as registered miners: since the Miners map and Holders edits
+//    (tools/explorer-insights-edits.json) the old one-node map and its "members on the loaded page" summary are no
+//    longer rendered; the Overview's map is the insights module's card (div#pocol-miners-map-compact), whose numbers
+//    come only from /api/miner-geography.php (unavailable in these runs). The one-peer v1 answer these runs still
+//    serve at /api/miner-locations.php is never asked for.
 // 5. Production readiness (tools/explorer-prod-edits.json): a refused read is retried twice before it is reported (the
 //    refused transaction read of 1 is sent three times), and the transaction view of a registerReplacing call whose
 //    receipt read the node first answers busy (-32021, as its heavy lane does under load) still shows the decoded
 //    call and the named member: explorer_smoke.mjs's registerReplacing check on a v3 devnet failed that way.
 // 6. The Transactions tab with rows at 390 px has no horizontal page scroll: the wide history table scrolls inside its
 //    own box (its screen-reader "Details" label, absolutely positioned, made the page 727 px wide before the fix).
-// 7. The Miner map without geography data (/api/miner-locations.php 503, as the gateway always answers): the panel, on
-//    its tab and on the Overview, is only the notice that the network records no miner location and that peers are
-//    not placed by IP address. None of the GeoIP texts beside it (the "Automatic GeoIP" tag, "Countries detected from
-//    the observer node's public peer IPs", the IP counts, "Country estimated from IP", the DB-IP attribution).
+// 7. The Miner map without geography data (/api/miner-geography.php 503): on its tab and on the Overview the insights
+//    module says miner geography is unavailable with the gateway's message, and shows no map, count or attribution
+//    beside it; the old one-node notice is gone (MINERS-MAP-HOLDERS.md §6). The page has no horizontal scroll at 390 px.
+//    The views with data are explorer_insights_browser.mjs.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -112,6 +114,7 @@ async function serve(state) {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }); return res.end(JSON.stringify(calls.map((c) => answer(state, c))));
     }
     if (path === '/api/miner-locations.php' && state.geography) {
+      state.v1Asked = true;
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }); return res.end(JSON.stringify({ data: state.geography }));
     }
     if (path === '/api/transactions.php' && state.txPage) {
@@ -156,7 +159,8 @@ async function overview(txBlocks, busyTxRead) {
     }
     await new Promise((r) => setTimeout(r, 500)); text = await page.evaluate(() => document.body.innerText);
     const panel = (await latest.count()) ? await latest.first().innerText() : '';
-    return { text, panel, errors, batches: state.batches, state };
+    const compact = await page.evaluate(() => !!document.querySelector('#pocol-miners-map-compact'));
+    return { text, panel, compact, errors, batches: state.batches, state };
   } finally { await context.close(); await server.close(); }
 }
 
@@ -228,8 +232,8 @@ async function minerMap() {
   try {
     await context.route('**/*', (route) => (new URL(route.request().url()).origin === server.origin ? route.continue() : route.abort()));
     const page = await context.newPage(), errors = []; page.on('pageerror', (e) => errors.push(e.message));
-    const panel = () => page.evaluate(() => [...document.querySelectorAll('section.miner-map-panel')].map((e) => e.innerText).join(' | '));
-    const settle = async () => { let t = ''; for (const end = Date.now() + 20000; Date.now() < end;) { t = await panel(); if (/Miner locations are unavailable:/.test(t)) break; await new Promise((r) => setTimeout(r, 200)); } return t; };
+    const panel = () => page.evaluate(() => [...document.querySelectorAll('#pocol-miners-map, #pocol-miners-map-compact')].map((e) => e.innerText).join(' | '));
+    const settle = async () => { let t = ''; for (const end = Date.now() + 20000; Date.now() < end;) { t = await panel(); if (/Miner geography is unavailable/.test(t)) break; await new Promise((r) => setTimeout(r, 200)); } return t; };
     await page.goto(server.origin + '/');
     const overview = await settle();
     await page.goto(server.origin + '/#page=Miner%20map'); await page.reload();
@@ -249,8 +253,8 @@ try {
     busy.batches.some((b) => b.includes('pocol_getMembers')) && busy.batches.filter((b) => b.length === 3 && b.every((m) => m === 'eth_getTransactionByHash')).length >= 3, JSON.stringify(busy.batches.slice(0, 6)));
   check('a refused transaction read shows "Latest transactions unavailable" with the gateway\'s message, not an empty window',
     busy.panel.includes('Latest transactions unavailable') && busy.panel.includes(`reading them failed: ${BUSY} The next update reads them again.`) && !busy.panel.includes('No transactions in this window') && !busy.panel.includes('Empty blocks are valid'), busy.panel.replace(/\s+/g, ' '));
-  check('the map\'s summary counts the loaded members page: "256 members on the loaded page", never "registered miners"',
-    /\b256 members on the loaded page\b/.test(busy.text) && !/registered miners/.test(busy.text), (/[^\n]*members on the loaded page[^\n]*|[^\n]*registered miners[^\n]*/.exec(busy.text) || [''])[0]);
+  check('the Overview shows the insights map card, never the loaded members page as "registered miners", and never asks the v1 map',
+    busy.compact && !/members on the loaded page/.test(busy.text) && !/registered miners/.test(busy.text) && !busy.state.v1Asked, (/[^\n]*members on the loaded page[^\n]*|[^\n]*registered miners[^\n]*/.exec(busy.text) || [''])[0]);
   check('the page raised no uncaught error', busy.errors.length === 0, busy.errors.join(' | '));
   // 1b. The same read refused with a message that has no closing period: it is still set apart from the next sentence.
   const down = await overview({ [HEAD]: 2, [HEAD - 3]: 1 }, 'down');
@@ -291,15 +295,15 @@ try {
     phone.rows.length === 2 && phone.rows[0].includes('Position 2') && phone.rows[1].includes('Position 1') && phone.scroll <= phone.inner, `scroll ${phone.scroll} / ${phone.inner}: ${JSON.stringify(phone.rows)}`);
   // 7. The Miner map without geography data.
   const map = await minerMap();
-  const NOTICE = 'Miner locations are unavailable: the PoCol network does not record where miners are, and this explorer does not place peers by their IP addresses.';
-  const CLAIMS = ['GeoIP', 'Countries detected from', 'estimated from IP', 'Located public IPs', 'Unlocated public IPs', 'country level', 'Detecting countries', 'DB-IP', 'public IP', 'Network around the world'];
+  const OLD = ['Miner locations are unavailable', 'Miner locations are not published', 'members on the loaded page'];
+  const CLAIMS = ['Registered miners', 'Located miners', 'Network nodes', 'DB-IP', 'Natural Earth', 'Miners around the world'];
   for (const [where, text] of [['Miner map tab', map.tab], ['Overview', map.overview]]) {
-    check(`the ${where}'s map panel without geography data is only the notice, with none of the GeoIP texts`,
-      text.includes(NOTICE) && CLAIMS.every((c) => !text.includes(c)), text.replace(/\s+/g, ' ').slice(0, 500));
+    check(`the ${where}'s map without geography data says it is unavailable with the gateway's message, and shows no map or count`,
+      /Miner geography is unavailable/.test(text) && text.includes('Unavailable in this test') && CLAIMS.every((c) => !text.includes(c)) && OLD.every((c) => !text.includes(c)), text.replace(/\s+/g, ' ').slice(0, 500));
   }
-  check('the Miner map tab keeps its subtitle and no GeoIP text anywhere on the page, no horizontal scroll at 390 px',
-    map.body.includes('Miner locations are not published: the network does not record them.') && CLAIMS.every((c) => !map.body.includes(c)) && map.scroll <= map.inner,
-    `scroll ${map.scroll} / ${map.inner}: ` + CLAIMS.filter((c) => map.body.includes(c)).join(', '));
+  check('the Miner map tab has its new subtitle and none of the old one-node texts, no horizontal scroll at 390 px',
+    map.body.includes('Registered miners by country where an operator node reports it; every other miner is Unknown.') && OLD.every((c) => !map.body.includes(c)) && map.scroll <= map.inner,
+    `scroll ${map.scroll} / ${map.inner}: ` + OLD.filter((c) => map.body.includes(c)).join(', '));
   check('no uncaught error in the other scenarios', map.errors.length === 0 && view.errors.length === 0 && stuck.errors.length === 0 && phone.errors.length === 0 && down.errors.length === 0 && answered.errors.length === 0 && empty.errors.length === 0 && acct.errors.length === 0 && stale.errors.length === 0, [...down.errors, ...answered.errors, ...empty.errors, ...acct.errors, ...stale.errors].join(' | '));
 } finally { await browser.close(); }
 console.log(`explorer W7 browser checks: ${checks} passed`);

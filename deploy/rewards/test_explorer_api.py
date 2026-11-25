@@ -8,6 +8,7 @@ matches PHP or carries the note that says why the gateway answers otherwise. Loo
 import http.client
 import importlib.util
 import json
+import os
 from pathlib import Path
 import socket
 import subprocess
@@ -480,6 +481,465 @@ class ExplorerRelayTests(GatewayServerCase):
                 self.assertEqual((status, raw if method == 'HEAD' else json.loads(raw)), (404, b'' if method == 'HEAD' else {'error': 'Not found'}))
 
 
+import hashlib  # noqa: E402
+import hmac  # noqa: E402
+import pocol_geoip as G  # noqa: E402
+import pocol_holders as H  # noqa: E402
+import holders_fakes as HF  # noqa: E402
+
+SAMPLE_GEOIP = ROOT / 'testdata' / 'geoip-sample.csv'
+REPORTER_KEY = 'b1' * 32
+CREDENTIALS = json.dumps({'salt': 'aa' * 32, 'reporters': {'founder-1': REPORTER_KEY, 'founder-2': 'b2' * 32}}).encode()
+
+
+def holder_get(case, path, headers=()):
+    status, answer_headers, raw = case.send('GET', path, headers)
+    return status, dict(answer_headers), json.loads(raw) if raw else None
+
+
+def report(miner=F.MINER, at=None, reporter='founder-1', network=F.NET, peers=(), height=16, **changes):
+    value = {'schema': 'pocol-geo-report-v1', 'reporter': reporter, 'chainId': network['chainId'],
+             'genesisHash': network['genesisHash'], 'at': int(time.time()) if at is None else at,
+             'head': {'height': height, 'hash': '0x' + 'cd' * 32}, 'miner': miner, 'peers': list(peers), 'unlocated': 0}
+    value.update(changes)
+    return value
+
+
+def signed(value, reporter='founder-1', key=REPORTER_KEY, raw=None):
+    body = raw if raw is not None else json.dumps(value, separators=(',', ':')).encode()
+    signature = hmac.new(bytes.fromhex(key), body, hashlib.sha256).hexdigest()
+    return [('Content-Type', 'application/json'), ('Content-Length', str(len(body))), ('X-PoCol-Reporter', reporter),
+            ('X-PoCol-Signature', signature)], body
+
+
+class HolderRulesTests(unittest.TestCase):
+    """The new routes' query rules, answer checks and reachability, without a server."""
+
+    def test_holder_query_rules(self):
+        options = api.holder_options
+        self.assertEqual(options(''), {'page': 1, 'size': 25, 'order': 'balance_desc', 'type': 'all', 'q': ''})
+        self.assertEqual(options('page=007&size=100&order=balance_asc&type=miner&q=0xABC&height=0&hash=0x' + 'AB' * 32 + '&lang=en'),
+                         {'page': 7, 'size': 100, 'order': 'balance_asc', 'type': 'miner', 'q': '0xabc',
+                          'snapshot': {'height': 0, 'hash': '0x' + 'ab' * 32}})
+        self.assertEqual(options('page=1000000000&q=0x' + 'f' * 40)['page'], 10 ** 9)
+        self.assertEqual(options('height=9007199254740991&hash=0x' + '1' * 64)['snapshot']['height'], 2 ** 53 - 1)
+        bad = ('page=0', 'page=1000000001', 'page=%2B1', 'page=1&page=1', 'page[]=1', 'type=all&type=all', 'size=10',
+               'order=newest', 'type=holder', 'type=ALL', 'q=0X1', 'q=abc', 'q=0x' + 'f' * 41, 'q=0x',
+               'height=9007199254740992&hash=0x' + '1' * 64, 'height=1', 'hash=0x' + '1' * 64, 'height=x&hash=0x' + '1' * 64,
+               'x=' + 'a' * 5000, 'page=%EF%BC%91')
+        for query in bad:
+            with self.subTest(query=query[:40]):
+                self.assertIsNone(options(query))
+                self.assertIsNone(H.holder_options(query))
+        corpus = ['', 'page=3&size=50', 'q=0xAbC&type=reward', 'order=balance_asc&page=9', 'height=7&hash=0x' + 'Cd' * 32,
+                  'size=100&type=system&x=1&y=2&q=0x0'] + list(bad)
+        for query in corpus:
+            self.assertEqual(options(query), H.holder_options(query), query[:40])
+        # Everything the parser builds the holders index takes (gateway.valid_holder_options is the index's own check).
+        self.assertIs(gateway.valid_holder_options, H.valid_options)
+        for query in corpus[:6]:
+            self.assertTrue(H.valid_options(options(query)), query)
+        self.assertTrue(api.plain_query('') and api.plain_query('_=1&x=2') and api.plain_query('x' * 4096))
+        self.assertFalse(api.plain_query('x' * 4097))
+
+    def test_the_holder_reads_are_reachable_only_from_their_routes(self):
+        for method in sorted(gateway.HOLDER_METHODS):
+            params = [api.holder_options('')] if method == 'pocol_getHolders' else []
+            with self.subTest(method):
+                self.assertNotIn(method, api.METHODS)
+                self.assertFalse(api.valid_call(call(method, params)), '/api/rpc.php refuses it')
+                self.assertFalse(gateway.valid_call(call(method, params)), '/rpc refuses it')
+                self.assertIn(method, gateway.COSTS)
+        self.assertEqual(len(api.METHODS), 18)
+        self.assertEqual((gateway.RPC_SLOTS, gateway.TX_SLOTS, gateway.HOLDER_SLOTS), (4, 2, 2))
+        self.assertEqual({m: gateway.COSTS[m] for m in gateway.HOLDER_METHODS},
+                         {'pocol_getHolders': 2, 'pocol_getHolderStats': 1, 'pocol_getMinerGeography': 5})
+
+    def test_answer_checks(self):
+        network = gateway.Gateway(1, network=F.NET).network
+        options = api.holder_options('page=2&size=25&type=wallet')
+        self.assertIsNotNone(api.holders_page(F.holders_page(options), network, options))
+        pinned = api.holder_options('height=16&hash=0x' + 'ab' * 32)
+        self.assertIsNotNone(api.holders_page(F.holders_page(pinned), network, pinned))
+        bad_pages = [F.holders_page(options, chainId=True), F.holders_page(options, chainId=F.NET['chainId'] + 1),
+                     F.holders_page(options, genesisHash='0x' + '00' * 32), F.holders_page(options, schema='pocol-holders-v2'),
+                     F.holders_page(options, page=3), F.holders_page(options, size=True), F.holders_page(options, type='all'),
+                     F.holders_page(options, rows=[F.holder_row()] * 26), F.holders_page(options, ip='203.0.113.9'),
+                     F.holders_page(options, rows=[F.holder_row(ip='203.0.113.9')]),
+                     F.holders_page(options, rows=[F.holder_row(type='miner')]),
+                     F.holders_page(options, rows=[F.holder_row(totalWei='1.5')]),
+                     F.holders_page(options, rows=[F.holder_row(totalWei='-1')]),
+                     F.holders_page(options, rows=[F.holder_row(address='0x' + 'AB' * 20)]),
+                     F.holders_page(options, rows=[F.holder_row(label='Other')]),
+                     F.holders_page(options, rows=[F.holder_row(minerIds=['0x1'])]),
+                     F.holders_page(options, supply={'currentSupplyWei': 1}),
+                     F.holders_page(options, verification={'complete': 1}),
+                     F.holders_page(options, index={'state': 'ready'}),
+                     F.holders_page(options, total=-1), None, [], 'x']
+        for value in bad_pages:
+            with self.subTest(value=json.dumps(value)[:120]):
+                self.assertIsNone(api.holders_page(value, network, options))
+        moved = F.holders_page(pinned, snapshot={'height': 16, 'hash': '0x' + 'cd' * 32, 'timestamp': 1})
+        self.assertIsNone(api.holders_page(moved, network, pinned), 'a page of another snapshot than the pinned one')
+        self.assertIsNotNone(api.holders_stats(F.holders_stats(), network))
+        stats = F.holders_stats()
+        del stats['rewards']
+        self.assertIsNotNone(api.holders_stats(stats, network), 'the contract has no rewards range')
+        unknown = F.holders_stats(verification=dict(F.holders_stats()['verification'], accountsOnChain=None, accountsMissing=None,
+                                                    unlocatedWei='-5'))
+        self.assertIsNotNone(api.holders_stats(unknown, network), 'the account count is null when not read at the snapshot')
+        for change in ({'extra': 1}, {'schema': 'pocol-holders-v1'}, {'supply': {}}, {'distribution': []},
+                       {'history': {'from': None, 'points': [{}]}}, {'holders': {'count': 1}},
+                       {'concentration': {'top1': {'totalWei': '1', 'sharePercentE10': '0'}}}, {'rewards': {'from': 'x', 'to': None}}):
+            with self.subTest(change=change):
+                self.assertIsNone(api.holders_stats(F.holders_stats(**change), network))
+
+    def test_the_map_answer_check_keeps_addresses_and_ids_out(self):
+        network = gateway.Gateway(1, network=F.NET).network
+        geography = G.Geography(None, None, F.NET, gateway.HolderMapInputs(F.FakeHolders()), None)
+        good = geography.answer()
+        self.assertIsNotNone(api.miner_geography(good, network))
+        def changed(**kw):
+            value = json.loads(json.dumps(good)); value.update(kw); return value
+        country = {'code': 'FR', 'miners': {'located': 1, 'active': 1, 'inactive': 0, 'connected': 0}, 'nodes': 1, 'blocks': 1,
+                   'blocksSharePercentE10': '1', 'rewardsWei': None}
+        self.assertIsNotNone(api.miner_geography(changed(countries=[country]), network))
+        for value in (changed(observerAddress='203.0.113.9'), changed(nodes={**good['nodes'], 'ids': ['a' * 24]}),
+                      changed(sources=[{'kind': 'observer', 'name': '203.0.113.9', 'fresh': True, 'reportedAt': 1}]),
+                      changed(sources=[{'kind': 'peer', 'name': 'x', 'fresh': True, 'reportedAt': 1}]),
+                      changed(sources=[{'kind': 'operator', 'name': 'founder-1', 'fresh': True, 'reportedAt': 1, 'ip': '5.0.0.1'}]),
+                      changed(countries=[dict(country, miner=F.MINER)]), changed(countries=[dict(country, code='fr')]),
+                      changed(countries=[dict(country, miners={**country['miners'], 'ids': [F.MINER]})]),
+                      changed(database={'provider': 'DB-IP Lite', 'release': '2026-11', 'license': 'CC BY 4.0', 'path': '/x'}),
+                      changed(blockHash='0x' + 'AB' * 32), changed(schema='pocol-network-geography-v1'), changed(chainId=True)):
+            with self.subTest(value=json.dumps(value)[:100]):
+                self.assertIsNone(api.miner_geography(value, network))
+
+    def test_holder_map_inputs_adapt_the_index_and_cache_per_snapshot(self):
+        holders = F.FakeHolders()
+        inputs = gateway.HolderMapInputs(holders)
+        registry = inputs.registry()
+        self.assertEqual([(r['tomb'], r['graceStart']) for r in registry['records']], [(0, 0), (0, 0)])
+        self.assertEqual(inputs.winners(G.BLOCKS_WINDOW), {'from': 1, 'to': 16, 'blocks': 16, 'miners': {F.MINER: 10}})
+        self.assertEqual(inputs.miner_rewards(), {F.MINER: 5 * 10 ** 18 + 7}, 'paid plus bond accrued')
+        self.assertEqual(holders.reads, ['registry', 'winners', 'rewards'], 'one read of each per snapshot')
+        holders.stats_answer = lambda: F.holders_stats(snapshot={'height': 17, 'hash': '0x' + 'ee' * 32, 'timestamp': 1})
+        holders.map['registry'] = F.map_registry(17, '0x' + 'ee' * 32)
+        self.assertEqual(inputs.registry()['height'], 17)
+        self.assertEqual(holders.reads, ['registry', 'winners', 'rewards'] * 2, 'a new snapshot is read again')
+        holders.map['rewards'] = None
+        holders.stats_answer = lambda: F.holders_stats(snapshot={'height': 18, 'hash': '0x' + 'ef' * 32, 'timestamp': 1})
+        self.assertIsNone(inputs.miner_rewards(), 'rewards not exact: null')
+        holders.stats_answer = H.Unavailable
+        self.assertEqual((inputs.registry(), inputs.winners(G.BLOCKS_WINDOW), inputs.miner_rewards()), (None, None, None))
+        with self.assertRaises(ValueError):
+            inputs.winners(100)
+        holders.stats_answer = F.holders_stats
+        holders.map['registry']['records'][0]['tomb'] = 0
+        inputs.key = None
+        with self.assertRaises(ValueError):
+            inputs.registry()
+
+
+class HolderRouteTests(GatewayServerCase):
+    """/api/holders.php, /api/holders-stats.php and /api/miner-geography.php over HTTP against a fake holders index and
+    the real miner map (pocol_geoip.Geography, no GeoIP database, no reporters)."""
+
+    def setUp(self):
+        super().setUp()
+        self.holders = F.FakeHolders()
+        self.gateway.holders = self.holders
+        self.gateway.miner_map = G.Geography(None, None, F.NET, gateway.HolderMapInputs(self.holders), self.gateway.observer_status)
+        self.holder_valid = patch.object(gateway, 'valid_holder_options', H.valid_options)
+        self.holder_valid.start()
+        self.addCleanup(self.holder_valid.stop)
+
+    def test_a_holders_page(self):
+        target = '/api/holders.php?page=2&size=50&order=balance_asc&type=wallet&q=0xAB&height=12&hash=0x' + 'EE' * 32
+        status, headers, answer = holder_get(self, target)
+        expected = {'page': 2, 'size': 50, 'order': 'balance_asc', 'type': 'wallet', 'q': '0xab',
+                    'snapshot': {'height': 12, 'hash': '0x' + 'ee' * 32}}
+        self.assertEqual((status, self.holders.asked), (200, [expected]))
+        self.assertEqual(answer, {'data': F.holders_page(expected)})
+        self.assertEqual((headers['Content-Type'], headers['Cache-Control']), (api.JSON_TYPE, 'no-store'))
+        for name, value in api.SECURITY_HEADERS:
+            self.assertEqual(headers[name], value)
+        status, headers, raw = self.send('HEAD', '/api/holders.php')
+        self.assertEqual((status, raw, dict(headers)['Content-Type']), (200, b'', api.JSON_TYPE))
+        self.assertNotIn('Content-Length', dict(headers))
+        self.assertEqual(self.node.calls, [], 'a page reads no node')
+
+    def test_bad_queries_are_400_before_any_read(self):
+        for query in ('page=0', 'size=10', 'page=1&page=2', 'type[]=all', 'type=x', 'q=0X1', 'order=newest', 'height=1',
+                      'x=' + 'a' * 5000):
+            with self.subTest(query=query[:30]):
+                status, _, answer = holder_get(self, '/api/holders.php?' + query)
+                self.assertEqual((status, answer), (400, {'error': 'Invalid holder query.'}))
+        for path in ('/api/holders-stats.php', '/api/miner-geography.php'):
+            self.assertEqual(holder_get(self, path + '?x=' + 'a' * 5000)[0], 400)
+            self.assertEqual(holder_get(self, path + '?_=12345')[0], 200, 'another key is ignored')
+        self.assertEqual(self.holders.asked, [])
+
+    def test_a_changed_snapshot_is_409_reset(self):
+        self.holders.page_answer = H.SnapshotChanged
+        status, headers, answer = holder_get(self, '/api/holders.php?height=12&hash=0x' + 'ee' * 32)
+        self.assertEqual((status, answer), (409, {'error': 'The holder snapshot changed. Refreshing.', 'reset': True}))
+        self.assertEqual(api.HOLDERS_RESET, 'The holder snapshot changed. Refreshing.')
+
+    def test_503_without_data(self):
+        unavailable = {'error': api.HOLDERS_UNAVAILABLE}
+        self.holders.page_answer = H.Unavailable
+        self.holders.stats_answer = H.Unavailable
+        self.assertEqual(holder_get(self, '/api/holders.php')[::2], (503, unavailable))
+        self.assertEqual(holder_get(self, '/api/holders-stats.php')[::2], (503, unavailable))
+        self.assertEqual(holder_get(self, '/api/miner-geography.php')[::2], (503, {'error': api.MAP_UNAVAILABLE}))
+        self.assertEqual(self.send('HEAD', '/api/holders.php')[0], 503)
+        # Answers of another shape or network are never relayed.
+        for answer in (lambda o: F.holders_page(o, chainId=1), lambda o: F.holders_page(o, rows=[F.holder_row(ip='5.0.0.1')]),
+                       lambda o: F.holders_page(o, page=o['page'] + 1), lambda o: {'error': 'x'}):
+            self.scenario({}); self.holders.page_answer = answer
+            self.assertEqual(holder_get(self, '/api/holders.php')[::2], (503, unavailable))
+        self.holders.stats_answer = lambda: F.holders_stats(genesisHash='0x' + '00' * 32)
+        self.assertEqual(holder_get(self, '/api/holders-stats.php')[::2], (503, unavailable))
+        # Without the index (or its module: the option check refuses everything) and without the miner map.
+        self.scenario({}); self.gateway.holders = None
+        self.assertEqual(holder_get(self, '/api/holders.php')[::2], (503, unavailable))
+        self.assertEqual(holder_get(self, '/api/holders-stats.php')[::2], (503, unavailable))
+        with patch.object(gateway, 'valid_holder_options', lambda options: False):
+            self.gateway.holders = self.holders; self.holders.asked.clear()
+            self.assertEqual(holder_get(self, '/api/holders.php')[::2], (503, unavailable))
+            self.assertEqual(self.holders.asked, [])
+        self.scenario({}); self.gateway.miner_map = None
+        self.assertEqual(holder_get(self, '/api/miner-geography.php')[::2], (503, {'error': api.MAP_UNAVAILABLE}))
+
+    def test_budget_slots_and_costs(self):
+        with patch.object(gateway.time, 'monotonic', return_value=1000.0):  # no refill during the check
+            for path, cost in (('/api/holders.php', 2), ('/api/holders-stats.php', 1), ('/api/miner-geography.php', 5)):
+                with self.subTest(path=path):
+                    self.gateway.tokens, self.gateway.token_time = 50.0, 1000.0
+                    self.gateway.clients.clear(); self.gateway.cache.clear()
+                    self.assertEqual(holder_get(self, path)[0], 200)
+                    self.assertEqual(self.gateway.tokens, 50.0 - cost)
+            self.gateway.tokens = 0.0
+            for path in ('/api/holders.php', '/api/holders-stats.php', '/api/miner-geography.php'):
+                status, headers, answer = holder_get(self, path)
+                self.assertEqual((status, headers.get('Retry-After'), answer), (429, '3', {'error': api.BUSY}))
+            self.assertEqual(self.gateway.tokens, 0.0, 'a refused request is not charged')
+        # The gateway's holder slots busy: 429 with Retry-After, the node reads unaffected.
+        for _ in range(gateway.HOLDER_SLOTS): self.assertTrue(self.gateway.holder_slots.acquire(blocking=False))
+        try:
+            self.gateway.cache.clear()
+            for path in ('/api/holders.php', '/api/holders-stats.php', '/api/miner-geography.php'):
+                status, headers, _ = holder_get(self, path)
+                self.assertEqual((status, headers.get('Retry-After')), (429, '3'))
+            self.assertEqual(self.post(call())[0], 200)
+        finally:
+            for _ in range(gateway.HOLDER_SLOTS): self.gateway.holder_slots.release()
+        # The relay's slots busy: 429 as on every /api read.
+        for _ in range(api.RELAY_SLOTS): self.assertTrue(self.server.explorer.slots.acquire(blocking=False))
+        try:
+            self.assertEqual(holder_get(self, '/api/holders.php')[0], 429)
+        finally:
+            for _ in range(api.RELAY_SLOTS): self.server.explorer.slots.release()
+
+    def test_the_miner_map_without_reporters_or_database(self):
+        self.node.answers['pocol_status'] = {'result': {'chainId': F.NET['chainId'], 'genesisHash': F.NET['genesisHash'],
+                                                        'head': {'height': 16, 'hash': F.HASH},
+                                                        'peers': ['9.9.9.9:30300', '10.0.0.1:30300', '[2a00:1450::1]:30300']}}
+        status, headers, answer = holder_get(self, '/api/miner-geography.php')
+        self.assertEqual(status, 200)
+        data = answer['data']
+        self.assertEqual((data['schema'], data['height'], data['blockHash'], data['database']),
+                         ('pocol-miners-geography-v2', 16, F.HASH, None))
+        self.assertEqual(data['miners'], {'registered': 2, 'active': 1, 'inactive': 0, 'exited': 1, 'punished': 0,
+                                          'located': 0, 'unknown': 2, 'connected': 0, 'thetaInact': 360})
+        self.assertEqual(data['nodes'], {'observed': 3, 'located': 0, 'unlocated': 3})
+        self.assertEqual(data['sources'][0]['kind'], 'observer')
+        self.assertEqual((data['countries'], data['unknown']), ([], {'miners': 2, 'blocks': 16}))
+        text = json.dumps(answer)
+        for secret in (F.MINER, F.ADDRESS, '9.9.9.9', '2a00:1450', G.keyed_id(self.gateway.miner_map.salt, '9.9.9.9')):
+            self.assertNotIn(secret, text)
+        self.assertEqual(self.send('HEAD', '/api/miner-geography.php')[0], 200)
+        # The observer's node is read at most once per OBSERVE_SECONDS whatever the request rate (cache cleared).
+        reads = sum(1 for m, _ in self.node.calls if m == 'pocol_status')
+        for _ in range(3):
+            self.gateway.cache.clear(); self.assertEqual(holder_get(self, '/api/miner-geography.php')[0], 200)
+        self.assertEqual(sum(1 for m, _ in self.node.calls if m == 'pocol_status'), reads)
+        self.assertEqual(self.holders.reads.count('registry'), 1, 'the registry is read once per snapshot')
+
+
+class GeoReportTests(GatewayServerCase):
+    """POST /api/geo-report.php through the real Server and the real miner map, with a GeoIP database built from the
+    synthetic sample (testdata/geoip-sample.csv) and the geo-reporters credential."""
+
+    def setUp(self):
+        super().setUp()
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        G.build(SAMPLE_GEOIP, '2026-11', Path(folder.name) / 'geo.bin')
+        self.database = G.GeoDatabase(Path(folder.name) / 'geo.bin')
+        self.addCleanup(self.database.close)   # before the folder goes (Windows cannot delete a mapped file)
+        self.holders = F.FakeHolders()
+        self.gateway.holders = self.holders
+        self.credentials = G.parse_credentials(CREDENTIALS)
+        self.gateway.miner_map = G.Geography(self.database, None, F.NET, gateway.HolderMapInputs(self.holders),
+                                             self.gateway.observer_status, credentials=self.credentials)
+
+    def post_report(self, value=None, headers=None, body=None, source='5.0.2.7', extra=()):
+        if headers is None:
+            headers, body = signed(report() if value is None else value)
+        status, answer_headers, raw = self.send('POST', '/api/geo-report.php',
+                                                [*headers, *extra] + ([('X-Forwarded-For', source)] if source else []), body)
+        return status, dict(answer_headers), raw
+
+    def test_a_signed_report_places_its_miner_in_the_country_of_its_source(self):
+        status, headers, raw = self.post_report(source='5.0.2.7')
+        self.assertEqual((status, raw), (204, b''))
+        self.assertNotIn('Content-Length', headers)
+        self.assertNotIn('Content-Type', headers)
+        self.assertEqual(headers['Cache-Control'], 'no-store')
+        status, _, answer = holder_get(self, '/api/miner-geography.php')
+        data = answer['data']
+        self.assertEqual(status, 200)
+        self.assertEqual(data['database'], {'provider': 'DB-IP Lite', 'release': '2026-11', 'license': 'CC BY 4.0'})
+        self.assertEqual(data['countries'], [{'code': 'FR', 'miners': {'located': 1, 'active': 1, 'inactive': 0, 'connected': 1},
+                                              'nodes': 1, 'blocks': 10, 'blocksSharePercentE10': str(10 * 10 ** 12 // 16),
+                                              'rewardsWei': str(5 * 10 ** 18 + 7)}])
+        self.assertEqual((data['miners']['located'], data['miners']['unknown'], data['unknown']), (1, 1, {'miners': 1, 'blocks': 6}))
+        operator = [s for s in data['sources'] if s['kind'] == 'operator']
+        self.assertEqual([(s['name'], s['fresh']) for s in operator], [('founder-1', True), ('founder-2', False)])
+        # Neither the source address nor its keyed id is in the answer or kept by the gateway.
+        text = json.dumps(answer)
+        for secret in ('5.0.2.7', G.keyed_id(self.credentials.salt, '5.0.2.7'), F.MINER):
+            self.assertNotIn(secret, text)
+        self.assertNotIn('5.0.2.7', repr(self.gateway.miner_map.reports))
+
+    def test_an_ipv6_source_is_looked_up_by_its_full_address(self):
+        self.assertEqual(self.post_report(source='2a00:1450::5')[0], 204)
+        self.gateway.cache.clear()
+        self.assertEqual([c['code'] for c in holder_get(self, '/api/miner-geography.php')[2]['data']['countries']], ['IE'])
+
+    def test_refusals(self):
+        headers, body = signed(report())
+        def without(name): return [h for h in headers if h[0] != name]
+        cases = [
+            ('Origin', 400, headers, body, [('Origin', ORIGIN)]),
+            ('two Content-Type', 415, headers, body, [('Content-Type', 'application/json')]),
+            ('text/plain', 415, [('Content-Type', 'text/plain')] + without('Content-Type'), body, []),
+            ('no Content-Length', 400, without('Content-Length'), body, []),
+            ('two Content-Length', 400, headers, body, [('Content-Length', str(len(body)))]),
+            ('Transfer-Encoding', 400, headers, body, [('Transfer-Encoding', 'chunked')]),
+            ('Content-Length +1', 400, [('Content-Length', '+' + str(len(body)))] + without('Content-Length'), body, []),
+            ('oversized', 413, [('Content-Length', '16385')] + without('Content-Length'), b'', []),
+            ('bad signature', 401, signed(report(), key='c3' * 32)[0], body, []),
+            ('unknown reporter', 401, *signed(report(reporter='founder-9'), reporter='founder-9'), []),
+            ('no reporter header', 400, without('X-PoCol-Reporter'), body, []),
+            ('another network', 400, *signed(report(network={'chainId': 1, 'genesisHash': F.NET['genesisHash']})), []),
+            ('stale', 409, *signed(report(at=int(time.time()) - 600)), []),
+        ]
+        for name, expected, case_headers, case_body, extra in cases:
+            with self.subTest(name):
+                status, answer_headers, raw = self.post_report(headers=case_headers, body=case_body, extra=extra)
+                self.assertEqual((status, json.loads(raw)), (expected, {'error': api.REPORT_ERRORS[expected]}))
+                self.assertEqual(answer_headers['Content-Type'], api.JSON_TYPE)
+        self.assertEqual(self.post_report(headers=headers, body=body)[0], 204)
+        self.assertEqual(self.post_report(headers=headers, body=body)[0], 409, 'a replayed report')
+        self.assertEqual(self.node.calls, [], 'a report reads no node')
+
+    def test_503_without_the_credential_or_the_miner_map_and_429_when_the_budget_is_spent(self):
+        self.gateway.miner_map = G.Geography(self.database, None, F.NET, gateway.HolderMapInputs(self.holders), None)
+        status, _, raw = self.post_report()
+        self.assertEqual((status, json.loads(raw)), (503, {'error': 'Operator reports are not enabled.'}))
+        self.gateway.miner_map = None
+        self.assertEqual(self.post_report()[0], 503)
+        self.gateway.miner_map = G.Geography(self.database, None, F.NET, gateway.HolderMapInputs(self.holders), None,
+                                             credentials=self.credentials)
+        with patch.object(gateway.time, 'monotonic', return_value=1000.0):
+            self.gateway.tokens, self.gateway.token_time = 0.0, 1000.0
+            status, headers, raw = self.post_report()
+            self.assertEqual((status, headers.get('Retry-After'), json.loads(raw)), (429, '3', {'error': api.BUSY}))
+            self.gateway.tokens = 5.0
+            self.assertEqual(self.post_report()[0], 204)
+            self.assertEqual(self.gateway.tokens, 4.0, 'a report costs one token')
+        # The relay's slots do not hold reports back.
+        for _ in range(api.RELAY_SLOTS): self.assertTrue(self.server.explorer.slots.acquire(blocking=False))
+        try:
+            self.assertEqual(self.post_report(report(at=int(time.time()) + 1))[0], 204)
+        finally:
+            for _ in range(api.RELAY_SLOTS): self.server.explorer.slots.release()
+
+    def test_the_route_allows_post_only(self):
+        for method in ('GET', 'HEAD', 'PUT'):
+            status, headers, _ = self.send(method, '/api/geo-report.php', [('Content-Length', '0')], b'')
+            self.assertEqual((status, dict(headers)['Allow']), (405, 'POST'))
+        for path in ('/api/holders.php', '/api/holders-stats.php', '/api/miner-geography.php'):
+            status, headers, raw = self.send('POST', path, [('Content-Length', '0')], b'')
+            self.assertEqual((status, dict(headers)['Allow']), (405, 'GET, HEAD'))
+
+
+class HolderIndexServerTests(unittest.TestCase):
+    """The real holders index (pocol_holders.HolderIndex over holders_fakes' in-process v3 node) behind the real
+    Server: pages, statistics, the miner map's registry and a reorganization's 409 reset. Loopback only; the index's
+    SQLite file is closed before its folder is removed (Windows)."""
+
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.chain = HF.FakeHolderChain()
+        self.chain.mine(txs=[{'from': HF.FOUNDERS[1][1], 'to': '0x' + f'a{i:039x}', 'value': (i + 1) * 10 ** 18} for i in range(30)])
+        self.index = H.HolderIndex(Path(folder.name) / 'holders.sqlite3', self.chain.query, self.chain.network,
+                                   rewards=self.chain.rewards, pace=0, slowdown=0)
+        self.addCleanup(self.index.close)
+        self.settle()
+        self.node = F.FakeNode()
+        self.addCleanup(self.node.stop)
+        self.gateway = gateway.Gateway(self.node.server_address[1], network=self.chain.network, holders=self.index)
+        self.gateway.miner_map = G.Geography(None, None, self.chain.network, gateway.HolderMapInputs(self.index), None)
+        self.server = gateway.Server(('127.0.0.1', 0), self.gateway, ORIGIN)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.addCleanup(lambda: (self.server.shutdown(), self.server.server_close(), self.thread.join()))
+
+    def settle(self):
+        for _ in range(4):
+            self.index.step()
+            heights = self.index.status()['heights']
+            if heights['snapshot'] == heights['history']:
+                return
+        raise AssertionError('no snapshot at the tip')
+
+    def get(self, path):
+        self.gateway.cache.clear()
+        status, _, raw = F.send(self.server.server_address[1], 'GET', path)
+        return status, json.loads(raw)
+
+    def test_pages_statistics_map_and_reset(self):
+        status, first = self.get('/api/holders.php?size=25')
+        self.assertEqual(status, 200, first)
+        page = first['data']
+        self.assertEqual((page['total'], len(page['rows']), page['rows'][0]['rank']), (38, 25, 1))
+        status, second = self.get('/api/holders.php?size=25&page=2')
+        self.assertEqual([r['rank'] for r in second['data']['rows']], list(range(26, 39)))
+        status, wallets = self.get('/api/holders.php?type=wallet&size=100&order=balance_asc')
+        self.assertEqual((len(wallets['data']['rows']), wallets['data']['rows'][0]['type']), (30, 'wallet'))
+        status, stats = self.get('/api/holders-stats.php')
+        self.assertEqual(status, 200, stats)
+        self.assertTrue(stats['data']['verification']['complete'])
+        self.assertEqual(stats['data']['supply']['currentSupplyWei'], page['supply']['currentSupplyWei'])
+        status, geography = self.get('/api/miner-geography.php')
+        self.assertEqual(status, 200, geography)
+        self.assertEqual((geography['data']['miners']['registered'], geography['data']['miners']['active']), (4, 4))
+        self.assertEqual(geography['data']['blocksWindow']['to'], page['snapshot']['height'])
+        # A page pinned to a snapshot that a reorganization removed is the 409 reset; the kept snapshot still answers.
+        snap = page['snapshot']
+        pinned = f"/api/holders.php?size=25&height={snap['height']}&hash={snap['hash']}"
+        self.assertEqual(self.get(pinned)[0], 200)
+        self.chain.reorg(snap['height'] - 1)
+        self.chain.mine_many(2)
+        self.settle()
+        self.assertEqual(self.get(pinned), (409, {'error': 'The holder snapshot changed. Refreshing.', 'reset': True}))
+
+
 class ExplorerCliTests(unittest.TestCase):
     def test_site_origin_option(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
@@ -490,6 +950,42 @@ class ExplorerCliTests(unittest.TestCase):
                                          '--site-origin', origin, '--rpc-port', '1'], capture_output=True, text=True, timeout=60)
                 self.assertEqual(result.returncode, 2, result.stderr)
                 self.assertIn('--site-origin', result.stderr)
+
+    def test_main_wires_the_holders_index_the_geoip_database_and_the_reporters_credential(self):
+        """gateway.py as the unit starts it: POCOL_HOLDERS_DB starts the holders index (no snapshot yet: the holders and
+        map routes answer 503), POCOL_GEOIP_DB the database, $CREDENTIALS_DIRECTORY/geo-reporters the reports (a signed
+        report is accepted, 204); a damaged credential is named on stderr without its values and reports stay off."""
+        node = F.FakeNode()
+        self.addCleanup(node.stop)
+        for damaged in (False, True):
+            with self.subTest(damaged=damaged), tempfile.TemporaryDirectory() as directory:
+                folder = Path(directory)
+                (folder / 'network.json').write_text(json.dumps(F.NET))
+                G.build(SAMPLE_GEOIP, '2026-11', folder / 'geo.bin')
+                (folder / 'credentials').mkdir()
+                (folder / 'credentials' / 'geo-reporters').write_bytes(CREDENTIALS[:-2] if damaged else CREDENTIALS)
+                with socket.socket() as probe:
+                    probe.bind(('127.0.0.1', 0)); port = probe.getsockname()[1]
+                env = dict(os.environ, POCOL_HOLDERS_DB=str(folder / 'holders.sqlite3'), POCOL_GEOIP_DB=str(folder / 'geo.bin'),
+                           CREDENTIALS_DIRECTORY=str(folder / 'credentials'))
+                env.pop('POCOL_TX_DB', None)
+                process = subprocess.Popen([sys.executable, '-B', str(ROOT / 'gateway.py'), '--v3-network', str(folder / 'network.json'),
+                                            '--port', str(port), '--rpc-port', str(node.server_address[1]), '--site-origin', ORIGIN],
+                                           env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                try:
+                    self.assertEqual(process.stdout.readline().strip(), 'PoCol explorer read-only gateway ready')
+                    for path in ('/api/holders.php', '/api/holders-stats.php', '/api/miner-geography.php'):
+                        self.assertEqual(F.send(port, 'GET', path)[0], 503, path)
+                    headers, body = signed(report())
+                    status = F.send(port, 'POST', '/api/geo-report.php', headers, body)[0]
+                    self.assertEqual(status, 503 if damaged else 204)
+                finally:
+                    process.terminate()
+                    _, stderr = process.communicate(timeout=30)   # the index's file is closed with the process (Windows)
+                if damaged:
+                    self.assertIn('Operator node reports disabled', stderr)
+                    self.assertNotIn(REPORTER_KEY, stderr); self.assertNotIn('aa' * 32, stderr)
+                self.assertNotIn('GeoIP database not used', stderr)
 
 
 if __name__ == '__main__':

@@ -1,7 +1,8 @@
 """The explorer gateway's request budget (EXP-02): a bucket per client inside the node's bucket, and a share of the
 node's bucket that requests to /rpc cannot take (requests to /api/* can: the reserve stops only a flood sent to /rpc).
 Clients are told apart by the last X-Forwarded-For hop of a loopback (Caddy) peer. Transaction pages run behind their
-own slots, so they never make the node reads busy. Loopback only."""
+own slots (TX_SLOTS), and so do holder pages and the miner map (HOLDER_SLOTS), so they never make the node reads busy
+or each other. Loopback only."""
 import json
 import sys
 import threading
@@ -35,6 +36,18 @@ class ClientKeyTests(unittest.TestCase):
         self.assertEqual(gateway.client_key('198.51.100.9', Headers('203.0.113.1')), '198.51.100.9', 'only a loopback peer is trusted')
         self.assertEqual(gateway.client_key('127.0.0.1', Headers('2001:db8:1:2:aaaa::1')), '2001:db8:1:2::/64')
         self.assertEqual(gateway.client_key('127.0.0.1', Headers('2001:db8:1:2:bbbb::9')), '2001:db8:1:2::/64')
+
+    def test_the_client_address_is_the_whole_address_by_the_same_rule(self):
+        # An operator node report's source (its country lookup) is the full address, never the /64 of the budget key.
+        address = lambda peer, *values: str(gateway.client_address(peer, Headers(*values)))
+        self.assertEqual(address('127.0.0.1', '2001:db8:1:2:aaaa::1'), '2001:db8:1:2:aaaa::1')
+        self.assertEqual(address('127.0.0.1', '203.0.113.1, 198.51.100.7'), '198.51.100.7')
+        self.assertEqual(address('127.0.0.1', '203.0.113.1', '198.51.100.8'), '198.51.100.8')
+        self.assertEqual(address('::1', '198.51.100.7'), '198.51.100.7')
+        self.assertEqual(address('198.51.100.9', '203.0.113.1'), '198.51.100.9', 'only a loopback peer is trusted')
+        self.assertEqual(address('127.0.0.1'), '127.0.0.1')
+        self.assertIsNone(gateway.client_address('127.0.0.1', Headers('not-an-ip')))
+        self.assertIsNone(gateway.client_address('not-an-ip', Headers()))
 
 
 class BudgetTests(unittest.TestCase):
@@ -165,6 +178,69 @@ class SlotTests(unittest.TestCase):
             self.assertIn('result', self.page(1))
         finally:
             for _ in range(gateway.RPC_SLOTS): self.gw.rpc_slots.release()
+
+
+class HolderPages(F.FakeHolders):
+    """A holders index whose pages wait for `release` (a slow page in progress)."""
+    def __init__(self):
+        super().__init__()
+        self.release, self.started = threading.Event(), threading.Semaphore(0)
+        self.page_answer = self.slow
+
+    def slow(self, options):
+        self.started.release()
+        self.release.wait(10)
+        return F.holders_page(options)
+
+
+class HolderSlotTests(unittest.TestCase):
+    """Holder pages run behind HOLDER_SLOTS: however many are in flight, node reads and transaction pages are never
+    made busy, and the other way round."""
+
+    def setUp(self):
+        self.node = F.FakeNode()
+        self.addCleanup(self.node.stop)
+        self.holders, self.pages = HolderPages(), Pages()
+        self.gw = gateway.Gateway(self.node.server_address[1], None, self.pages, network=F.NET, holders=self.holders)
+
+    def holder_page(self, i):
+        options = {'page': 3000 + i, 'size': 100, 'order': 'balance_desc', 'type': 'all', 'q': ''}
+        return self.gw.call({'jsonrpc': '2.0', 'id': i, 'method': 'pocol_getHolders', 'params': [options]})
+
+    def test_slow_holder_pages_never_make_node_reads_or_transaction_pages_busy(self):
+        answers = {}
+        threads = [threading.Thread(target=lambda i=i: answers.__setitem__(i, self.holder_page(i))) for i in range(gateway.HOLDER_SLOTS)]
+        for t in threads: t.start()
+        try:
+            for _ in threads: self.assertTrue(self.holders.started.acquire(timeout=10))
+            self.assertEqual(self.holder_page(99)['error']['code'], -32021, 'a page beyond HOLDER_SLOTS is busy at once')
+            stats = self.gw.call({'jsonrpc': '2.0', 'id': 98, 'method': 'pocol_getHolderStats', 'params': []})
+            self.assertEqual(stats['error']['code'], -32021, 'the statistics share the holder slots')
+            for i in range(2 * gateway.RPC_SLOTS):
+                read = self.gw.call({'jsonrpc': '2.0', 'id': i, 'method': 'eth_getBalance', 'params': ['0x' + f'{i:040x}', 'latest']})
+                self.assertIn('result', read, read)
+            self.pages.release.set()
+            transactions = self.gw.call({'jsonrpc': '2.0', 'id': 1, 'method': 'pocol_getTransactions',
+                                         'params': [{'page': 1, 'size': 25, 'order': 'newest', 'q': ''}]})
+            self.assertIn('result', transactions, transactions)
+        finally:
+            self.holders.release.set()
+            for t in threads: t.join(10)
+        self.assertTrue(all('result' in a for a in answers.values()), answers)
+        self.assertIn('result', self.holder_page(7), 'the slots are released')
+
+    def test_node_reads_and_transaction_pages_in_flight_never_make_holder_pages_busy(self):
+        self.holders.release.set()
+        held = [(self.gw.rpc_slots, gateway.RPC_SLOTS), (self.gw.tx_slots, gateway.TX_SLOTS)]
+        for slots, count in held:
+            for _ in range(count): self.assertTrue(slots.acquire(blocking=False))
+        try:
+            self.assertEqual(self.gw.call({'jsonrpc': '2.0', 'id': 1, 'method': 'eth_blockNumber', 'params': []})['error']['code'], -32021)
+            self.assertIn('result', self.holder_page(1))
+            self.assertIn('result', self.gw.call({'jsonrpc': '2.0', 'id': 2, 'method': 'pocol_getHolderStats', 'params': []}))
+        finally:
+            for slots, count in held:
+                for _ in range(count): slots.release()
 
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ name: Sites end to end on a v3 devnet
 # viewer with the extension's testGateway build, the IDE smoke and the multi-viewer open
 # (prototypes/pocol-extension/tests/e2e_publisher_gateway.mjs), the explorer served as the gateway host serves it
 # (Sites W8: a loopback copy of its Caddy site in front of a local explorer gateway, deploy/websites/tests/
-# explorer_smoke.mjs) and browser_security.mjs. Nightly and on dispatch
+# explorer_smoke.mjs, with the holders index and the miner map since 2026-11-25) and browser_security.mjs. Nightly and on dispatch
 # (`sites-e2e-nightly`): the 4 MiB - 4 KiB site (about 171 chunks), a 4 MiB site opened by three viewers at once and a
 # publication in a background tab of a headed Chromium (xvfb), recorded. Local devnets and loopback only: nothing here
 # contacts a pocol.net host or deploys anything. The browser suites on v3 (e2e_browser, e2e_integrated) run in
@@ -118,7 +118,7 @@ jobs:
         run: |
           set -o pipefail
           node deploy/websites/tests/explorer_smoke.mjs 2>&1 | tee evidence/explorer-smoke.log
-      - name: Explorer gateway host on a devnet (observer node without a miner, transaction index, reorganization)
+      - name: Explorer gateway host on a devnet (observer node without a miner, transaction and holders indexes, miner map, operator report, reorganization)
         if: always() && steps.build.outcome == 'success'
         run: |
           set -o pipefail

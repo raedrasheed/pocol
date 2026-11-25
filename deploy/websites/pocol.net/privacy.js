@@ -10,7 +10,7 @@
       "description": "How the PoCol Chrome extension and the PoCol websites handle your information: keys stay on your device, no accounts, no analytics.",
       "eyebrow": "PRIVACY",
       "heading": "Privacy policy",
-      "updated": "Last updated: 22 November 2026",
+      "updated": "Last updated: 25 November 2026",
       "lead": "This policy covers the PoCol Chrome extension (PoCol Studio, IDE & Viewer) and the websites pocol.net, studio.pocol.net, ide.pocol.net and explorer.pocol.net. It describes what their software, published in the PoCol repository, does with your information. PoCol has no user accounts, shows no advertising and uses no analytics or tracking.",
       "sections": [
         {
@@ -46,6 +46,7 @@
             "PoCol Studio (studio.pocol.net) keeps your drafts in your browser's local storage, checks the gateway's health and, before publishing, reads the network's limits at explorer.pocol.net, and publishes only through the extension, after your approval.",
             "PoCol IDE (ide.pocol.net) stores its appearance choice in your browser and reads public network data from explorer.pocol.net; a contract is deployed only through the extension, after your approval.",
             "Requests to explorer.pocol.net, including the extension's, are answered by the PoCol gateway on that server. The gateway software writes no request log, and the web server configuration published in the repository enables no access log. To limit abuse, the explorer gateway (/rpc and the explorer’s /api reads) counts requests per IP address (for IPv6, per /64 network) and the Studio relay (/studio/rpc) counts requests per IP address, in memory only and for at most the 4,096 most recently seen; neither writes IP addresses to disk.",
+            "The explorer's Miners map shows miners and network nodes by country only. To find those countries, the explorer gateway looks up, in a country database stored on that server (DB-IP IP to Country Lite, licensed CC BY 4.0; IP Geolocation by DB-IP, https://db-ip.com), the public IP addresses of the network nodes its own node is connected to and, when a server's operator has installed the PoCol node reporter there, the address from which that server sends its signed report; it contacts no outside service for this. In memory, each address is replaced at once by a keyed code (so that a node seen by several servers counts once) and its country. No IP address is written to disk or published: the page shows only countries and counts. A reporter looks up the countries of its own server's peers the same way and sends only those codes and countries. The IP addresses of people who open the explorer are not looked up.",
             "The explorer page loads its font stylesheet from Google Fonts (fonts.googleapis.com), so Google receives your IP address and browser information when you open it, under Google's own privacy policy.",
             "pocol.net, studio.pocol.net and ide.pocol.net are served by a web hosting provider, whose servers may keep standard access logs (IP address, time, requested page and browser type) for the period the provider sets."
           ]
@@ -75,7 +76,7 @@
       "description": "كيف تتعامل إضافة PoCol لمتصفح Chrome ومواقع PoCol مع معلوماتك: تبقى المفاتيح على جهازك، بلا حسابات ولا أدوات تحليل.",
       "eyebrow": "الخصوصية",
       "heading": "سياسة الخصوصية",
-      "updated": "آخر تحديث: 22 نوفمبر 2026",
+      "updated": "آخر تحديث: 25 نوفمبر 2026",
       "lead": "تغطي هذه السياسة إضافة PoCol لمتصفح Chrome ‏(PoCol Studio, IDE & Viewer) والمواقع pocol.net وstudio.pocol.net وide.pocol.net وexplorer.pocol.net، وتصف ما تفعله برمجياتها المنشورة في مستودع PoCol بمعلوماتك. لا توجد في PoCol حسابات مستخدمين ولا إعلانات، ولا تُستخدم أي أدوات تحليل أو تتبّع.",
       "sections": [
         {
@@ -111,6 +112,7 @@
             "يحفظ PoCol Studio ‏(studio.pocol.net) مسوداتك في التخزين المحلي لمتصفحك، ويتحقق من حالة البوابة ويقرأ حدود الشبكة قبل النشر على explorer.pocol.net، ولا ينشر إلا عبر الإضافة بعد موافقتك.",
             "يحفظ PoCol IDE ‏(ide.pocol.net) اختيار المظهر في متصفحك ويقرأ بيانات الشبكة العامة من explorer.pocol.net، ولا يُنشر عقد إلا عبر الإضافة بعد موافقتك.",
             "تجيب بوابة PoCol على الخادم explorer.pocol.net عن الطلبات الموجهة إليه، بما فيها طلبات الإضافة. لا تكتب برمجيات البوابة سجلًا للطلبات، ولا يفعّل إعداد خادم الويب المنشور في المستودع أي سجل وصول. وللحد من إساءة الاستخدام تعدّ بوابة المستكشف ‏(/rpc وقراءات المستكشف عبر ‎/api) الطلبات لكل عنوان IP (ولكل شبكة ‎/64 في IPv6)، ويعدّ مرحِّل Studio ‏(/studio/rpc) الطلبات لكل عنوان IP، في الذاكرة فقط ولآخر 4096 عنوانًا على الأكثر؛ ولا يكتب أيٌّ منهما عناوين IP على القرص.",
+            "تعرض خريطة المعدّنين في المستكشف المعدّنين وعُقد الشبكة على مستوى الدولة فقط. ولمعرفة هذه الدول تبحث بوابة المستكشف، في قاعدة بيانات للدول محفوظة على ذلك الخادم (DB-IP IP to Country Lite بترخيص CC BY 4.0؛ IP Geolocation by DB-IP، ‏https://db-ip.com)، عن عناوين IP العامة لعُقد الشبكة التي تتصل بها عقدتها، وعن العنوان الذي يرسل منه خادمٌ تقريره الموقّع حين يثبّت مشغّله أداة التقارير الخاصة بعقدة PoCol عليه، ولا تتصل لذلك بأي خدمة خارجية. ويُستبدل كل عنوان في الذاكرة فورًا برمز مشتق بمفتاح سري (لكي تُحتسب العقدة التي تراها عدة خوادم مرة واحدة) وبدولته. ولا يُكتب أي عنوان IP على القرص ولا يُنشر: لا تعرض الصفحة إلا الدول والأعداد. وتبحث أداة التقارير عن دول أقران خادمها بالطريقة نفسها ولا ترسل إلا هذه الرموز والدول. ولا يُبحث عن عناوين IP للأشخاص الذين يفتحون المستكشف.",
             "تحمّل صفحة المستكشف ورقة أنماط الخطوط من Google Fonts ‏(fonts.googleapis.com)، فتتلقى Google عنوان IP الخاص بك ومعلومات متصفحك عند فتحها، وفق سياسة الخصوصية الخاصة بها.",
             "يستضيف pocol.net وstudio.pocol.net وide.pocol.net مزوّدُ استضافة ويب قد تحتفظ خوادمه بسجلات وصول معتادة (عنوان IP والوقت والصفحة المطلوبة ونوع المتصفح) للمدة التي يحددها المزوّد."
           ]

@@ -1,6 +1,6 @@
 name: Websites
 # The website snapshots (explorer.pocol.net, ide.pocol.net, pocol.net), the Studio site and the gateways behind them:
-# the PHP (pocol.net) and browser security checks, the explorer gateway's /api reads and its host's Caddy site (with the fee faucet's route), the website identity tool's --check, and the guards that keep host credentials
+# the PHP (pocol.net) and browser security checks, the explorer gateway's /api reads (with its holders index and miner map) and its host's Caddy site (with the fee faucet's route), the website identity tool's --check, and the guards that keep host credentials
 # (config.php) out of the repository. Local only: nothing here contacts a pocol.net host or deploys anything.
 on:
   pull_request:
@@ -18,6 +18,15 @@ on:
       - 'deploy/rewards/testdata/*explorer*'
       - 'deploy/rewards/pocol_transactions.py'
       - 'deploy/rewards/test_pocol_transactions.py'
+      # The explorer's Holders page and Miners map (development/explorer/MINERS-MAP-HOLDERS.md): the holders index, the
+      # GeoIP geography and their tests, fakes and synthetic GeoIP sample, and the gateway's request budget and slots.
+      - 'deploy/rewards/pocol_holders.py'
+      - 'deploy/rewards/holders_fakes.py'
+      - 'deploy/rewards/test_pocol_holders.py'
+      - 'deploy/rewards/pocol_geoip.py'
+      - 'deploy/rewards/test_pocol_geoip.py'
+      - 'deploy/rewards/testdata/geoip-sample.csv'
+      - 'deploy/rewards/test_gateway_limits.py'
       - 'deploy/explorer/**'
       # The fee faucet and its /faucet/* route in the explorer block (the explorer installer and its tests import it).
       - 'deploy/faucet/**'
@@ -75,6 +84,13 @@ on:
       - 'deploy/rewards/testdata/*explorer*'
       - 'deploy/rewards/pocol_transactions.py'
       - 'deploy/rewards/test_pocol_transactions.py'
+      - 'deploy/rewards/pocol_holders.py'
+      - 'deploy/rewards/holders_fakes.py'
+      - 'deploy/rewards/test_pocol_holders.py'
+      - 'deploy/rewards/pocol_geoip.py'
+      - 'deploy/rewards/test_pocol_geoip.py'
+      - 'deploy/rewards/testdata/geoip-sample.csv'
+      - 'deploy/rewards/test_gateway_limits.py'
       - 'deploy/explorer/**'
       - 'deploy/faucet/**'
       - 'deploy/mainnet/**'
@@ -138,10 +154,18 @@ jobs:
         run: node --test deploy/websites/tests/explorer_w7.test.mjs
       - name: Explorer production-readiness edits (relay retries, transaction index and geography texts) in node:vm
         run: node --test deploy/websites/tests/explorer_prod.test.mjs
+      - name: Explorer Holders page and Miners map (the bundle edits, the module's checks and formatting) in node
+        run: node --test deploy/websites/tests/explorer_insights.test.mjs
       - name: Explorer gateway /api reads (the retired PHP relays' checks, every handler, the recorded PHP vectors)
         run: python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v
       - name: Explorer transaction index (follow, reorganizations, restarts, bounds, the /api/transactions.php page)
         run: python3 -B -m unittest discover -s deploy/rewards -p test_pocol_transactions.py -v
+      - name: Explorer holders index (issuance, ranking, supply identity, reorganizations, rewards, a 100,000-account set)
+        run: python3 -B -m unittest discover -s deploy/rewards -p test_pocol_holders.py -v
+      - name: Explorer miner map geography (the GeoIP build and lookups on synthetic data, signed operator reports, the answer)
+        run: python3 -B -m unittest discover -s deploy/rewards -p test_pocol_geoip.py -v
+      - name: Explorer gateway request budget and slots (per-client buckets, node reads, transaction and holder pages)
+        run: python3 -B -m unittest discover -s deploy/rewards -p test_gateway_limits.py -v
       - name: Explorer gateway host (Caddy site with the Studio and faucet routes, static copy, installer and rollback)
         run: python3 -B -m unittest discover -s deploy/explorer -v
       - name: Fee faucet (error codes, CORS, client key) and its /faucet/* Caddy route
@@ -178,3 +202,5 @@ jobs:
         run: node deploy/websites/tests/site_pages.mjs
       - name: Explorer W7 Overview against a fake relay (a refused transaction read, the map's members page)
         run: node deploy/websites/tests/explorer_w7_browser.mjs
+      - name: Explorer Holders page and Miners map against fake /api answers (the gateway's CSP, outside requests aborted)
+        run: node deploy/websites/tests/explorer_insights_browser.mjs
