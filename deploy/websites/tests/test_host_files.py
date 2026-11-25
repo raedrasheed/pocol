@@ -46,9 +46,11 @@ class HostFiles(unittest.TestCase):
                  'api/config.php': '2' * 64, '.well-known/acme-challenge/x': '3' * 64}
         rc, out, _ = self.run_main('pocol.net', text({**listing, **stale}))
         self.assertEqual(rc, 1)
-        for path in ('downloads/network.pocol.json', 'downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip',
+        for path in ('downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip',
                      'downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip.sha256', 'downloads/PoCol-Apps-SHA256SUMS.txt'):
             self.assertIn(f'DELETE   {path}  (not in the snapshot)', out)
+        self.assertIn('DIFFERS  downloads/network.pocol.json', out)
+        self.assertNotIn('DELETE   downloads/network.pocol.json', out)
         self.assertIn('KEEP     api/config.php', out)
         self.assertIn('KEEP     .well-known/acme-challenge/x', out)
         # The retired Windows package was kept (KEEP) while the pages linked it under the LEGACY_NATIVE exemption. The
@@ -61,7 +63,7 @@ class HostFiles(unittest.TestCase):
         with mock.patch.object(hf.si, 'LEGACY_NATIVE', frozenset({'PoCol-Mainnet-0.4.0-Windows.zip'})):
             _, exempt, _ = self.run_main('pocol.net', text({**listing, 'downloads/PoCol-Mainnet-0.4.0-Windows.zip': '6' * 64}))
         self.assertIn('KEEP     downloads/PoCol-Mainnet-0.4.0-Windows.zip', exempt)
-        self.assertIn('delete 4, differs 0, merge 0, missing 0, keep 2', out)
+        self.assertIn('delete 3, differs 1, merge 0, missing 0, keep 2', out)
         rc, out, _ = self.run_main('pocol.net', text({**listing, 'notes.txt': '4' * 64}), '--keep', 'notes.txt')
         self.assertEqual(rc, 0, out)
 

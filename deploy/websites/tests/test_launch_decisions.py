@@ -233,6 +233,14 @@ class FaucetPage(unittest.TestCase):
                     self.assertTrue(all(re.fullmatch(r'[0-9a-f]{64}  faucet\.(?:html|js|css)', line) for line in lines), name)
                     self.assertEqual(len(lines), 3, name)
                     continue
+                if path.name == 'about-locales.js':
+                    text = re.sub(r'"walletFaucet(?:Title|Body|Steps|Limits|Button|Eyebrow)"\s*:\s*"(?:\\.|[^"\\])*"', '', text)
+                    self.assertIsNone(re.search(r'faucet', text, re.I), name)
+                    continue
+                if path.name == 'index.html':
+                    self.assertEqual(text.count('id="wallet-fee-faucet"'), 1, name)
+                    text, count = re.subn(r'<article id="wallet-fee-faucet"[^>]*>.*?</article>', '', text, flags=re.S)
+                    self.assertEqual(count, 1, name)
                 rest = {'index.html': re.sub(r'<a href="faucet\.html">|data-i18n="faucetCard(?:Title|Body)"', '', text),
                         'locales.js': re.sub(r'"faucetCard(?:Title|Body)": ', '', text)}.get(path.name)
                 self.assertIsNotNone(rest, name)

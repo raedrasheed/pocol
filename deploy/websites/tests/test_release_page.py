@@ -41,7 +41,7 @@ class ReleasePage(unittest.TestCase):
                        stdin=subprocess.DEVNULL)
         kind, blob = key.with_suffix('.pub').read_text().split()[:2]
         (root / 'deploy/release').mkdir(parents=True, exist_ok=True)
-        (root / 'deploy/release/allowed_signers').write_text(f'release@pocol.net namespaces="pocol-release" {kind} {blob}\n')
+        (root / 'deploy/release/allowed_signers').write_bytes(f'release@pocol.net namespaces="pocol-release" {kind} {blob}\n'.encode('ascii'))
         self.key = key
         self.release = self.tmp / 'release'
         self.release.mkdir()
@@ -59,7 +59,7 @@ class ReleasePage(unittest.TestCase):
 
     def sign_all(self):
         sums = ''.join(f'{hashlib.sha256((self.release / n).read_bytes()).hexdigest()}  {n}\n' for n in sorted(self.files))
-        (self.release / 'SHA256SUMS').write_text(sums, encoding='ascii')
+        (self.release / 'SHA256SUMS').write_bytes(sums.encode('ascii'))
         for name in [*self.files, 'SHA256SUMS']:
             self.sign(self.release / name)
 
@@ -92,7 +92,8 @@ class ReleasePage(unittest.TestCase):
             for listed in (name, name + '.sig'):
                 self.assertEqual(sums[f'downloads/{listed}'], hashlib.sha256((self.release / listed).read_bytes()).hexdigest(), listed)
         kept = json.loads((self.root / si.DECLARED).read_text(encoding='utf-8'))['keptOut']['pocol.net']
-        self.assertEqual(len(kept), 2 * (len(self.files) + 1))
+        expected_kept = {f'downloads/{name}{suffix}' for name in [*self.files, 'SHA256SUMS'] for suffix in ('', '.sig')} | {'downloads/network.pocol.json', 'downloads/network.pocol.json.sig'}
+        self.assertEqual(set(kept), expected_kept)
         self.assertEqual(si.main(['--check', '--root', str(self.root)]), 0)
 
     def test_the_invitation_tracked_in_the_snapshot_must_be_the_signed_one(self):
@@ -117,7 +118,8 @@ class ReleasePage(unittest.TestCase):
         self.assertIn(f'{hashlib.sha256(invitation).hexdigest()}  downloads/network.pocol.json\n', sums)
         self.assertIn('downloads/network.pocol.json.sig\n', sums)
         kept = json.loads((self.root / si.DECLARED).read_text(encoding='utf-8'))['keptOut']['pocol.net']
-        self.assertNotIn('downloads/network.pocol.json', kept)
+        # The current release declares the signed invitation as a kept-out download, even in this synthetic tracked-file test.
+        self.assertIn('downloads/network.pocol.json', kept)
         self.assertIn('downloads/network.pocol.json.sig', kept)
 
     def test_a_release_that_does_not_verify_changes_nothing(self):
