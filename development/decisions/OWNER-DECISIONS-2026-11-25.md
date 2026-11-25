@@ -50,8 +50,10 @@ Holders section of PCOL holders in the explorer (D3).
    - *How the branch implements it.* The country is the only location: no city, region or coordinate finer than a
      country centroid. Each address is replaced in memory, at once, by a keyed id (`HMAC-SHA256(network salt, IP)`,
      first 24 hex digits) and its country; no IP address, keyed id or miner address is in any public answer
-     (`deploy/rewards/explorer_api.py` checks the contract's exact keys), and none is written to disk. Reporters send
-     keyed ids and countries only. Visitors' addresses are never looked up. The privacy policy states this
+     (`deploy/rewards/explorer_api.py` checks the contract's exact keys), and none is written to disk. A reporter sends
+     its node's head, its node's own mining address (the registry record ID) and its peers' keyed ids and countries,
+     never an IP address; the gateway counts that mining address in the country of the report's source address, and
+     only per-country counts are published. Visitors' addresses are never looked up. The privacy policy states this
      (`deploy/websites/pocol.net/privacy.html` and `privacy.js`, revised for publication by the owner, D4 below).
 3. **D3: a Holders section.**
    - *How the branch implements it.* The Holders tab (`/api/holders.php`, `/api/holders-stats.php`;

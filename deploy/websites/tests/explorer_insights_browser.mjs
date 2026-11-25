@@ -175,24 +175,26 @@ function newState(extra = {}) {
 
 const browser = await chromium.launch(process.env.POCOL_CHROMIUM ? { executablePath: process.env.POCOL_CHROMIUM } : {});
 const problems = { errors: [], csp: [], outside: [] };
-async function open(state, { width = 1440, height = 900, hash: at = '', lang = null } = {}) {
+async function open(state, { width = 1440, height = 900, hash: at = '', lang = null, clock = false } = {}) {
   const server = await serve(state);
   const context = await browser.newContext({ viewport: { width, height }, locale: 'en-US' });
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: server.origin });
   await context.route('**/*', (route) => { const u = new URL(route.request().url()); if (u.origin === server.origin) return route.continue(); problems.outside.push(u.href); return route.abort(); });
   if (lang) await context.addInitScript((l) => { try { localStorage.setItem('pocol-explorer-language', l); } catch {} }, lang);
   const page = await context.newPage();
+  if (clock) await page.clock.install();   // timers run as usual; clock.fastForward reaches the 30 s map refresh
   page.on('pageerror', (e) => problems.errors.push(e.message));
   page.on('console', (m) => { if (/Content Security Policy|Refused to/.test(m.text())) problems.csp.push(m.text()); });
   await page.goto(server.origin + '/' + at);
   return { page, state, server, close: async () => { await context.close(); await server.close(); } };
 }
-const until = async (page, fn, ms = 15000, what = 'condition') => {
+const until = async (page, fn, ms = 15000, what = 'condition', arg = undefined) => {
   const end = Date.now() + ms; let last;
-  while (Date.now() < end) { last = await page.evaluate(fn).catch(() => null); if (last) return last; await new Promise((r) => setTimeout(r, 120)); }
+  while (Date.now() < end) { last = await page.evaluate(fn, arg).catch(() => null); if (last) return last; await new Promise((r) => setTimeout(r, 120)); }
   const shown = await page.evaluate(() => document.querySelector('main')?.innerText.slice(0, 700)).catch(() => '');
   throw Error(`timed out waiting for ${what}: ${JSON.stringify(last)}; errors ${JSON.stringify(problems.errors)}; page: ${shown}`);
 };
+const focusOf = (page) => page.evaluate(() => { const a = document.activeElement; return a ? (a.getAttribute('data-focus') || a.tagName) : null; });
 const rowsOf = (page) => page.evaluate(() => [...document.querySelectorAll('#pocol-holders table.pocol-holders-table tbody tr')].map((r) => r.innerText.replace(/\s+/g, ' ')));
 const holdersAsked = (state) => state.asked.filter((a) => a.startsWith('/api/holders.php'));
 const scroll = (page) => page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
@@ -284,7 +286,8 @@ try {
     await until(page, () => document.querySelectorAll('#pocol-holders tbody tr').length === 25, 10000, 'the retry after Retry-After');
     const text = await page.evaluate(() => document.querySelector('#pocol-holders').innerText);
     check('a 429 with Retry-After is retried and then the page shows its rows', !/busy/.test(text));
-    check('complete:false shows the completeness notice with the unlocated PCOL and the missing accounts', /Completeness check: a difference is published/.test(text) && /3 PCOL of the expected balance sum/.test(text) && /2 accounts on chain are not in the index/.test(text), text.slice(0, 600));
+    check('complete:false shows the completeness notice with the unlocated PCOL and the missing accounts', /Completeness check: a difference is published/.test(text) && /3 PCOL of the expected balance sum/.test(text) && /2 accounts on chain are not in the index/.test(text)
+      && /the known balances are read again every minute, so one may be up to a minute old/.test(text), text.slice(0, 600));
     check('one history point is an empty state naming its block, never a one-point line', /One point so far \(block #8\)/.test(text) && !(await page.evaluate(() => !!document.querySelector('[data-chart="history"] path.pocol-line'))));
     await close();
     const wrong = await open(newState({ wrongChain: true }), { hash: '#page=Holders' });
@@ -306,6 +309,71 @@ try {
     await until(page, () => document.querySelector('#pocol-holders .pocol-insights')?.getAttribute('dir') === 'rtl', 15000, 'Arabic after a reload');
     check('the language survives a reload', true);
     await close();
+  }
+  // ---- 3b. Keyboard focus through refreshes and keyboard actions (F1) ----
+  {
+    const { page, state, close } = await open(newState(), { hash: '#page=Holders' });
+    await until(page, () => document.querySelectorAll('#pocol-holders tbody tr').length === 25, 20000, 'the holders page');
+    const first = state.snapshots[0].rows[0].address;
+    await page.focus('#pocol-holders tbody tr:first-child button.pocol-copy');
+    const asked = holdersAsked(state).length;
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));   // an auto-refresh, same snapshot
+    await new Promise((r) => setTimeout(r, 800));
+    check('an auto-refresh with the same snapshot keeps the focus on the copy button', (await focusOf(page)) === 'copy:' + first && holdersAsked(state).length > asked, await focusOf(page));
+    state.snapshots.push(snapshotOf(HEAD - 1, 0));                                     // a newer snapshot: page 1 is rebuilt
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await until(page, (h) => document.querySelector('#pocol-holders .pocol-data-at')?.textContent.includes('#' + h), 10000, 'the newer snapshot', HEAD - 1);
+    await new Promise((r) => setTimeout(r, 500));
+    check('an auto-refresh that rebuilds the table gives the focus back to the same copy button', (await focusOf(page)) === 'copy:' + first, await focusOf(page));
+    await page.focus('#pocol-holders button[aria-label="Next page"]');
+    await page.keyboard.press('Enter');
+    await until(page, () => /^26 /.test(document.querySelector('#pocol-holders tbody tr')?.innerText.replace(/\s+/g, ' ') || ''), 10000, 'page 2 by keyboard');
+    check('Enter on Next page keeps the focus on Next page', (await focusOf(page)) === 'page:next', await focusOf(page));
+    await page.focus('#pocol-holders button[aria-label="Last page"]');
+    await page.keyboard.press('Enter');
+    await until(page, () => /Page 6 of 6/.test(document.querySelector('#pocol-holders').innerText), 10000, 'the last page by keyboard');
+    check('on the last page the focus moves from the disabled Last page to the nearest enabled pager button', (await focusOf(page)) === 'page:prev', await focusOf(page));
+    await page.focus('[data-chart="distribution"] .pocol-view-toggle');
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await new Promise((r) => setTimeout(r, 800));
+    check('a statistics refresh keeps the focus on a chart toggle', (await focusOf(page)) === 'toggle:distribution', await focusOf(page));
+    await close();
+  }
+  {
+    const { page, state, close } = await open(newState(), { hash: '#page=Miner%20map', clock: true });
+    await until(page, () => document.querySelectorAll('#pocol-miners-map .pocol-marker').length > 0, 20000, 'the map');
+    const jp = await page.evaluate(() => document.querySelector('#pocol-miners-map .pocol-marker[data-codes="JP"] .pocol-marker-core').getAttribute('class'));
+    check('a country whose located miner is not active is not drawn in the active blue (F2)', jp === 'pocol-marker-core is-other', jp);
+    const us = await page.evaluate(() => document.querySelector('#pocol-miners-map .pocol-marker[data-codes="US"] .pocol-marker-core').getAttribute('class'));
+    check('a country with active, sharing miners keeps the blue core', us === 'pocol-marker-core', us);
+    await page.focus('#pocol-miners-map .pocol-marker[data-codes="JP"]');
+    await page.keyboard.press('Enter');
+    await until(page, () => document.querySelector('#pocol-miners-map .pocol-country-panel h3')?.textContent === 'Japan', 5000, 'the Japan panel');
+    check('Enter on a marker selects its country and keeps the focus on that marker', (await focusOf(page)) === 'marker:JP', await focusOf(page));
+    check('the country table highlights the selected country at once (F3)', await page.evaluate(() => document.querySelector('#pocol-miners-map tr[data-country="JP"]').classList.contains('is-selected')
+      && document.querySelectorAll('#pocol-miners-map .pocol-country-table tr.is-selected').length === 1));
+    await page.click('#pocol-miners-map .pocol-country-table button[aria-label="Show United States of America on the map"]');
+    check('selecting another country in the table moves the highlight', await page.evaluate(() => document.querySelector('#pocol-miners-map tr[data-country="US"]').classList.contains('is-selected')
+      && !document.querySelector('#pocol-miners-map tr[data-country="JP"]').classList.contains('is-selected')));
+    await page.click('#pocol-miners-map .map-zoom button[aria-label="Show the whole world"]');
+    await page.focus('#pocol-miners-map .pocol-marker.is-cluster');
+    const cluster = (await focusOf(page)).slice(7).split(' ');
+    await page.keyboard.press('Enter');
+    await until(page, () => [...document.querySelectorAll('#pocol-miners-map .pocol-marker')].some((m) => m.getAttribute('data-codes') === 'DE'), 5000, 'the split cluster');
+    const after = await focusOf(page);
+    check('Enter on a cluster zooms in and the focus stays on a marker of its countries', after.startsWith('marker:') && after.slice(7).split(' ').every((c) => cluster.includes(c)), `${cluster} → ${after}`);
+    await page.focus('#pocol-miners-map [data-zoom="in"]');
+    const geographyAsked = () => state.asked.filter((a) => a.includes('miner-geography')).length, loads = geographyAsked();
+    await page.clock.fastForward(31000);
+    for (let i = 0; i < 80 && geographyAsked() <= loads; i++) await new Promise((r) => setTimeout(r, 120));
+    check('the map refreshes after 30 s', geographyAsked() > loads, `${loads} → ${geographyAsked()}`);
+    await new Promise((r) => setTimeout(r, 500));
+    check('the 30 s map refresh keeps the focus on the zoom button', (await focusOf(page)) === 'zoom:in', await focusOf(page));
+    await close();
+    const ov = await open(newState());
+    const legend = await until(ov.page, () => document.querySelector('#pocol-miners-map-compact .map-legend')?.innerText, 20000, 'the Overview legend');
+    check('the Overview legend names the "Located, not active" key when a country has one', /Located, not active/.test(legend), legend);
+    await ov.close();
   }
   // ---- 4. Miners map ----
   {

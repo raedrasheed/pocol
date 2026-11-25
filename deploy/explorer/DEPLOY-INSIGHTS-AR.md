@@ -125,10 +125,10 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Content-Type: application/j
 |---|---|---|
 | حالة الفهرس | `curl -s https://explorer.pocol.net/api/holders.php \| head -c 400` | `ready`، وارتفاع اللقطة يتقدّم خلف الرأس ببضع كتل؛ بقاء `reconnecting` أكثر من بضع دقائق يعني أن العقدة لا تجيب |
 | الاكتمال | `verification` في `holders-stats.php` | `complete` صحيحة؛ أي فرق يُنشر (F-104) |
-| المكافآت | `rewards.from` في `holders-stats.php` | ارتفاع بدء الفهرس؛ null تعني فجوة تجاوزت نافذة 32 كتلة (F-103) |
+| المكافآت | `rewards.from` في `holders-stats.php` | ارتفاع بدء الفهرس؛ null تعني فجوة تجاوزت نافذة 32 كتلة (F-103): أعد ضبطها بالأمر `pocol_holders.py reset-rewards` (README، قسم Holders index)، ولا يُمسّ شيء غيرها |
 | ذاكرة البوابة ومعالجها | `systemctl show pocol-explorer-gateway.service -p MemoryCurrent -p CPUUsageNSec` و `systemd-cgtop -b -n 1` | أقل بكثير من `MemoryMax=256M` (المقيس: لقطة 100,000 حساب أقل من 50 ميغابايت)؛ استرجع إن اقتربت من الحد أو أُعيد تشغيل الخدمة |
 | حمل العقدة | `ps -o rss,pcpu,etime -C pocold` ورأس `pocol_status` وأقرانها | تبقى عقدة المراقبة متزامنة مع أقرانها؛ كل كتلة جديدة تضيف قراءة مكافآت واحدة (`snapshot_v3`)، وكل لقطة تقرأ الأرصدة التي تغيّرت |
-| القرص | `sudo du -sh /var/lib/private/pocol-explorer-gateway/` | المقيس 52.6 ميغابايت عند 100,000 حساب مع لقطة واحدة؛ حسابات PoCol Mainnet اليوم أقل بكثير |
+| القرص | `sudo du -sh /var/lib/private/pocol-explorer-gateway/` | نحو 23 ميغابايت لكل لقطة محفوظة عند 100,000 حساب؛ ومع نحو 19 لقطة محفوظة عند كتل كل 10 ثوانٍ (آخر 3 وكل لقطة عمرها أقل من 180 ثانية) المقيس 484 ميغابايت؛ حسابات PoCol Mainnet اليوم أقل بكثير (بضعة ميغابايت) |
 | ردود الانشغال | تنبيهات «busy» في المستكشف | 429 مع `Retry-After: 3` تحت الحمل فقط |
 
 ## 6. الاسترجاع
@@ -192,7 +192,7 @@ sudo systemctl start pocol-explorer-gateway.service
    المبنية في الخطوة 1؛ ومن نسخة التزام الإصدار:
    `sudo python3 deploy/explorer/install_geo_reporter.py --database ~/geoip/dbip-country-YYYY-MM.bin --check` ثم الأمر
    نفسه بلا `--check`. يثبّت خدمة الأداة ومؤقّتها (كل 60 ثانية؛ DynamicUser و Nice=19 و MemoryMax=64M وقراءة محلية
-   واحدة للعقدة في كل تشغيل) ويشغّل تجربة جافة تطبع التقرير: رموز ودول فقط، بلا أي عنوان IP. يحتاج الخادم اتصال HTTPS
+   واحدة للعقدة في كل تشغيل) ويشغّل قبل بدء المؤقّت تجربة جافة يطبع تقريرها للمراجعة: رأس سلسلة العقدة وعنوان التعدين الخاص بها ورموز أقرانها ودولهم، بلا أي عنوان IP، ولا يُرسل منها شيء. يحتاج الخادم اتصال HTTPS
    صادرًا إلى explorer.pocol.net، وأي تغيير في الجدار الناري قرار المالك.
 4. تحقّق: `systemctl list-timers pocol-geo-reporter.timer` و `journalctl -u pocol-geo-reporter.service -n 5`
    (`SENT: ...`)، وفي `/api/miner-geography.php` يظهر المصدر `founder-N` حديثًا ويُحتسب معدّن ذلك الخادم في

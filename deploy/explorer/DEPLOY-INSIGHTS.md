@@ -137,10 +137,10 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Content-Type: application/j
 |---|---|---|
 | Index state | `curl -s https://explorer.pocol.net/api/holders.php \| head -c 400` | `ready`, snapshot height a few blocks behind the head and moving; `reconnecting` for more than a few minutes means the node is not answering |
 | Completeness | `holders-stats.php` `verification` | `complete` true; a difference is published (F-104) |
-| Rewards | `holders-stats.php` `rewards.from` | a height (the index start); null means a gap past the 32-block window (F-103) |
+| Rewards | `holders-stats.php` `rewards.from` | a height (the index start); null means a gap past the 32-block window (F-103): reset them with `pocol_holders.py reset-rewards` (README, Holders index), which keeps everything else |
 | Gateway memory and CPU | `systemctl show pocol-explorer-gateway.service -p MemoryCurrent -p CPUUsageNSec`, `systemd-cgtop -b -n 1` | well below `MemoryMax=256M` (measured: a snapshot of 100,000 accounts under 50 MB); roll back if it approaches the limit or the service restarts |
 | Node load | `ps -o rss,pcpu,etime -C pocold`; `pocol_status` head and peers | the observer keeps up with its peers; each new block adds one reward read (`snapshot_v3`) and a snapshot reads the balances that changed |
-| Disk | `sudo du -sh /var/lib/private/pocol-explorer-gateway/` | measured 52.6 MB at 100,000 accounts with one snapshot; PoCol Mainnet has far fewer accounts today |
+| Disk | `sudo du -sh /var/lib/private/pocol-explorer-gateway/` | about 23 MB per kept snapshot at 100,000 accounts; with about 19 snapshots kept at 10 s blocks (the newest 3 and every one younger than 180 s) measured 484 MB there; PoCol Mainnet has far fewer accounts today (a few MB) |
 | Busy answers | the explorer's "busy" notices; `curl -w '%{http_code}'` | 429 with `Retry-After: 3` only under load (holders page 2 tokens, statistics 1, map 5) |
 
 ## 6. Rollback
@@ -207,8 +207,9 @@ Not part of this deployment. Services on the founder servers change only with th
    step 1; from a checkout of the release commit:
    `sudo python3 deploy/explorer/install_geo_reporter.py --database ~/geoip/dbip-country-YYYY-MM.bin --check`, then
    the same without `--check`. It installs the reporter's service and timer (every 60 s; DynamicUser, Nice=19,
-   MemoryMax=64M, one loopback read of the node per run) and runs one dry run that prints the report: keyed ids and
-   countries, never an IP. The server needs outbound HTTPS to explorer.pocol.net; a firewall change is the owner's.
+   MemoryMax=64M, one loopback read of the node per run) and runs one dry run, before the timer starts, whose report
+   it prints for review: the node's head, its own mining address and its peers' keyed ids and countries, never an
+   IP. Nothing of the dry run is sent. The server needs outbound HTTPS to explorer.pocol.net; a firewall change is the owner's.
 4. Check: `systemctl list-timers pocol-geo-reporter.timer`, `journalctl -u pocol-geo-reporter.service -n 5` (`SENT:
    ...`), and in `/api/miner-geography.php` the source `founder-N` fresh and `miners.located` counting that server's
    miner. Founder 4 (the owner's Windows PC) has no reporter: its miner stays Unknown.

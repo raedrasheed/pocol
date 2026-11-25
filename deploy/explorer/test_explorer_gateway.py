@@ -580,8 +580,8 @@ class InstallerTests(unittest.TestCase):
             # A failed update restores the earlier release's unit.
             root = self.run_install(existing=True, unit_text=earlier, fail_https=True)[3]
             self.assertEqual((root / 'gateway.service').read_text(), earlier)
-            self.assertFalse((root / 'opt' / 'pocol_holders.py').exists())
-            self.assertFalse((root / 'opt' / 'pocol_geoip.py').exists())
+            for name in ('pocol_transactions.py', 'pocol_holders.py', 'pocol_geoip.py'):
+                self.assertFalse((root / 'opt' / name).exists(), name)
 
     def test_https_wait_reaches_the_https_check(self):
         self.run_install(https_wait=1800)

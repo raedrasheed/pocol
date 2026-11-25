@@ -156,6 +156,14 @@ jobs:
         run: node --test deploy/websites/tests/explorer_prod.test.mjs
       - name: Explorer Holders page and Miners map (the bundle edits, the module's checks and formatting) in node
         run: node --test deploy/websites/tests/explorer_insights.test.mjs
+      # publisher_test.mjs pins the explorer snapshot's file and chunk counts (its S1 include list, assets/pocol-insights.js
+      # among them), so a change of the snapshot alone is checked here as well.
+      - name: Explorer S1 publication plan (the extension publisher's file and chunk counts of the explorer snapshot)
+        run: |
+          npm ci --ignore-scripts
+          npm run build
+          node --test tests/publisher_test.mjs
+        working-directory: prototypes/pocol-extension
       - name: Explorer gateway /api reads (the retired PHP relays' checks, every handler, the recorded PHP vectors)
         run: python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v
       - name: Explorer transaction index (follow, reorganizations, restarts, bounds, the /api/transactions.php page)

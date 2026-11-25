@@ -128,6 +128,7 @@
 .pocol-marker-glow.is-animated { animation: pocol-glow 2.6s ease-out infinite; }
 .pocol-marker-core { fill: #1aa9e4; stroke: #fff; stroke-width: 2px; }
 .pocol-marker-core.is-inactive { fill: #8298aa; }
+.pocol-marker-core.is-other { fill: #fff; stroke: #c9d6e0; }
 .pocol-marker.is-selected .pocol-marker-core { stroke: #172b3f; }
 .pocol-ring { fill: none; stroke-width: 3px; pointer-events: none; }
 .pocol-ring.is-active { stroke: #1aa9e4; }

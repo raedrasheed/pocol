@@ -30,6 +30,9 @@ import install_geo_reporter as installer  # noqa: E402
 
 SAMPLE = HERE.parent / 'rewards' / 'testdata' / 'geoip-sample.csv'
 CHAIN, GENESIS = 777963, '0x' + '5a' * 32
+# What a dry run prints (the fake reporter's stdout in the installer tests).
+DRY_RUN_REPORT = (b'{"schema":"pocol-geo-report-v1","reporter":"founder-1","head":{"height":30,"hash":"0x' + b'ab' * 32
+                  + b'"},"miner":"0x' + b'12' * 20 + b'","peers":[{"id":"' + b'c' * 24 + b'","country":"DE"}]}')
 SALT_HEX, KEY_HEX = 'aa' * 32, 'b1' * 32
 MINER = '0x' + 'AbCd' * 10
 HEAD = {'height': 1000, 'hash': '0x' + 'cd' * 32, 'ts': 1, 'signed': True, 'final': False, 'totalWork': '0x1'}
@@ -319,7 +322,8 @@ class InstallerTests(unittest.TestCase):
             if args[0] == installer.PYTHON and args[1] == '-c':
                 return SimpleNamespace(returncode=0 if python_ok else 1, stdout=b'', stderr=b'')
             if args[0] == installer.PYTHON:
-                return SimpleNamespace(returncode=dry_run, stdout=b'', stderr=b'FAILED: the node does not serve the configured network')
+                return SimpleNamespace(returncode=dry_run, stdout=b'' if dry_run else DRY_RUN_REPORT,
+                                       stderr=b'FAILED: the node does not serve the configured network')
             absent = args[:2] in (('systemctl', 'is-active'), ('systemctl', 'is-enabled')) and not existing
             return SimpleNamespace(returncode=1 if absent else 0, stdout=b'', stderr=b'')
 
@@ -386,6 +390,9 @@ class InstallerTests(unittest.TestCase):
         self.assertLess(commands.index(('systemctl', 'daemon-reload')), dry)
         self.assertLess(dry, commands.index(('systemctl', 'enable', '--now', installer.TIMER)))
         self.assertIn('INSTALLED', printed)
+        # The dry run's report is shown to the owner before the timer runs (DEPLOY-INSIGHTS.md §7 step 3).
+        self.assertIn("call('Dry run report (not sent):') call(" + repr(DRY_RUN_REPORT.decode()) + ')', printed)
+        self.assertLess(printed.index('Dry run report'), printed.index('INSTALLED'))
         # The credential is never copied, printed or backed up.
         backups = [p for p in self.paths['BACKUPS'].rglob('*') if p.is_file()]
         for path in backups + [base / 'pocol_geo_reporter.py', self.paths['CONFIG_FILE']]:

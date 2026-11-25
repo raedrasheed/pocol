@@ -664,8 +664,8 @@ test('W5: the S1 explorer include list publishes 14 files from the tracked snaps
   const p=prepareSite(files);const fileChunks=p.files.reduce((n,f)=>n+f.chunks.length,0);
   // icon-512.png and pocol-icon.png are byte-identical, so their 7 chunks are stored once. The explorer bundle is 29
   // chunks since its W7 edits (tools/explorer-w7-edits.json); a change of its size moves these counts. The Holders and
-  // Miners map module (assets/pocol-insights.js, 5 chunks, and .css, 1 chunk) added 6.
-  assert.equal(p.manifestChunks.length,1);assert.equal(fileChunks,82);assert.equal(p.chunks.length,76,"75 unique file chunks and the manifest");assert.equal(planTransactions(p).length,80,"76 chunks, deploy, createVersion, publish, setCurrent");
+  // Miners map module (assets/pocol-insights.js, 6 chunks, and .css, 1 chunk) added 7.
+  assert.equal(p.manifestChunks.length,1);assert.equal(fileChunks,83);assert.equal(p.chunks.length,77,"76 unique file chunks and the manifest");assert.equal(planTransactions(p).length,81,"77 chunks, deploy, createVersion, publish, setCurrent");
 });
 
 // ---------------- Sites W4 needs W1: the publisher's calls against the Studio gateway ----------------

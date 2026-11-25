@@ -27,20 +27,31 @@ the gateway's loopback `query` (Gateway.query: 127.0.0.1 only) and keeps one SQL
   RewardEscrow makes out of a block's reward flows: settle(h-D) (winner part, proposer part, share distribution), the
   tip share and the evidence reporter's cut. Bond refunds (markClose, the sweep, claimBond) and user transfers are not
   mining rewards and are not counted. The first block covered is `rewardsFrom`; a gap longer than the state window
-  makes rewards null until an operator calls reset_rewards() (they then restart from the next followed block).
+  makes rewards null until the operator runs `pocol_holders.py reset-rewards --db FILE` (reset_rewards_file; they
+  then restart from the next followed block, the new rewardsFrom).
 - Published snapshots are materialized rankings (rank, address, totals, type, links, counters) read by (snapshot,
   rank), (snapshot, type, type rank) and (snapshot, address) indexes, never sorted by a request. The newest
   KEEP_SNAPSHOTS and every snapshot younger than KEEP_SECONDS are kept; a page pinned to a snapshot that is gone or no
   longer canonical raises SnapshotChanged (the relay's 409 reset). Statistics are computed at publication and stored
   with the snapshot, so stats() is one row read.
 
-Not discoverable over RPC (stated, never estimated): an address that only received PCOL by an internal call of a
-non-system contract. Such value shows as verification.unlocatedWei. Standard library only (Python 3.10+).
+Addresses are discovered from top-level transactions (sender, recipient, created contract), the addresses a top-level
+MinerRegistry call names in its input (register, setRewardAddress, registerReplacing, removeInactive), each followed
+reward flow's miner ID and reward address, the registry at each snapshot, the genesis founders and the system
+addresses. Not discoverable over RPC (stated, never estimated): an address that only received PCOL by an internal call
+of a non-system contract, or a reward address set by a contract's internal call to the Registry that left the registry
+before the index followed one of its flows. Such value shows as verification.unlocatedWei. While a difference is
+published, every known address is read again every RESCAN_MIN_SECONDS, so a published balance lags by at most that;
+a new difference starts at most one full rescan per RESCAN_MIN_SECONDS. A node behind the index on the same chain (a
+resync or restore) is waited for: nothing is removed and the last snapshot is still served. Reads are batched
+(pocold batches of READ_BATCH) when `batch` is given; a snapshot whose reads outlive the state window stops early.
+Standard library only (Python 3.10+).
 """
 import json
 import logging
 import re
 import sqlite3
+import sys
 import threading
 import time
 from pathlib import Path
@@ -68,6 +79,8 @@ KEEP_SECONDS = 180.0
 HISTORY_SECONDS = 3600         # one statistics history point per hour of block time
 HISTORY_POINTS_MAX = 2000
 RESCAN_SECONDS = 3600.0        # a full rescan at least this often, even when the identity holds
+RESCAN_MIN_SECONDS = 60.0      # a new difference starts a full rescan at most this often; while a difference is
+                               # published (complete false) a full rescan runs this often
 SNAPSHOT_SLOWDOWN = 2.0        # the next snapshot waits this many times the last snapshot's duration
 COMMIT_BLOCKS = 200
 READ_BATCH = 20                # pocold BATCH_MAX (rpc.rs)
@@ -335,6 +348,31 @@ def parse_miners(value):
     return out
 
 
+# MinerRegistry calls whose calldata names addresses (PoColSystemV3.sol Registry fallback): selector -> argument words.
+REGISTRY_CALLS = {'4420e486': 1,    # register(address): the reward address
+                  '5e00e679': 1,    # setRewardAddress(address): the new reward address
+                  '3cdced1e': 1,    # removeInactive(address): the removed record's ID
+                  '5326ca0b': 2}    # registerReplacing(address,address): the reward address, the replaced record's ID
+
+
+def registry_arguments(data):
+    """The addresses named by a top-level MinerRegistry call's input (REGISTRY_CALLS, exactly selector || words as the
+    contract requires, each word an address), or none. Whether the call succeeded does not matter: an address is only
+    made known (its balance is then read), never counted as a transaction party."""
+    if not isinstance(data, str) or not DATA.fullmatch(data) or len(data) < 10:
+        return []
+    words = REGISTRY_CALLS.get(data[2:10].lower())
+    if words is None or len(data) != 10 + 64 * words:
+        return []
+    out = []
+    for i in range(words):
+        word = data[10 + 64 * i:74 + 64 * i]
+        if word[:24].strip('0') or word[24:].strip('0') == '':
+            continue
+        out.append('0x' + word[24:].lower())
+    return out
+
+
 def reward_flows(answer, height, block_hash):
     """Block `height`'s executed reward flows from a pocol-block-reward-v3 answer for that block: one (miner ID, reward
     address, amount paid, bond accrued) per block.beneficiaries entry (pocol_rewards._entries)."""
@@ -371,7 +409,8 @@ CREATE TABLE IF NOT EXISTS reward_flows(height INTEGER NOT NULL, miner TEXT NOT 
 CREATE TABLE IF NOT EXISTS rewards_address(address TEXT PRIMARY KEY, wei TEXT NOT NULL) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS rewards_miner(miner TEXT PRIMARY KEY, paid TEXT NOT NULL, accrued TEXT NOT NULL) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS snapshots(id INTEGER PRIMARY KEY, height INTEGER NOT NULL, hash TEXT NOT NULL,
-    created REAL NOT NULL, counts TEXT NOT NULL, stats TEXT NOT NULL, registry TEXT NOT NULL, winners TEXT NOT NULL);
+    created REAL NOT NULL, counts TEXT NOT NULL, stats TEXT NOT NULL, registry TEXT NOT NULL, winners TEXT NOT NULL,
+    rewards TEXT NOT NULL DEFAULT 'null');
 CREATE INDEX IF NOT EXISTS snapshots_block ON snapshots(height, hash);
 CREATE TABLE IF NOT EXISTS holders(snap INTEGER NOT NULL, rank INTEGER NOT NULL, address TEXT NOT NULL,
     type TEXT NOT NULL, type_rank INTEGER NOT NULL, total TEXT NOT NULL, available TEXT NOT NULL, bonded TEXT NOT NULL,
@@ -408,7 +447,8 @@ PAGE_SQL = {
     'canonical': 'SELECT hash FROM blocks WHERE height=?',
 }
 META_DEFAULTS = {'rewards_state': 'none', 'rewards_from': '-1', 'rewards_to': '-1', 'refreshed': '-1', 'full': '0',
-                 'residual': '0', 'rescan_at': '0', 'covered_from': '-1', 'final': '-1'}
+                 'residual': '0', 'rescan_at': '0', 'covered_from': '-1', 'final': '-1', 'full_at': '0',
+                 'difference_at': '-1e18'}
 
 
 def default_rewards(query, network, fork_schedule=DEFAULT_FORK_SCHEDULE):
@@ -429,7 +469,8 @@ class HolderIndex:
     def __init__(self, path, query, network=None, *, clock=time.time, rewards=None, batch=None,
                  fork_schedule=DEFAULT_FORK_SCHEDULE, genesis_wei=None, poll=POLL_SECONDS, pace=PACE_SECONDS,
                  recent=RECENT_BLOCKS, commit_blocks=COMMIT_BLOCKS, keep_snapshots=KEEP_SNAPSHOTS,
-                 keep_seconds=KEEP_SECONDS, rescan_seconds=RESCAN_SECONDS, slowdown=SNAPSHOT_SLOWDOWN):
+                 keep_seconds=KEEP_SECONDS, rescan_seconds=RESCAN_SECONDS, rescan_min_seconds=RESCAN_MIN_SECONDS,
+                 slowdown=SNAPSHOT_SLOWDOWN):
         if network is None:
             raise ValueError('The holders index needs the configured network')
         self.network = validated_network(network)
@@ -447,10 +488,12 @@ class HolderIndex:
         self.poll, self.pace, self.recent, self.commit_blocks = poll, pace, recent, commit_blocks
         self.keep_snapshots, self.keep_seconds, self.rescan_seconds, self.slowdown = (
             keep_snapshots, keep_seconds, rescan_seconds, slowdown)
+        self.rescan_min_seconds = rescan_min_seconds
         self.lock = threading.Lock()
         self.head = -1
         self.last_contact = None
         self.failing = False
+        self.node_behind = False
         self.identity_checked = None
         self.cp = None
         self.founders = None
@@ -625,7 +668,8 @@ class HolderIndex:
         head = self._latest()
         with self.lock:
             self.head = head['height']
-        self._reconcile(head)
+        if self._reconcile(head):
+            return True   # the node is behind the index: wait for it (nothing removed, the last snapshot served)
         if not self._follow(head, limit):
             return False
         self._follow_rewards(head['height'])
@@ -694,6 +738,12 @@ class HolderIndex:
                 seen.add(to)
             for address in seen:
                 parties[address][0] += 1
+            if to == REGISTRY:
+                # Addresses a Registry call names (a reward address, a replaced record's ID): known from here on,
+                # with no transaction of their own, so a reward address that only ever received Escrow payments
+                # stays discoverable after it left the registry.
+                for address in registry_arguments(tx.get('input')):
+                    add(address, 0)
         return parties
 
     def _store(self, pending):
@@ -752,25 +802,46 @@ class HolderIndex:
                          (old[0] + txs, old[1] + mined, old[2] | flags, height, address))
 
     def _reconcile(self, head):
-        """Remove the indexed blocks that are no longer canonical (above the fork point)."""
+        """Remove the indexed blocks that are no longer canonical (above the fork point). True when the node is
+        behind the index on the same chain, or below every kept block (a resynced or restored node): nothing is
+        removed and the round waits for the node, the last snapshot still served. Everything is indexed again only
+        when the node serves a block at every kept height and none of them is the stored one."""
         tip = self.tip()
         if tip is None:
-            return
+            return False
         height = min(tip[0], head['height'])
-        if height == tip[0]:
-            node = head if head['height'] == height else self._block_at(height)
-            if node is not None and node['hash'] == tip[1]:
-                return
         oldest = self.writer.execute('SELECT MIN(height) FROM blocks').fetchone()[0]
+        if height < oldest:
+            self._behind(True)
+            return True
+        stored = self.writer.execute('SELECT hash FROM blocks WHERE height=?', (height,)).fetchone()
+        node = head if head['height'] == height else self._block_at(height)
+        if node is None:
+            raise RuntimeError('The node did not serve block %d' % height)
+        if node['hash'] == stored[0]:
+            if height < tip[0]:
+                self._behind(True)
+                return True
+            self._behind(False)
+            return False
         fork = None
+        height -= 1
         while height >= oldest:
             stored = self.writer.execute('SELECT hash FROM blocks WHERE height=?', (height,)).fetchone()
-            node = head if head['height'] == height else self._block_at(height)
-            if stored is not None and node is not None and node['hash'] == stored[0]:
+            node = self._block_at(height)
+            if node is None:
+                raise RuntimeError('The node did not serve block %d' % height)
+            if stored is not None and node['hash'] == stored[0]:
                 fork = height
                 break
             height -= 1
         self._truncate(fork)
+        self._behind(False)
+        return False
+
+    def _behind(self, value):
+        with self.lock:
+            self.node_behind = value
 
     def _truncate(self, fork):
         """Undo every block above `fork` (None: everything; the index starts again from genesis)."""
@@ -842,12 +913,13 @@ class HolderIndex:
                 raise RuntimeError('Reward totals below zero')
             conn.execute('INSERT OR REPLACE INTO rewards_miner VALUES(?,?,?)', (miner, str(total_paid), str(total_accrued)))
 
-    def _clear_rewards(self, conn, state):
+    @staticmethod
+    def _clear_rewards(conn, state):
         for table in ('reward_flows', 'rewards_address', 'rewards_miner'):
             conn.execute(f'DELETE FROM {table}')
-        self._set(conn, 'rewards_state', state)
-        self._set(conn, 'rewards_from', -1)
-        self._set(conn, 'rewards_to', -1)
+        HolderIndex._set(conn, 'rewards_state', state)
+        HolderIndex._set(conn, 'rewards_from', -1)
+        HolderIndex._set(conn, 'rewards_to', -1)
 
     def reset_rewards(self):
         """Operator reset after a gap: the totals are cleared and rewards count again from the next followed block
@@ -875,7 +947,7 @@ class HolderIndex:
             start = int(self._meta(conn, 'rewards_to')) + 1
             if start < lowest:
                 LOG.warning('holders index: rewards gap at block %d (state window passed); rewards are null until '
-                            'reset_rewards()', start)
+                            'the operator runs: pocol_holders.py reset-rewards --db FILE', start)
                 conn.execute('BEGIN IMMEDIATE')
                 try:
                     self._clear_rewards(conn, 'gap')
@@ -909,6 +981,9 @@ class HolderIndex:
                     conn.execute('INSERT INTO reward_flows VALUES(?,?,?,?,?)',
                                  (height, miner, address, str(paid), str(accrued)))
                     self._add_reward(conn, miner, address, paid, accrued)
+                for address in sorted({a for pair in merged for a in pair}):
+                    # A flow's miner ID and reward address are known from here on (undone with the block).
+                    self._account_change(conn, height, address, 0, 0, 0)
                 if self._meta(conn, 'rewards_state') == 'none':
                     self._set(conn, 'rewards_state', 'ok')
                     self._set(conn, 'rewards_from', height)
@@ -964,6 +1039,13 @@ class HolderIndex:
                                  (last, SCAN_CHUNK)).fetchall()
             if not chunk:
                 break
+            if last and self._latest()['height'] - h >= STATE_WINDOW - STATE_MARGIN:
+                # The scan outlived the state window at h: it stops here rather than read on into -32017 answers,
+                # and the next attempt waits slowdown x the time spent (the node is not scanned back to back).
+                LOG.warning('holders index: the snapshot at block %d took longer than the state window; '
+                            'trying again at a newer block', h)
+                self.next_snapshot = self.clock() + (time.monotonic() - started) * self.slowdown
+                return 'moved'
             last = chunk[-1][0]
             calls = []
             for address, nonce, code in chunk:
@@ -1067,9 +1149,14 @@ class HolderIndex:
             if address not in PROGRAMS and (value or nonce or code):
                 indexed += 1
         unlocated = expected - balances
-        if unlocated and not full and str(unlocated) != self._meta(conn, 'residual'):
-            # A difference not seen before: every known address is read again at a new pinned height.
+        if (unlocated and not full and str(unlocated) != self._meta(conn, 'residual')
+                and now - float(self._meta(conn, 'difference_at')) >= self.rescan_min_seconds):
+            # A difference not seen before: every known address is read again at a new pinned height. At most one
+            # such rescan per rescan_min_seconds (contract payouts to known addresses in every block do not make
+            # every block a full rescan): within it the difference is published, and the periodic rescan below
+            # follows.
             self._set(conn, 'full', 1)
+            self._set(conn, 'difference_at', now)
             return 'rescan'
         escrow = int(conn.execute('SELECT balance FROM accounts WHERE address=?', (ESCROW,)).fetchone()[0] or 0)
         pending = escrow - held_total - burned
@@ -1212,14 +1299,28 @@ class HolderIndex:
                               'totalWei': str(t)} for (lo, hi), (n, t) in zip(BUCKETS, buckets)],
             'history': {'from': points[0]['height'] if points else None, 'points': points},
             'rewards': {'from': rewards_from, 'to': rewards_to}}
-        conn.execute('UPDATE snapshots SET stats=?, registry=?, winners=? WHERE id=?',
+        # The miners' rewards as they stood at this snapshot (the miner map reads them with its registry and winners).
+        miner_rewards = None
+        if rewards_ok:
+            miner_rewards = {'from': rewards_from, 'to': rewards_to, 'miners': {
+                m: {'paidWei': p, 'bondAccruedWei': c}
+                for m, p, c in conn.execute('SELECT miner, paid, accrued FROM rewards_miner ORDER BY miner')}}
+        conn.execute('UPDATE snapshots SET stats=?, registry=?, winners=?, rewards=? WHERE id=?',
                      (json.dumps(data, separators=(',', ':')), json.dumps(registry, separators=(',', ':')),
-                      json.dumps(winners, separators=(',', ':')), snap))
+                      json.dumps(winners, separators=(',', ':')), json.dumps(miner_rewards, separators=(',', ':')),
+                      snap))
         self._retain(conn, now)
         self._set(conn, 'full', 0)
         self._set(conn, 'residual', unlocated)
         if full:
+            self._set(conn, 'full_at', now)
             self._set(conn, 'rescan_at', now + self.rescan_seconds)
+        if unlocated:
+            # While a difference is published, an unchanged difference does not prove the known balances current (an
+            # undiscovered contract can pay a known address): every known address is read again every
+            # rescan_min_seconds, so a published balance lags by at most that.
+            due = float(self._meta(conn, 'full_at')) + self.rescan_min_seconds
+            self._set(conn, 'rescan_at', min(float(self._meta(conn, 'rescan_at')), due))
         return 'published'
 
     @staticmethod
@@ -1251,17 +1352,17 @@ class HolderIndex:
     # ---------------- answers ----------------
     def state(self):
         with self.lock:
-            return self.head, self.last_contact, self.failing
+            return self.head, self.last_contact, self.failing, self.node_behind
 
     def _index(self, conn):
         tip = self.tip(conn)
         height = -1 if tip is None else tip[0]
-        head, contact, failing = self.state()
+        head, contact, failing, behind = self.state()
         now = self.clock()
         if failing or contact is None or now - contact > STALE_SECONDS:
             state = 'reconnecting' if contact is not None or failing else 'syncing'
         else:
-            state = 'ready' if height >= head >= 0 else 'syncing'
+            state = 'ready' if height >= head >= 0 and not behind else 'syncing'
         return {'state': state, 'head': max(head, height), 'historyHeight': height, 'updatedAt': int(contact or 0)}
 
     def _snapshot_row(self, conn, pinned=None):
@@ -1384,6 +1485,28 @@ class HolderIndex:
             conn.close()
         return value
 
+    def map_inputs(self, known=None):
+        """The miner map's inputs from one snapshot, in one read transaction: {key: (height, hash), registry (as
+        registry()), winners (as winners() over WINNERS_WINDOW), rewards: {from, to, miners: {id: {paidWei,
+        bondAccruedWei}}} as they stood at that snapshot, or None while not exact}. None when the newest snapshot is
+        `known` (unchanged). Raises Unavailable before the first snapshot."""
+        conn = self._reader()
+        try:
+            conn.execute('BEGIN')
+            row = conn.execute('SELECT id, height, hash FROM snapshots ORDER BY id DESC LIMIT 1').fetchone()
+            if row is None:
+                raise Unavailable('The holders index has no snapshot yet')
+            value = None
+            if known != (row[1], row[2]):
+                registry, winners, rewards = conn.execute('SELECT registry, winners, rewards FROM snapshots WHERE id=?',
+                                                          (row[0],)).fetchone()
+                value = {'key': (row[1], row[2]), 'registry': json.loads(registry), 'winners': json.loads(winners),
+                         'rewards': json.loads(rewards)}
+            conn.execute('COMMIT')
+        finally:
+            conn.close()
+        return value
+
     def rewards_by_address(self):
         """Mining rewards since the index start, or None while they are not exact (not started, or after a gap):
         {from, to, addresses: {address: wei}, miners: {id: {paidWei, bondAccruedWei}}} as strings of wei."""
@@ -1401,3 +1524,50 @@ class HolderIndex:
         finally:
             conn.close()
         return value
+
+
+def reset_rewards_file(path):
+    """The operator reset of a holders index file (`pocol_holders.py reset-rewards --db FILE`): the mining reward
+    totals are cleared and count again from the next followed block, which becomes the published rewardsFrom. Blocks,
+    accounts, snapshots, the statistics history and new24h coverage are kept. Returns the previous rewards state."""
+    if not Path(path).is_file():
+        raise FileNotFoundError(f'{path}: no holders index file')
+    conn = sqlite3.connect(f'file:{Path(path).resolve().as_posix()}?mode=rw', uri=True, timeout=30,
+                           isolation_level=None)
+    try:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if not {'meta', 'reward_flows', 'rewards_address', 'rewards_miner'} <= tables or conn.execute(
+                "SELECT 1 FROM meta WHERE key='network'").fetchone() is None:
+            raise RuntimeError(f'{path} is not a holders index file')
+        conn.execute('BEGIN IMMEDIATE')
+        try:
+            previous = HolderIndex._meta(conn, 'rewards_state')
+            HolderIndex._clear_rewards(conn, 'none')
+            conn.execute('COMMIT')
+        except BaseException:
+            conn.execute('ROLLBACK')
+            raise
+        return previous
+    finally:
+        conn.close()
+
+
+def main(argv=None):
+    import argparse
+    parser = argparse.ArgumentParser(description='PoCol explorer holders index: operator commands.')
+    commands = parser.add_subparsers(dest='command', required=True)
+    reset = commands.add_parser('reset-rewards', help='Count mining rewards again from the next followed block after '
+                                'a gap (stop pocol-explorer-gateway.service first); nothing else is changed.')
+    reset.add_argument('--db', required=True, metavar='FILE', help='The holders index file (POCOL_HOLDERS_DB)')
+    args = parser.parse_args(argv)
+    try:
+        previous = reset_rewards_file(args.db)
+    except (OSError, RuntimeError, sqlite3.Error) as error:
+        print(f'reset-rewards: {error}', file=sys.stderr)
+        return 1
+    print(f'Rewards reset (they were: {previous}); they count again from the next followed block.')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

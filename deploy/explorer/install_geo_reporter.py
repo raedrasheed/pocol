@@ -349,6 +349,7 @@ def main(argv=None):
         if run.returncode != 0:
             # The reporter's one FAILED line (it never prints a secret or an IP).
             raise RuntimeError('the reporter dry run failed: ' + run.stderr.decode('utf-8', 'replace').strip()[-400:])
+        report = run.stdout.decode('utf-8', 'replace').strip()[:20000]
         command('systemctl', 'enable', '--now', TIMER)
     except BaseException as exc:
         failures = []
@@ -369,6 +370,10 @@ def main(argv=None):
         if failures:
             raise RuntimeError(f'Installation failed: {exc}; ROLLBACK INCOMPLETE: {"; ".join(failures)}; backup: {backup}') from exc
         raise RuntimeError(f'Installation failed and was rolled back: {exc}') from exc
+    # The dry run's report, for the owner to review: the node's head, its own mining address, its peers' keyed ids and
+    # countries; never an IP address (pocol_geo_reporter.build_report). Nothing of it was sent.
+    print('Dry run report (not sent):')
+    print(report)
     print(f'INSTALLED: {TIMER} (every 60 s) and {SERVICE}: {summary}.')
     print(f'Check its runs with: journalctl -u {SERVICE} -n 5  (each run prints one line: SENT, or FAILED and why).')
     print('Backup: ' + str(backup))

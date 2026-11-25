@@ -258,6 +258,13 @@ test('the map: projection, zoom bounds, clustering at the current zoom, ring seg
   assert.deepEqual(M.ringSegments(3, 3, 1).map((s) => [s.kind, +s.from.toFixed(3), +s.length.toFixed(3)]), [['active', 0, 0.667], ['inactive', 0.667, 0.333]]);
   assert.deepEqual(M.ringSegments(4, 2, 0).map((s) => s.kind), ['active', 'other']);
   assert.deepEqual(M.ringSegments(0, 0, 0), []);
+  // The marker core follows the legend: blue only while a located miner is active and sharing (F2).
+  assert.equal(M.markerCore(null), '', 'the nodes layer is blue');
+  assert.equal(M.markerCore({ located: 3, active: 3, inactive: 1 }), '');
+  assert.equal(M.markerCore({ located: 2, active: 2, inactive: 2 }), 'is-inactive', 'every active one inactive: grey');
+  assert.equal(M.markerCore({ located: 1, active: 0, inactive: 0 }), 'is-other', 'located, none active: not the active blue');
+  assert.equal(M.markerCore({ located: 3, active: 1, inactive: 1 }), 'is-inactive');
+  assert.match(CSS, /\.pocol-marker-core\.is-other \{ fill: #fff; stroke: #c9d6e0; \}/);
   assert.deepEqual(M.choroplethLevels(3), [{ level: 1, lo: 1, hi: 1 }, { level: 2, lo: 2, hi: 2 }, { level: 3, lo: 3, hi: 3 }]);
   assert.deepEqual(M.choroplethLevels(100).map((l) => [l.lo, l.hi]), [[1, 25], [26, 50], [51, 75], [76, 100]]);
   assert.deepEqual(M.choroplethLevels(0), []);

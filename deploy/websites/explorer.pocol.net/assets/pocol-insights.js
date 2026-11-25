@@ -49,7 +49,7 @@ const TEXT = {
     mPending: 'Pending rewards (system)', mPendingNote: 'RewardEscrow balance − bonds − protocol burns',
     mTop10: 'Top 10 share', mTop10Note: 'Of current supply, system accounts not ranked',
     verifyTitle: 'Completeness check: a difference is published',
-    verifyText: (h, wei, missing) => `At block #${fmtInt(h)}, ${wei} PCOL of the expected balance sum is on no discovered account${missing === null ? ' (the on-chain account count was not read at this block)' : `, and ${fmtInt(missing)} accounts on chain are not in the index`}. Such accounts received PCOL only through internal calls of contracts, which cannot be discovered over RPC. Percentages still use the exact current supply.`,
+    verifyText: (h, wei, missing) => `At block #${fmtInt(h)}, ${wei} PCOL of the expected balance sum is on no discovered account${missing === null ? ' (the on-chain account count was not read at this block)' : `, and ${fmtInt(missing)} accounts on chain are not in the index`}. Such accounts received PCOL only through internal calls of contracts, which cannot be discovered over RPC. While a difference is published, the known balances are read again every minute, so one may be up to a minute old. Percentages still use the exact current supply.`,
     cTopTitle: 'Top 10 holders and the rest', cTopSub: 'Share of the current supply',
     cTop10: 'Top 10 holders', cRest: 'Everyone else, system accounts included',
     cTopN: (n) => `Top ${n}`, cGroup: 'Group', cShare: 'Share', cAmount: 'PCOL',
@@ -157,7 +157,7 @@ const TEXT = {
     mPending: 'مكافآت معلّقة (النظام)', mPendingNote: 'رصيد RewardEscrow − الرهون − حرق البروتوكول',
     mTop10: 'حصة أكبر 10', mTop10Note: 'من المعروض الحالي، دون ترتيب حسابات النظام',
     verifyTitle: 'فحص الاكتمال: نُشر فرق',
-    verifyText: (h, wei, missing) => `عند الكتلة #${fmtInt(h)}، ليس ${wei} PCOL من مجموع الأرصدة المتوقع في أي حساب مكتشف، ${missing === null ? '(لم يُقرأ عدد الحسابات على السلسلة عند هذه الكتلة)' : `و${fmtInt(missing)} من الحسابات على السلسلة غير موجودة في الفهرس`}. هذه الحسابات تلقت PCOL عبر استدعاءات داخلية لعقود فقط، ولا يمكن اكتشافها عبر RPC. تبقى النسب محسوبة من المعروض الحالي الدقيق.`,
+    verifyText: (h, wei, missing) => `عند الكتلة #${fmtInt(h)}، ليس ${wei} PCOL من مجموع الأرصدة المتوقع في أي حساب مكتشف، ${missing === null ? '(لم يُقرأ عدد الحسابات على السلسلة عند هذه الكتلة)' : `و${fmtInt(missing)} من الحسابات على السلسلة غير موجودة في الفهرس`}. هذه الحسابات تلقت PCOL عبر استدعاءات داخلية لعقود فقط، ولا يمكن اكتشافها عبر RPC. وما دام الفرق منشورًا تُقرأ الأرصدة المعروفة من جديد كل دقيقة، فقد يكون عمر الرصيد المعروض حتى دقيقة. تبقى النسب محسوبة من المعروض الحالي الدقيق.`,
     cTopTitle: 'أكبر 10 حائزين والبقية', cTopSub: 'الحصة من المعروض الحالي',
     cTop10: 'أكبر 10 حائزين', cRest: 'جميع الآخرين، ومنهم حسابات النظام',
     cTopN: (n) => `أكبر ${n}`, cGroup: 'المجموعة', cShare: 'الحصة', cAmount: 'PCOL',
@@ -535,6 +535,13 @@ export function cluster(points, unitsPerPx, radiusPx = CLUSTER_PX) {
 }
 /** Ring segments [{kind, from, length}] in fractions of the circle for active-and-sharing, inactive and other located
  * miners (located − active). */
+/** The marker core's class from a country's miner counts (the legend's keys): blue (no class) while any located miner is
+ *  active and sharing, the inactive grey when the active ones are all inactive, the "located, not active" key when none
+ *  is active; the nodes layer (counts null) is blue. */
+export function markerCore(counts) {
+  if (!counts || counts.active - counts.inactive > 0) return '';
+  return counts.inactive > 0 ? 'is-inactive' : 'is-other';
+}
 export function ringSegments(located, active, inactive) {
   if (located <= 0) return [];
   const parts = [['active', active - inactive], ['inactive', inactive], ['other', located - active]].filter(([, n]) => n > 0);
@@ -697,6 +704,26 @@ function errorText(lang, e) {
   return tr(lang, 'unreachable');
 }
 
+/** Gives the focus back to the control that has `key` as its data-focus, after a re-render replaced it; a control now
+ *  disabled (a pager's Next on the last page) passes the focus to the nearest enabled control of its data-focus-group. */
+function refocus(root, key) {
+  const all = [...root.querySelectorAll('[data-focus]')];
+  let target = all.find((e) => e.getAttribute('data-focus') === key) || null;
+  if (target && target.disabled) {
+    const group = target.closest('[data-focus-group]');
+    const peers = group ? [...group.querySelectorAll('[data-focus]')] : [];
+    const at = peers.indexOf(target);
+    target = peers.filter((e) => !e.disabled).sort((a, b) => Math.abs(peers.indexOf(a) - at) - Math.abs(peers.indexOf(b) - at))[0] || null;
+  }
+  if (!target && key.startsWith('marker:')) {
+    // A marker whose cluster changed: the marker now holding one of its countries, else the map itself.
+    const codes = key.slice(7).split(' '), markers = all.filter((e) => e.hasAttribute('data-codes'));
+    target = codes.map((c) => markers.find((m) => m.getAttribute('data-codes').split(' ').includes(c))).find(Boolean)
+      || all.find((e) => e.getAttribute('data-focus') === 'map') || null;
+  }
+  target?.focus({ preventScroll: true });
+  return target;
+}
 class View {
   constructor(mount) {
     this.mount = mount; this.timers = new Set(); this.abort = new AbortController();
@@ -712,6 +739,15 @@ class View {
   frame() { this.root.setAttribute('lang', language); this.root.setAttribute('dir', language === 'ar' ? 'rtl' : 'ltr'); }
   destroy() { this.abort.abort(); for (const id of this.timers) { clearTimeout(id); clearInterval(id); } this.timers.clear(); views.delete(this); }
   relabel() { this.render(); }
+  /** Runs `fn`, which may rebuild the focused control, and keeps the keyboard focus on the control with the same
+   *  data-focus key (an auto-refresh or a keyboard action never throws the focus back to the page). */
+  keep(fn) {
+    const a = document.activeElement, key = a && this.root.contains(a) ? a.closest('[data-focus]')?.getAttribute('data-focus') : null;
+    const out = fn();
+    if (key && document.activeElement !== a) refocus(this.root, key);
+    else if (key && !a.isConnected) refocus(this.root, key);
+    return out;
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -741,9 +777,12 @@ class HoldersView extends View {
     if (!quiet) { this.loadingPage = true; this.renderTable(); }
     const params = { page: req.page, size: req.size, order: req.order, type: req.type, q: req.q };
     if (req.pin) Object.assign(params, { height: req.pin.height, hash: req.pin.hash });
+    let unchanged = false;
     try {
       const data = validateHoldersPage(await getData(API.holders, params, this.abort.signal), req, this.shared);
       if (seq !== this.seq) return;
+      // The same snapshot again (an auto-refresh with nothing new): the table and its pager are not rebuilt.
+      unchanged = quiet && !!this.page && !this.pageError && data.snapshot.hash === this.page.snapshot.hash && data.snapshot.height === this.page.snapshot.height;
       this.page = data; this.pageError = null;
       if (this.q.pin === null && this.q.page > 1) this.q.pin = { height: data.snapshot.height, hash: data.snapshot.hash };
     } catch (e) {
@@ -756,9 +795,12 @@ class HoldersView extends View {
       this.pageError = e;
       if (e instanceof Invalid) this.page = null;
       if (e?.kind === 'busy') this.later(() => { if (this.pageError === e) this.load(); }, e.after * 1000);
-    } finally { if (seq === this.seq) { this.loadingPage = false; this.renderTable(); } }
+    } finally {
+      if (seq === this.seq) { this.loadingPage = false; if (unchanged) { this.renderTableHead(); this.renderStatus(); } else this.renderTable(); }
+    }
   }
   async loadStats() {
+    const before = this.statsError ? null : this.stats;
     try {
       const data = validateStats(await getData(API.stats, null, this.abort.signal), this.shared);
       this.stats = data; this.statsError = null;
@@ -770,8 +812,11 @@ class HoldersView extends View {
       if (e instanceof Invalid) this.stats = null;
       if (e?.kind === 'busy') this.later(() => { if (this.statsError === e) this.loadStats(); }, e.after * 1000);
     }
-    // The table too: its rewards column names the index start the statistics give.
-    this.renderStats(); this.renderCharts(); this.renderTable();
+    // The same snapshot as before: only the figures are redrawn (no chart, table or pager is rebuilt). Otherwise the
+    // table too: its rewards column names the index start the statistics give.
+    const same = !!before && !this.statsError && this.stats.snapshot.hash === before.snapshot.hash && this.stats.snapshot.height === before.snapshot.height;
+    this.renderStats();
+    if (same) this.renderStatus(); else { this.renderCharts(); this.renderTable(); }
   }
   go(page) {
     const pages = this.page ? pageCount(this.page.total, this.page.size) : 1;
@@ -831,7 +876,8 @@ class HoldersView extends View {
     if (this.searchInvalid) this.searchInput.setAttribute('aria-describedby', this.searchError.id); else this.searchInput.removeAttribute('aria-describedby');
     this.searchInput.setAttribute('aria-invalid', String(this.searchInvalid));
   }
-  renderStats() {
+  renderStats() { this.keep(() => this._renderStats()); }
+  _renderStats() {
     if (!this.statsBox) return;
     const st = this.stats, err = this.statsError;
     this.verifyBox.replaceChildren();
@@ -860,15 +906,15 @@ class HoldersView extends View {
   }
   errorPanel(err, retry) {
     return h('section', { class: 'panel pocol-error', role: 'alert' }, emptyState('alert', err?.kind === 'busy' ? this.t('loading') : this.t('hTitle'), errorText(this.lang, err),
-      h('button', { type: 'button', class: 'text-button', onclick: retry }, icon('refresh', 13), this.t('retry'))));
+      h('button', { type: 'button', class: 'text-button', 'data-focus': 'retry:panel', onclick: retry }, icon('refresh', 13), this.t('retry'))));
   }
   inlineError(err, retry) {
     return h('div', { class: 'warning', role: 'status' }, icon('alert', 16), h('span', { text: errorText(this.lang, err) }),
-      h('button', { type: 'button', onclick: retry, text: this.t('retry') }));
+      h('button', { type: 'button', 'data-focus': 'retry:inline', onclick: retry, text: this.t('retry') }));
   }
   chartPanel(key, title, sub, body, tableFn, legend) {
     const showing = !!this.chartTables[key];
-    const toggle = h('button', { type: 'button', class: 'text-button pocol-view-toggle', 'aria-pressed': String(showing),
+    const toggle = h('button', { type: 'button', class: 'text-button pocol-view-toggle', 'aria-pressed': String(showing), 'data-focus': 'toggle:' + key,
       'aria-label': showing ? this.t('showChart', title) : this.t('showTable', title),
       onclick: () => { this.chartTables[key] = !showing; this.renderCharts(); this.chartsBox.querySelector(`[data-chart="${key}"] .pocol-view-toggle`)?.focus(); } },
     icon(showing ? 'chart' : 'table', 13), showing ? this.t('chart') : this.t('table'));
@@ -876,7 +922,8 @@ class HoldersView extends View {
       h('div', { class: 'panel-heading' }, h('div', {}, h('h2', { text: title }), h('p', { text: sub })), toggle),
       showing ? h('div', { class: 'table-wrap pocol-chart-table' }, tableFn()) : body, showing ? null : legend || null);
   }
-  renderCharts() {
+  renderCharts() { this.keep(() => this._renderCharts()); }
+  _renderCharts() {
     if (!this.chartsBox) return;
     const st = this.stats;
     if (!st) { this.chartsBox.replaceChildren(); return; }
@@ -885,7 +932,7 @@ class HoldersView extends View {
     const parts = [{ key: 'top', label: this.t('cTop10'), wei: top.totalWei, share: top.share }, { key: 'rest', label: this.t('cRest'), wei: rest, share: restShare }];
     const bar = h('div', { class: 'pocol-split', role: 'img', 'aria-label': parts.map((p) => `${p.label}: ${formatPercentE10(p.share).text}`).join('; ') },
       parts.filter((p) => p.wei > 0n).map((p) => h('div', { class: 'pocol-split-part is-' + p.key, style: `flex-grow:${Number(p.share) / 1e10}`,
-        title: `${p.label}: ${formatPercentE10(p.share).text} · ${formatPcol(p.wei, 2).text} PCOL`, tabindex: 0 },
+        title: `${p.label}: ${formatPercentE10(p.share).text} · ${formatPcol(p.wei, 2).text} PCOL`, tabindex: 0, 'data-focus': 'split:' + p.key },
       // The share is printed inside a part only where it fits (a fifth of the bar); the legend always gives it.
       p.share >= 20n * E10 ? h('span', { class: 'pocol-split-label' }, bdi(formatPercentE10(p.share, 1).text)) : null)));
     const splitLegend = h('ul', { class: 'pocol-legend pocol-legend-rows' }, parts.map((p) => h('li', {}, h('i', { class: 'pocol-swatch is-' + p.key, 'aria-hidden': 'true' }),
@@ -940,7 +987,7 @@ class HoldersView extends View {
     const maxIndex = data.reduce((m, b, i) => (b.accounts > data[m].accounts ? i : m), 0);
     data.forEach((b, i) => {
       const x = xAt(i), top0 = y(b.accounts), hBar = y(0) - top0, r = Math.min(4, hBar, barW / 2);
-      const g = s('g', { class: 'pocol-bar', tabindex: 0, role: 'img', 'aria-label': this.t('cDistTip', rangeLabel(b), b.accounts) });
+      const g = s('g', { class: 'pocol-bar', tabindex: 0, role: 'img', 'aria-label': this.t('cDistTip', rangeLabel(b), b.accounts), 'data-focus': 'bucket:' + i });
       g.append(s('rect', { class: 'pocol-hit', x: x - band / 2, y: pad.t, width: band, height: plotH }));
       if (b.accounts > 0) g.append(s('path', { class: 'pocol-column', d: `M${x - barW / 2},${y(0)}V${top0 + r}Q${x - barW / 2},${top0} ${x - barW / 2 + r},${top0}H${x + barW / 2 - r}Q${x + barW / 2},${top0} ${x + barW / 2},${top0 + r}V${y(0)}Z` }));
       if (i === maxIndex && b.accounts > 0) g.append(s('text', { class: 'pocol-value', x, y: top0 - 6, 'text-anchor': 'middle', text: fmtInt(b.accounts) }));
@@ -965,7 +1012,7 @@ class HoldersView extends View {
     const cross = s('line', { class: 'pocol-cross', y1: pad.t, y2: y(0), visibility: 'hidden' });
     const dot = s('circle', { class: 'pocol-dot', r: 4, visibility: 'hidden' });
     const end = pts[pts.length - 1];
-    const svg = s('svg', { class: 'pocol-svg', width, height, viewBox: `0 0 ${width} ${height}`, tabindex: 0, role: 'img',
+    const svg = s('svg', { class: 'pocol-svg', width, height, viewBox: `0 0 ${width} ${height}`, tabindex: 0, role: 'img', 'data-focus': 'history-plot',
       'aria-label': `${this.t('cHistTitle')}: ${this.t('cHistTip', end.holders, end.height, timeText(this.lang, end.timestamp, true))}` },
     ticks.map((t) => s('g', { class: 'pocol-grid' }, s('line', { x1: pad.l, x2: width - pad.r, y1: y(t), y2: y(t) }),
       s('text', { x: pad.l - 8, y: y(t) + 3, 'text-anchor': 'end', text: fmtInt(t) }))),
@@ -999,7 +1046,8 @@ class HoldersView extends View {
     });
     el.replaceChildren(svg, tip);
   }
-  renderTableHead() {
+  renderTableHead() { this.keep(() => this._renderTableHead()); }
+  _renderTableHead() {
     if (!this.tableHeadBox) return;
     const data = this.page;
     const line = data ? this.t('dataAt', data.snapshot.height, timeText(this.lang, data.index.updatedAt)) : this.t('loading');
@@ -1008,7 +1056,8 @@ class HoldersView extends View {
         h('div', {}, h('h2', { id: 'pocol-holders-title', text: this.t('hTitle') }), h('p', { class: 'pocol-data-at', text: line })))));
     if (this.orderButton) this.orderButton.replaceChildren(icon('sort', 14), h('span', { text: this.t('order')[this.q.order] }));
   }
-  renderStatus() {
+  renderStatus() { this.keep(() => this._renderStatus()); }
+  _renderStatus() {
     if (!this.statusBox) return;
     const data = this.page, out = [];
     if (data) {
@@ -1019,17 +1068,18 @@ class HoldersView extends View {
       i.state === 'syncing' && i.head > 0 ? h('progress', { max: i.head, value: Math.max(0, i.historyHeight), 'aria-label': text }) : null));
     }
     if (this.newer) out.push(h('div', { class: 'history-notice', role: 'status' }, h('span', { text: this.t('newer', this.newer) }),
-      h('button', { type: 'button', class: 'text-button', onclick: () => this.showNewest() }, icon('refresh', 13), this.t('showNewest'))));
+      h('button', { type: 'button', class: 'text-button', 'data-focus': 'newest', onclick: () => this.showNewest() }, icon('refresh', 13), this.t('showNewest'))));
     if (this.notice) out.push(h('div', { class: 'history-notice', role: 'status' }, h('span', { text: this.notice })));
     this.statusBox.replaceChildren(...out);
   }
-  renderTable() {
+  renderTable() { this.keep(() => this._renderTable()); }
+  _renderTable() {
     if (!this.tableBox) return;
     this.renderTableHead(); this.renderStatus();
     const data = this.page, err = this.pageError;
     const box = [];
     if (err) box.push(h('div', { class: 'warning pocol-table-error', role: 'alert' }, icon('alert', 16), h('span', { text: errorText(this.lang, err) }),
-      h('button', { type: 'button', onclick: () => this.load(), text: this.t('retry') })));
+      h('button', { type: 'button', 'data-focus': 'retry:table', onclick: () => this.load(), text: this.t('retry') })));
     if (!data) {
       if (!err) box.push(emptyState('refresh', this.t('loading'), null));
       this.tableBox.replaceChildren(...box); this.footBox.replaceChildren(); this.tableBox.setAttribute('aria-busy', String(this.loadingPage));
@@ -1053,8 +1103,8 @@ class HoldersView extends View {
   }
   row(r) {
     const sub = r.type === 'reward' ? this.t('serves', r.minerIds.length) : r.rewardAddress ? this.t('rewardsTo', shortAddress(r.rewardAddress)) : null;
-    const open = h('button', { type: 'button', class: 'hash-link pocol-address', title: r.address, 'aria-label': this.t('open', r.address), onclick: () => openAccount(r.address) }, bdi(shortAddress(r.address)));
-    const copy = h('button', { type: 'button', class: 'icon-button pocol-copy', title: this.t('copy', r.address), 'aria-label': this.t('copy', r.address), onclick: () => this.copy(r.address) }, icon('copy', 14));
+    const open = h('button', { type: 'button', class: 'hash-link pocol-address', title: r.address, 'data-focus': 'open:' + r.address, 'aria-label': this.t('open', r.address), onclick: () => openAccount(r.address) }, bdi(shortAddress(r.address)));
+    const copy = h('button', { type: 'button', class: 'icon-button pocol-copy', title: this.t('copy', r.address), 'data-focus': 'copy:' + r.address, 'aria-label': this.t('copy', r.address), onclick: () => this.copy(r.address) }, icon('copy', 14));
     return h('tr', {},
       h('td', { class: 'right pocol-rank' }, bdi(fmtInt(r.rank))),
       h('td', {}, h('div', { class: 'pocol-address-cell' }, open, r.label ? h('span', { class: 'soft-tag', text: r.label }) : null), sub ? h('span', { class: 'pocol-sub', text: sub }) : null),
@@ -1067,13 +1117,13 @@ class HoldersView extends View {
   }
   footer(data) {
     const pages = pageCount(data.total, data.size), p = data.page, a = data.total ? (p - 1) * data.size + 1 : 0, b = (p - 1) * data.size + data.rows.length;
-    const nav = (name, target, disabled) => h('button', { type: 'button', 'aria-label': this.t(name), title: this.t(name), disabled, onclick: () => this.go(target) }, icon(name, 14, 'pocol-flip'));
+    const nav = (name, target, disabled) => h('button', { type: 'button', 'aria-label': this.t(name), title: this.t(name), disabled, 'data-focus': 'page:' + name, onclick: () => this.go(target) }, icon(name, 14, 'pocol-flip'));
     this.footBox.replaceChildren(h('div', { class: 'history-footer' },
       h('div', {}, h('span', {}, bdi(this.t('range', a, b, data.total))),
-        h('label', {}, h('span', { text: this.t('rows') }), h('select', { onchange: (e) => this.restart({ size: Number(e.target.value) }) },
+        h('label', {}, h('span', { text: this.t('rows') }), h('select', { 'data-focus': 'size', onchange: (e) => this.restart({ size: Number(e.target.value) }) },
           SIZES.map((n) => h('option', { value: n, text: n, selected: n === data.size }))))),
       // Not a <nav>: the explorer styles every `nav button` as its sidebar's.
-      h('div', { class: 'history-pages', role: 'navigation', 'aria-label': this.t('pageOf', p, pages) },
+      h('div', { class: 'history-pages', role: 'navigation', 'aria-label': this.t('pageOf', p, pages), 'data-focus-group': 'pages' },
         nav('first', 1, p <= 1), nav('prev', p - 1, p <= 1), h('span', { 'aria-current': 'page', text: this.t('pageOf', p, pages) }),
         nav('next', p + 1, p >= pages), nav('last', pages, p >= pages))));
   }
@@ -1139,7 +1189,8 @@ class WorldMap {
     this.view = view; this.compact = compact; this.box = { ...WORLD }; this.model = null; this.selected = null; this.pointers = new Map();
     const shared = view.shared;
     this.el = h('div', { class: 'world-map pocol-world' });
-    this.svg = s('svg', { class: 'world-map-svg', viewBox: '0 0 1000 500', role: compact ? 'img' : 'application', tabindex: compact ? null : 0, preserveAspectRatio: 'xMidYMid meet' });
+    this.svg = s('svg', { class: 'world-map-svg', viewBox: '0 0 1000 500', role: compact ? 'img' : 'application', tabindex: compact ? null : 0, preserveAspectRatio: 'xMidYMid meet',
+      'data-focus': compact ? null : 'map' });
     const grat = [];
     for (let lon = -150; lon <= 150; lon += 30) grat.push(`M${project(lon, 0)[0]},0V500`);
     for (let lat = -60; lat <= 60; lat += 30) grat.push(`M0,${project(0, lat)[1]}H1000`);
@@ -1156,9 +1207,9 @@ class WorldMap {
     this.el.append(this.svg, this.hoverName, this.tip);
     if (!compact) {
       this.zoom = h('div', { class: 'map-zoom' },
-        h('button', { type: 'button', 'data-zoom': 'in', onclick: () => this.zoomBy(1.6) }, icon('plus', 16)),
-        h('button', { type: 'button', 'data-zoom': 'out', onclick: () => this.zoomBy(1 / 1.6) }, icon('minus', 16)),
-        h('button', { type: 'button', 'data-zoom': 'reset', onclick: () => this.setBox(WORLD) }, icon('locate', 16)));
+        h('button', { type: 'button', 'data-zoom': 'in', 'data-focus': 'zoom:in', onclick: () => this.zoomBy(1.6) }, icon('plus', 16)),
+        h('button', { type: 'button', 'data-zoom': 'out', 'data-focus': 'zoom:out', onclick: () => this.zoomBy(1 / 1.6) }, icon('minus', 16)),
+        h('button', { type: 'button', 'data-zoom': 'reset', 'data-focus': 'zoom:reset', onclick: () => this.setBox(WORLD) }, icon('locate', 16)));
       this.el.append(this.zoom);
       this.bindInteraction();
     } else {
@@ -1299,6 +1350,10 @@ class WorldMap {
     }
     const groups = cluster(points, k, this.compact ? CLUSTER_PX * 0.8 : CLUSTER_PX);
     const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // A focused marker keeps the focus through the redraw: the marker of the same countries, else the one that now
+    // holds the selected country or the first of them (a cluster split by a zoom).
+    const focused = document.activeElement?.closest?.('.pocol-marker');
+    const had = focused && this.markerLayer.contains(focused) ? focused.getAttribute('data-codes').split(' ') : null;
     this.markerLayer.replaceChildren();
     for (const g of groups) {
       const codes = g.members.map((p) => p.key), rows = codes.map((c) => m.byCode.get(c));
@@ -1310,10 +1365,11 @@ class WorldMap {
           : this.view.t('markerNodes', countryName(this.view.lang, codes[0], this.view.shared), total);
       const sel = codes.includes(this.selected);
       const marker = s('g', { class: 'pocol-marker' + (sel ? ' is-selected' : '') + (codes.length > 1 ? ' is-cluster' : ''), transform: `translate(${g.x.toFixed(2)} ${g.y.toFixed(2)}) scale(${k.toFixed(5)})`,
-        tabindex: this.compact ? null : 0, role: this.compact ? null : 'button', 'aria-label': label, 'data-codes': codes.join(' ') });
+        tabindex: this.compact ? null : 0, role: this.compact ? null : 'button', 'aria-label': label, 'data-codes': codes.join(' '),
+        'data-focus': this.compact ? null : 'marker:' + codes.join(' ') });
       marker.append(s('circle', { class: 'pocol-marker-hit', r: Math.max(14, r + 8) }), s('circle', { class: 'pocol-marker-glow' + (reduced ? '' : ' is-animated'), r: r + 7 }));
-      const allInactive = counts && counts.located > 0 && counts.inactive === counts.located;
-      marker.append(s('circle', { class: 'pocol-marker-core' + (allInactive ? ' is-inactive' : ''), r }));
+      const core = markerCore(counts);
+      marker.append(s('circle', { class: 'pocol-marker-core' + (core ? ' ' + core : ''), r }));
       if (counts) {
         const ring = r + 4.5, C = 2 * Math.PI * ring, segs = ringSegments(counts.located, counts.active, counts.inactive), gap = segs.length > 1 ? 2 : 0;
         for (const seg of segs) {
@@ -1329,6 +1385,13 @@ class WorldMap {
         marker.addEventListener('blur', () => this.hideTip());
       }
       this.markerLayer.append(marker);
+    }
+    if (had) {
+      const markers = [...this.markerLayer.querySelectorAll('.pocol-marker')], codesOf = (m) => m.getAttribute('data-codes').split(' ');
+      const prefer = had.includes(this.selected) ? [this.selected, ...had] : had;
+      const next = markers.find((m) => m.getAttribute('data-codes') === had.join(' '))
+        || prefer.map((c) => markers.find((m) => codesOf(m).includes(c))).find(Boolean);
+      (next || this.svg).focus({ preventScroll: true });
     }
   }
 }
@@ -1358,7 +1421,8 @@ class MapView extends View {
     }
     this.update();
   }
-  update() {
+  update() { this.keep(() => this._update()); }
+  _update() {
     if (!this.body) return;
     const d = geo.data, err = geo.error;
     if (!d) {
@@ -1389,9 +1453,13 @@ class MapView extends View {
   }
   select(code) {
     this.selectedCode = code;
-    this.map?.select(code);
-    this.renderPanel();
-    if (code && this.map && this.map.paths.has(code)) this.map.fitCountry(code);
+    this.keep(() => {
+      this.map?.select(code);
+      this.renderPanel();
+      if (code && this.map && this.map.paths.has(code)) this.map.fitCountry(code);
+    });
+    // The country table's highlighted row follows the selection at once.
+    for (const row of this.body?.querySelectorAll('.pocol-country-table tr[data-country]') || []) row.classList.toggle('is-selected', row.dataset.country === code);
   }
   updateCompact(d, err) {
     const map = this.ensureMap();
@@ -1413,7 +1481,7 @@ class MapView extends View {
       metric(this.t('mNodes'), h('span', { class: 'pocol-big' }, bdi(fmtInt(d.nodes.observed))), this.t('mNodesNote', d.nodes.located, d.nodes.unlocated), false, 'server'));
     const layerSwitch = h('div', { class: 'pocol-segmented', role: 'group', 'aria-label': this.t('layerAria') },
       [['miners', 'layerMiners', 'users'], ['nodes', 'layerNodes', 'server']].map(([k, label, ic]) => h('button', { type: 'button', 'aria-pressed': String(this.layer === k), 'data-layer': k,
-        onclick: () => { if (this.layer !== k) { this.layer = k; this.update(); this.root.querySelector(`[data-layer="${k}"]`)?.focus(); } } }, icon(ic, 14), this.t(label))));
+        'data-focus': 'layer:' + k, onclick: () => { if (this.layer !== k) { this.layer = k; this.update(); this.root.querySelector(`[data-layer="${k}"]`)?.focus(); } } }, icon(ic, 14), this.t(label))));
     this.panelBox = h('aside', { class: 'map-detail-list pocol-country-panel', 'aria-live': 'polite' });
     const mapPanel = h('section', { class: 'panel miner-map-panel pocol-map-panel', 'aria-labelledby': 'pocol-map-title' },
       h('div', { class: 'panel-heading' }, h('div', {}, h('h2', { id: 'pocol-map-title' }, icon('globe', 18), this.t('mapTitle')), h('p', { text: this.t('mapSub', d.height) })), layerSwitch),
@@ -1431,7 +1499,8 @@ class MapView extends View {
     if (this.layer === 'miners') {
       items.push(h('span', {}, h('i', { class: 'pocol-key is-active', 'aria-hidden': 'true' }), this.t('legActive')),
         h('span', {}, h('i', { class: 'pocol-key is-inactive', 'aria-hidden': 'true' }), this.t('legInactive', d.miners.thetaInact)));
-      if (!compact) items.push(h('span', {}, h('i', { class: 'pocol-key is-other', 'aria-hidden': 'true' }), this.t('legOther')));
+      const notActive = d.countries.some((c) => c.miners.located > c.miners.active);
+      if (!compact || notActive) items.push(h('span', {}, h('i', { class: 'pocol-key is-other', 'aria-hidden': 'true' }), this.t('legOther')));
     } else items.push(h('span', {}, h('i', { class: 'pocol-key is-active', 'aria-hidden': 'true' }), this.t('legNodes')));
     if (!compact) items.push(h('span', {}, h('b', { 'aria-hidden': 'true', text: '2' }), this.t('legCluster')));
     if (m.levels.length && !compact) items.push(h('span', { class: 'pocol-scale' }, h('span', { text: this.t(this.layer === 'miners' ? 'legScaleMiners' : 'legScaleNodes') }),
@@ -1461,13 +1530,13 @@ class MapView extends View {
     box.replaceChildren(h('div', { class: 'map-detail-heading' }, h('span', { text: this.t('kicker') }), h('h3', { text: name }),
       !c || c.miners.located === 0 ? h('p', { text: this.t('pNone', name) }) : null, this.shared.shapes.has(code) ? null : h('p', { text: this.t('pNoShape') })),
     rows.length ? h('dl', { class: 'pocol-country-stats' }, rows.map(([k, v]) => h('div', {}, h('dt', { text: k }), h('dd', {}, v)))) : null,
-    h('div', { class: 'pocol-panel-actions' }, this.shared.shapes.has(code) ? h('button', { type: 'button', class: 'text-button', onclick: () => this.map?.fitCountry(code) }, icon('locate', 13), this.t('zoomTo')) : null,
-      h('button', { type: 'button', class: 'text-button', onclick: () => this.select(null) }, this.t('clear'))));
+    h('div', { class: 'pocol-panel-actions' }, this.shared.shapes.has(code) ? h('button', { type: 'button', class: 'text-button', 'data-focus': 'panel:zoom', onclick: () => this.map?.fitCountry(code) }, icon('locate', 13), this.t('zoomTo')) : null,
+      h('button', { type: 'button', class: 'text-button', 'data-focus': 'panel:clear', onclick: () => this.select(null) }, this.t('clear'))));
   }
   countryTable(d) {
     const reg = d.miners.registered, sel = (code) => () => { this.select(code); this.map?.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
-    const rows = d.countries.map((c) => h('tr', { class: this.selectedCode === c.code ? 'is-selected' : null },
-      h('td', {}, h('button', { type: 'button', class: 'hash-link pocol-country-link', 'aria-label': this.t('tSelect', countryName(this.lang, c.code, this.shared)), onclick: sel(c.code) },
+    const rows = d.countries.map((c) => h('tr', { class: this.selectedCode === c.code ? 'is-selected' : null, 'data-country': c.code },
+      h('td', {}, h('button', { type: 'button', class: 'hash-link pocol-country-link', 'data-focus': 'country:' + c.code, 'aria-label': this.t('tSelect', countryName(this.lang, c.code, this.shared)), onclick: sel(c.code) },
         h('span', { class: 'pocol-code', text: c.code }), countryName(this.lang, c.code, this.shared))),
       h('td', { class: 'right' }, bdi(fmtInt(c.miners.located))), h('td', { class: 'right' }, percent(shareE10(c.miners.located, reg))),
       h('td', { class: 'right' }, bdi(fmtInt(c.miners.active - c.miners.inactive))), h('td', { class: 'right' }, bdi(fmtInt(c.miners.inactive))),

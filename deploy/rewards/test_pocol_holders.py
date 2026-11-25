@@ -942,5 +942,334 @@ class ScaleTests(Base):
             self.assertLess(seconds, 1.0, name)
 
 
+
+def calldata(selector, *addresses):
+    return '0x' + selector + ''.join('00' * 12 + a[2:] for a in addresses)
+
+
+class DiscoveryTests(Base):
+    """Addresses that leave the registry before the index starts (ACCT-1): a replaced reward address, the reward
+    address of an erased record, and a reward flow's address that no record names."""
+    MINER, OLD, NEW = '0x' + '77' * 20, '0x' + '88' * 20, '0x' + '99' * 20
+    GONE, GONE_REWARD = '0x' + '66' * 20, '0x' + '65' * 20
+
+    def chain_with_departures(self):
+        chain = HF.FakeHolderChain()
+        chain.mine(txs=[tx(RW1, self.MINER, 100 * PCOL), tx(RW2, self.GONE, 100 * PCOL)])
+
+        def enroll(miner, reward):
+            def mutate(state, n):
+                state.account(miner)[0] -= HF.B_REG
+                state.account(H.ESCROW)[0] += HF.B_REG
+                state.records[miner] = {'status': 1, 'tomb': False, 'bondState': 1, 'lastShare': n,
+                                        'bond': HF.B_REG, 'registeredAt': n, 'reward': reward, 'graceStart': n}
+            return mutate
+        chain.mine(txs=[tx(self.MINER, H.REGISTRY, 0, input=calldata('4420e486', self.OLD))],
+                   mutate=enroll(self.MINER, self.OLD))
+        chain.mine(txs=[tx(self.GONE, H.REGISTRY, 0, input=calldata('4420e486', self.GONE_REWARD))],
+                   mutate=enroll(self.GONE, self.GONE_REWARD))
+        for n in range(3):   # Escrow PAY transfers only: no transaction names either reward address
+            issued = HF.fake_issuance(chain.head + 1, chain.cp[15], chain.cp[52], chain.cp[53])
+            chain.mine(miner=self.MINER, flows=[(self.MINER, self.OLD, issued // 3, 0),
+                                                (self.GONE, self.GONE_REWARD, issued // 3, 0)])
+
+        def change(state, n):
+            state.records[self.MINER]['reward'] = self.NEW
+
+        def erase(state, n):   # deregister, then the sweep: the bond is refunded and the record erased
+            state.account(H.ESCROW)[0] -= state.records[self.GONE]['bond']
+            state.account(self.GONE)[0] += state.records[self.GONE]['bond']
+            del state.records[self.GONE]
+        chain.mine(txs=[tx(self.MINER, H.REGISTRY, 0, input=calldata('5e00e679', self.NEW))], mutate=change)
+        chain.mine(txs=[tx(self.GONE, H.REGISTRY, 0, input='0xb9f0b8a2')], mutate=erase)   # an argument-free call
+        chain.mine_many(2)
+        return chain
+
+    def test_an_index_started_after_addresses_left_the_registry_finds_them(self):
+        chain = self.chain_with_departures()
+        state = chain.states[chain.head]
+        self.assertNotIn(self.GONE, state.records)
+        self.assertGreater(state.accounts[self.OLD][0], 0)
+        index = self.index(chain)
+        stats = self.settle(index)
+        v = stats['verification']
+        self.assertEqual((v['complete'], v['unlocatedWei'], v['accountsMissing']), (True, '0', 0), v)
+        rows = {r['address']: r for r in self.rows(index)}
+        for address in (self.OLD, self.GONE_REWARD):
+            self.assertEqual(rows[address]['availableWei'], str(state.accounts[address][0]))
+            self.assertEqual((rows[address]['type'], rows[address]['transactions']), ('wallet', 0))
+        self.assertEqual(rows[self.MINER]['rewardAddress'], self.NEW)
+        # A reorganization above the naming block forgets the address again (the DISCOVERED undo row).
+        named = next(n for n, b in enumerate(chain.blocks) if any(t.get('input', '0x').startswith('0x4420e486')
+                                                                   for t in b['full']))
+        chain.reorg(named - 1)
+        chain.mine_many(3)
+        self.settle(index)
+        self.assertNotIn(self.OLD, {r['address'] for r in self.rows(index)})
+        self.assertTrue(index.stats()['verification']['complete'])
+
+    def test_a_reward_flows_address_is_known_from_the_flow(self):
+        chain = HF.FakeHolderChain()
+        chain.mine()
+        index = self.index(chain)
+        self.settle(index)
+        unnamed = '0x' + '5a' * 20   # paid by a flow, named by no record and no transaction
+        issued = HF.fake_issuance(chain.head + 1, chain.cp[15], chain.cp[52], chain.cp[53])
+        chain.mine(miner=ID1, flows=[(ID1, unnamed, issued // 2, 0)])
+        stats = self.settle(index)
+        self.assertTrue(stats['verification']['complete'], stats['verification'])
+        rows = {r['address']: r for r in self.rows(index)}
+        self.assertEqual((rows[unnamed]['availableWei'], rows[unnamed]['rewardsWei']), (str(issued // 2),) * 2)
+
+    def test_registry_arguments(self):
+        a, b = '0x' + '12' * 20, '0x' + '34' * 20
+        self.assertEqual(H.registry_arguments(calldata('4420e486', a)), [a])
+        self.assertEqual(H.registry_arguments(calldata('5e00e679', a)), [a])
+        self.assertEqual(H.registry_arguments(calldata('3cdced1e', a)), [a])
+        self.assertEqual(H.registry_arguments(calldata('5326ca0b', a, b)), [a, b])
+        self.assertEqual(H.registry_arguments(calldata('5326CA0B', a, b).upper().replace('0X', '0x')), [a, b])
+        for bad in (None, '0x', '0x4420e486', calldata('4420e486', a) + '00', calldata('5326ca0b', a),
+                    calldata('12345678', a), '0x4420e486' + '01' + '00' * 11 + a[2:], calldata('4420e486', H.ZERO_ADDRESS),
+                    calldata('4420e486', a)[:-1] + 'g'):
+            self.assertEqual(H.registry_arguments(bad), [], bad)
+
+
+class RescanScheduleTests(Base):
+    """Full rescans while a difference is published (ACCT-2) and their rate (H-7)."""
+    C, Y = '0x' + 'cc' * 20, '0x' + 'de' * 20
+
+    def chain(self):
+        chain = HF.FakeHolderChain()
+        chain.mine(txs=[tx(RW1, wallet(i), PCOL) for i in range(30)])
+        chain.mine(txs=[tx(RW2, None, 10 * PCOL, creates=self.C)])
+        return chain
+
+    def test_an_unchanged_difference_does_not_keep_known_balances_stale(self):
+        chain = self.chain()
+        index = self.index(chain)
+        self.settle(index)
+        chain.mine(internal=[(self.C, self.Y, 5 * PCOL)])    # to Y, a contract no transaction names
+        stats = self.settle(index)
+        self.assertEqual(stats['verification']['unlocatedWei'], str(5 * PCOL))
+        chain.mine(internal=[(self.Y, wallet(3), 2 * PCOL)])  # Y pays a known wallet: the difference is unchanged
+        self.settle(index)
+        self.now[0] += H.RESCAN_MIN_SECONDS
+        chain.mine()
+        stats = self.settle(index)
+        rows = {r['address']: r for r in self.rows(index)}
+        self.assertEqual(rows[wallet(3)]['availableWei'], str(3 * PCOL))
+        self.assertEqual(stats['verification']['unlocatedWei'], str(3 * PCOL))
+        # Complete again: the periodic rescan returns to RESCAN_SECONDS.
+        chain.mine(internal=[(self.Y, wallet(4), 3 * PCOL)])
+        self.now[0] += H.RESCAN_MIN_SECONDS
+        self.assertTrue(self.settle(index)['verification']['complete'])
+        self.now[0] += H.RESCAN_MIN_SECONDS
+        chain.mine()
+        before = chain.calls['eth_getBalance']
+        self.settle(index)
+        self.assertLess(chain.calls['eth_getBalance'] - before, 30)
+
+    def test_new_differences_start_at_most_one_full_rescan_per_interval(self):
+        chain = self.chain()
+        index = self.index(chain)
+        self.settle(index)
+        reads = []
+        for i in range(3):   # a contract paying known wallets by internal calls in consecutive blocks
+            chain.mine(internal=[(self.C, wallet(i), PCOL // 10)])
+            before = chain.calls['eth_getBalance']
+            stats = self.settle(index)
+            reads.append(chain.calls['eth_getBalance'] - before)
+        self.assertGreater(reads[0], 30)                     # the first: a full rescan, then complete
+        self.assertTrue(all(r < 30 for r in reads[1:]), reads)
+        self.assertEqual(stats['verification']['complete'], False)
+        self.assertEqual(stats['verification']['unlocatedWei'], str(2 * PCOL // 10))   # published, never hidden
+        self.now[0] += H.RESCAN_MIN_SECONDS
+        chain.mine()
+        stats = self.settle(index)
+        self.assertTrue(stats['verification']['complete'])
+        rows = {r['address']: r for r in self.rows(index)}
+        self.assertEqual(rows[wallet(2)]['availableWei'], str(PCOL + PCOL // 10))
+
+
+class NodeBehindTests(Base):
+    """A node behind the index on the same chain (resynced, restored, restarted) is waited for (H-1)."""
+
+    @staticmethod
+    def cut(chain, height):
+        kept = (chain.blocks[height + 1:], chain.states[height + 1:], chain.flows[height + 1:])
+        del chain.blocks[height + 1:], chain.states[height + 1:], chain.flows[height + 1:]
+        return kept
+
+    @staticmethod
+    def restore(chain, kept, height=None):
+        blocks, states, flows = kept
+        count = len(blocks) if height is None else height - chain.head
+        chain.blocks += blocks[:count]
+        chain.states += states[:count]
+        chain.flows += flows[:count]
+        return blocks[count:], states[count:], flows[count:]
+
+    def test_a_lagging_node_keeps_the_index_and_its_rewards(self):
+        chain = HF.FakeHolderChain()
+        chain.mine_many(60)
+        index = self.index(chain, recent=16)
+        for _ in range(3):
+            index.step()
+        before = index.status()['heights']
+        stats = index.stats()
+        self.assertEqual((before['history'], before['snapshot']), (60, 60))
+        kept = self.cut(chain, 20)            # below every kept block (45..60)
+        for _ in range(3):
+            self.assertTrue(index.step())
+        self.assertEqual(index.status()['heights'], before)
+        self.assertEqual(index.stats()['snapshot'], stats['snapshot'])
+        self.assertEqual(index.status()['state'], 'syncing')
+        kept = self.restore(chain, kept, 52)   # inside the kept window, the same chain
+        index.step()
+        self.assertEqual(index.status()['heights'], before)
+        self.restore(chain, kept)
+        chain.mine()
+        self.settle(index)
+        after = index.status()
+        self.assertEqual((after['state'], after['heights']['history'], after['heights']['rewardsFrom']),
+                         ('ready', 61, before['rewardsFrom']))
+        self.assertEqual(index.rewards_by_address()['to'], 61)
+
+    def test_a_shorter_branch_below_the_kept_window_is_found_once_the_node_reaches_it(self):
+        chain = HF.FakeHolderChain()
+        chain.mine_many(30)
+        index = self.index(chain, recent=8)
+        self.settle(index)
+        chain.reorg(5)
+        chain.mine_many(10)                   # head 15, below the kept blocks 23..30: nothing removed yet
+        index.step()
+        self.assertEqual(index.status()['heights']['history'], 30)
+        chain.mine_many(15)                   # head 30: no kept block is the node's
+        with self.assertLogs('pocol_holders', 'WARNING') as logs:
+            self.settle(index)
+        self.assertTrue(any('indexing again' in line for line in logs.output))
+        ReorgTests.compare_with_fresh(self, chain, index)
+
+
+class ScanWindowTests(Base):
+    def test_a_scan_that_outlives_the_state_window_stops_early(self):
+        chain = HF.FakeHolderChain()
+        chain.mine(txs=[tx(RW1, wallet(i), PCOL) for i in range(2 * H.SCAN_CHUNK + 50)])
+        index = self.index(chain)
+        balances = [0]
+        def slow(method, params):             # one new block per 33 balance reads: 30 blocks per chunk
+            if method == 'eth_getBalance':
+                balances[0] += 1
+                if balances[0] % 33 == 0:
+                    chain.on_read = None
+                    chain.mine()
+                    chain.on_read = slow
+        chain.on_read = slow
+        with self.assertLogs('pocol_holders', 'WARNING') as logs:
+            index.step()
+        self.assertTrue(any('longer than the state window' in line for line in logs.output), logs.output)
+        self.assertLessEqual(balances[0], H.SCAN_CHUNK + 10)   # stopped after the first chunk, no -32017 reads
+        self.assertIsNone(index.status()['heights']['snapshot'])
+        chain.on_read = None
+        self.settle(index)                    # a scan inside the window publishes
+        self.assertTrue(index.stats()['verification']['complete'])
+
+
+class ResetRewardsTests(Base):
+    def test_the_operator_command_restarts_rewards_and_keeps_everything_else(self):
+        chain = HF.FakeHolderChain()
+        chain.mine_many(3)
+        index = self.index(chain)
+        self.settle(index)
+        chain.mine_many(40)
+        self.settle(index)
+        self.assertIsNone(index.rewards_by_address())
+        history = index.stats()['history']
+        snapshot = index.status()['heights']['snapshot']
+        index.close()
+        self.opened.remove(index)
+        out = __import__('io').StringIO()
+        with unittest.mock.patch('sys.stdout', out):
+            self.assertEqual(H.main(['reset-rewards', '--db', self.path]), 0)
+        self.assertIn('they were: gap', out.getvalue())
+        index = self.index(chain)
+        self.assertEqual(index.status()['heights']['snapshot'], snapshot)
+        self.assertEqual(index.stats()['history'], history)
+        chain.mine()
+        self.settle(index)
+        got = index.rewards_by_address()
+        self.assertEqual((got['from'], got['to']), (chain.head, chain.head))
+        self.assertEqual(index.stats()['rewards'], {'from': chain.head, 'to': chain.head})
+        index.close()
+        self.opened.remove(index)
+        errors = __import__('io').StringIO()
+        with unittest.mock.patch('sys.stderr', errors):
+            self.assertEqual(H.main(['reset-rewards', '--db', os.path.join(self.dir.name, 'missing.sqlite3')]), 1)
+            other = os.path.join(self.dir.name, 'other.sqlite3')
+            sqlite3.connect(other).close()
+            self.assertEqual(H.main(['reset-rewards', '--db', other]), 1)
+        self.assertIn('not a holders index file', errors.getvalue())
+
+
+class MapInputsTests(Base):
+    def test_the_map_inputs_are_one_snapshots(self):
+        chain = HF.FakeHolderChain()
+        chain.mine_many(3)
+        index = self.index(chain)
+        self.settle(index)
+        first = index.map_inputs()
+        h = first['key'][0]
+        self.assertEqual((first['registry']['height'], first['winners']['to'], first['rewards']['to']), (h, h, h))
+        self.assertIsNone(index.map_inputs(first['key']))
+        expected = {}
+        for n in range(first['rewards']['from'], h + 1):
+            for miner, _, paid, accrued in chain.flows[n]:
+                expected[miner] = expected.get(miner, 0) + paid + accrued
+        got = {m: int(v['paidWei']) + int(v['bondAccruedWei']) for m, v in first['rewards']['miners'].items()}
+        self.assertEqual({m: w for m, w in got.items() if w}, expected)
+        # Rewards followed past the newest snapshot stay out of that snapshot's inputs.
+        index.next_snapshot = float('inf')
+        chain.mine_many(2)
+        index.step()
+        self.assertEqual(index.rewards_by_address()['to'], h + 2)
+        again = index.map_inputs()
+        self.assertEqual(again['key'], first['key'])
+        self.assertEqual(again['rewards'], first['rewards'])
+
+
+class BoundaryTests(Base):
+    def test_the_inactive_flag_at_its_exact_boundary(self):
+        chain = HF.FakeHolderChain(cp={25: 5})
+        def setup(state, n):
+            state.records[ID1]['lastShare'] = 4    # 9 >= 4 + 5: inactive at exactly the boundary
+            state.records[ID2]['lastShare'] = 0
+            state.records[ID2]['graceStart'] = 5   # 9 >= 5 + 5 is false: active
+            state.records[ID3]['lastShare'] = 5    # likewise through lastShare
+        chain.mine_many(6)
+        chain.mine(mutate=setup)
+        chain.mine()
+        index = self.index(chain)
+        self.settle(index)
+        records = {r['id']: r for r in index.registry()['records']}
+        self.assertEqual(index.registry()['height'] + 1, 9)
+        self.assertEqual((records[ID1]['active'], records[ID1]['inactive']), (True, True))
+        self.assertEqual((records[ID2]['active'], records[ID2]['inactive'], records[ID2]['graceStart']), (True, False, 5))
+        self.assertEqual((records[ID3]['active'], records[ID3]['inactive']), (True, False))
+
+    def test_an_escrow_below_its_bonds_and_burns_publishes_nothing(self):
+        chain = HF.FakeHolderChain()
+        chain.mine()
+        index = self.index(chain)
+        stats = self.settle(index)
+        escrow = chain.states[chain.head].accounts[H.ESCROW][0]
+        chain.mine(burn=escrow)   # burnedTotal above what Escrow holds beside the bonds: not a v3 state
+        for _ in range(2):
+            with self.assertRaisesRegex(H.NodeAnswerInvalid, 'RewardEscrow holds less than its bonds and burns'):
+                index.step()
+        self.assertEqual(index.stats()['snapshot'], stats['snapshot'])
+        self.assertEqual(index.stats()['supply'], stats['supply'])
+        self.assertTrue(all(int(r['totalWei']) >= 0 for r in self.rows(index)))
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -940,6 +940,63 @@ class HolderIndexServerTests(unittest.TestCase):
         self.assertEqual(self.get(pinned), (409, {'error': 'The holder snapshot changed. Refreshing.', 'reset': True}))
 
 
+class IndexReadTests(unittest.TestCase):
+    """The holders index's own node reads (H-2, H-4): Gateway.index_query reads a full-size registry that the public
+    limit refuses, Gateway.index_batch is one pocold batch, and main()'s holder_index uses both."""
+
+    def setUp(self):
+        self.node = F.FakeNode()
+        self.addCleanup(self.node.stop)
+        self.gateway = gateway.Gateway(self.node.server_address[1], network=F.NET)
+
+    def test_a_full_registry_is_read_whole(self):
+        record = lambda i: {'id': '0x%040x' % (0xabc000 + i), 'status': 1, 'tomb': False, 'bondState': 1,
+                            'lastShare': 3_000_000, 'bond': hex(20 * 10 ** 18), 'registeredAt': 2_000_000,
+                            'reward': '0x%040x' % (0xdef000 + i), 'rewardBalance': hex(37 * 10 ** 18)}
+        records = [record(i) for i in range(H.MAX_RECORDS)]
+        self.node.answers['pocol_getMiners'] = {'result': records}
+        size = len(json.dumps({'jsonrpc': '2.0', 'id': 1, 'result': records}))
+        self.assertGreater(size, gateway.MAX_RESPONSE)
+        self.assertLess(size, 8 * 1024 * 1024)   # pocold RESP_MAX
+        with self.assertRaisesRegex(RuntimeError, 'exceeds explorer limit'):
+            self.gateway.query('pocol_getMiners', [])
+        answer = self.gateway.index_query('pocol_getMiners', [])
+        self.assertEqual(len(H.parse_miners(answer['result'])), H.MAX_RECORDS)
+        self.node.answers['pocol_getMiners'] = {'raw': b'{"jsonrpc":"2.0","id":1,"result":"' + b'a' * gateway.INDEX_RESPONSE_MAX + b'"}'}
+        with self.assertRaisesRegex(RuntimeError, 'exceeds explorer limit'):
+            self.gateway.index_query('pocol_getMiners', [])
+
+    def test_one_batch_answers_every_read_in_order(self):
+        calls = [('eth_getBalance', ['0x' + '%040x' % i, '0x10']) for i in range(gateway.INDEX_BATCH_MAX)]
+        calls[3] = ('eth_getCode', ['0x' + '11' * 20, '0x10'])
+        answers = self.gateway.index_batch(calls)
+        self.assertEqual(self.node.batches, [20])
+        self.assertEqual([a['id'] for a in answers], list(range(1, 21)))
+        self.assertEqual(answers[3]['result'], '0x')
+        self.assertEqual(answers[0]['result'], '0xde0b6b3a7640000')
+        self.assertEqual(self.node.calls, [(m, p) for m, p in calls])
+        for bad in (lambda r, a: json.dumps(a[:-1]).encode(), lambda r, a: json.dumps(a + a[:1]).encode(),
+                    lambda r, a: json.dumps([dict(x, id=1) for x in a]).encode(),
+                    lambda r, a: json.dumps({'jsonrpc': '2.0', 'id': None, 'error': {'code': -32021}}).encode(),
+                    lambda r, a: json.dumps([dict(x, id=str(x['id'])) for x in a]).encode()):
+            self.node.answers['batch'] = bad
+            with self.assertRaisesRegex(RuntimeError, 'Invalid node batch response'):
+                self.gateway.index_batch(calls)
+        for size in (0, 21):
+            with self.assertRaises(ValueError):
+                self.gateway.index_batch(calls[:1] * size)
+
+    def test_main_builds_the_index_on_the_batched_index_reads(self):
+        chain = HF.FakeHolderChain()
+        with tempfile.TemporaryDirectory() as folder:
+            inner = gateway.Gateway(self.node.server_address[1], network=chain.network)
+            index = gateway.holder_index(inner, Path(folder) / 'holders.sqlite3')
+            try:
+                self.assertEqual((index.query, index.batch), (inner.index_query, inner.index_batch))
+            finally:
+                index.close()
+
+
 class ExplorerCliTests(unittest.TestCase):
     def test_site_origin_option(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:

@@ -673,6 +673,8 @@ class Geography:
         winners(window) -> None | {"from": int, "to": int, "blocks": int, "miners": {"0x<record id>": blocks}}
           (the block winners, `miner` = record ID, over the last `window` blocks up to the tip);
         miner_rewards() -> None | {"0x<record id>": wei int}   (optional; None or absent: rewards are not exact)
+        inputs() -> (registry, winners, miner_rewards) of one snapshot (optional; when present, answer() reads the
+          three only through it, so an answer never mixes block heights)
     - observer_status_fn() -> the raw pocol_status of the gateway host's node (its `peers` list), or raises;
     - operator reports accepted by report() (verify_report), kept in memory, the newest per reporter.
 
@@ -755,12 +757,18 @@ class Geography:
 
     def answer(self):
         now = self.clock()
-        registry = self.holders.registry() if self.holders is not None else None
-        window = self.holders.winners(BLOCKS_WINDOW) if registry else None
+        together = getattr(self.holders, 'inputs', None)
+        if together is not None:
+            # The registry, the blocks won and the rewards of one snapshot (gateway.HolderMapInputs): one answer
+            # never mixes block heights.
+            registry, window, rewards = together()
+        else:
+            registry = self.holders.registry() if self.holders is not None else None
+            window = self.holders.winners(BLOCKS_WINDOW) if registry else None
+            rewards_fn = getattr(self.holders, 'miner_rewards', None)
+            rewards = rewards_fn() if rewards_fn is not None and registry and window else None
         if not registry or not window:
             return None
-        rewards_fn = getattr(self.holders, 'miner_rewards', None)
-        rewards = rewards_fn() if rewards_fn is not None else None
         records, winners, rewards = _holders_inputs(registry, window, rewards)
         theta = registry['thetaInact']
         # The index tip: the newer of the registry snapshot and the newest indexed block (a reporter's node head is

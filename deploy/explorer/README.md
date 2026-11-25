@@ -191,20 +191,38 @@ lists accounts and state is served only for the newest 32 blocks, so the index b
 
 - A history pass from genesis reads every light block (the full block when it has transactions, the receipt of each
   contract creation): each address's first height, its top-level transactions sent or received, the blocks each miner
-  ID won, and the base fee destroyed (`baseFeePerGas x gasUsed`). The newest 4096 blocks keep undo rows, so a
-  reorganization is rolled back exactly; a deeper one indexes again from genesis.
+  ID won, and the base fee destroyed (`baseFeePerGas x gasUsed`). The addresses a top-level MinerRegistry call names
+  in its input (a reward address, a replaced record's ID) and each followed reward flow's addresses are known from
+  then on too, so a reward address that only received Escrow payments is still found after it left the registry. The
+  newest 4096 blocks keep undo rows, so a reorganization is rolled back exactly; a deeper one indexes again from
+  genesis. A node behind the index on the same chain (resynced, restored or restarting) is waited for, never taken for
+  a reorganization: nothing is removed and the last snapshot is still served (state `syncing`).
 - At the node's head h (inside its state window), a tip snapshot reads the registry (`pocol_getMiners`), `heldTotal`,
   `burnedTotal`, each live ActList record's graceStart and the balances of what changed, every read pinned to h, then
   reads the block at h again (a change discards the snapshot). It checks the supply identity: the sum of the found
   balances must equal the minted supply less the base fees destroyed. A difference first makes the next round read
   every known address again; one that survives that is published with `verification.complete: false` and the
-  difference. When `pocol_getCaps` answers for h, its account count is compared too (else `accountsOnChain` is null).
+  difference. A new difference starts at most one such rescan per 60 s, and while a difference is published every
+  known address is read again every 60 s, so a published balance then lags by at most 60 s. The node reads are
+  loopback batches of 20 (`Gateway.index_batch`) with pocold's 8 MiB answer limit (a full registry); a snapshot whose
+  reads outlive the state window stops and is tried again later at a newer block. When `pocol_getCaps` answers for
+  h, its account count is compared too (else `accountsOnChain` is null).
 - Mining rewards: each new block's executed reward flows (`pocol_rewards.snapshot_v3` of that block: the settlement's
   winner, proposer and share payments, the tip share and the evidence reporter's cut; bond refunds and transfers are
   not rewards) per reward address and miner ID, from the first block the index followed (`rewardsFrom`). A gap longer
-  than the state window makes them null from then on. This release has no operator command for
-  `HolderIndex.reset_rewards()`: the only reset is to stop the service, remove the index file (and its `-wal` and
-  `-shm`) and start it, which indexes again from genesis and counts rewards from the new start.
+  than the state window (an outage of about 5 minutes) makes them null from then on, until the operator resets them;
+  nothing else is lost:
+
+  ```sh
+  sudo systemctl stop pocol-explorer-gateway.service
+  sudo python3 -B /opt/pocol-explorer-gateway/pocol_holders.py reset-rewards \
+      --db /var/lib/private/pocol-explorer-gateway/holders.sqlite3
+  sudo systemctl start pocol-explorer-gateway.service
+  ```
+
+  It clears only the reward totals (blocks, accounts, snapshots, the hourly history and new24h coverage stay), and
+  rewards count again from the next followed block, the new `rewardsFrom` the page names. With the service stopped
+  the command is the file's only user, so SQLite removes its `-wal` and `-shm` when it closes.
 - A snapshot is published as a materialized ranking (rank by Total descending, ties by address), read by index only;
   at least the newest 3 snapshots and every one younger than 180 s are kept, so a reader paging a pinned snapshot stays
   consistent. A page pinned to a snapshot that is gone or no longer canonical is 409
@@ -244,7 +262,9 @@ Bounds and measurements (`deploy/rewards/test_pocol_holders.py` ScaleTests, Pyth
 accounts): publishing a snapshot of them took 1.4-1.6 s (tests require under 120 s); a page 0.4-0.6 ms at any depth,
 order or type filter, 3 ms for a one-digit search prefix (tests require under 1 s; a page running 2 s is
 interrupted); the file was 52.6 MB with those accounts and one published snapshot of them, and every further kept
-snapshot adds its own rows. A snapshot's peak memory stayed under 50 MB (the service keeps `MemoryMax=256M`).
+snapshot adds about 23 MB. A snapshot is published at most once per block and kept while it is one of the newest 3
+or younger than 180 s, so at 10 s blocks about 19 are kept: measured 484 MB at 100,000 accounts in that steady state
+(each block then rewrites about 23 MB). PoCol Mainnet has far fewer accounts today (a few MB). A snapshot's peak memory stayed under 50 MB (the service keeps `MemoryMax=256M`).
 `EXPLAIN QUERY PLAN` of every page statement shows no sort and no table scan. Pages run on their own read-only
 connections behind the gateway's two holder slots (`HOLDER_SLOTS`), never the node reads' four. Node load: the
 history pass is paced (5 ms per block), at most one snapshot per new block and slower when one takes longer, and each

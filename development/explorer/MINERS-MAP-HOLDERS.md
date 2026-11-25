@@ -60,8 +60,11 @@ All amounts are integers in wei, carried as decimal strings, formatted with BigI
 | Mining rewards | Σ of executed reward flows to the address, **since the index started** (`rewardsFrom`), null when the index has a gap; never claimed as a total since genesis |
 
 Completeness check (shown, never hidden): the index can discover addresses only from transactions (from, to, created
-contracts), the registry (IDs, reward addresses), the genesis founders and the system addresses. An address that only
-ever received PCOL by an internal call of a non-system contract cannot be discovered over RPC. Each snapshot therefore
+contracts), the addresses a top-level MinerRegistry call names in its input (`register`, `setRewardAddress`,
+`registerReplacing`, `removeInactive`), each followed reward flow's miner ID and reward address, the registry at each
+snapshot (IDs, reward addresses), the genesis founders and the system addresses. An address that only ever received
+PCOL by an internal call of a non-system contract cannot be discovered over RPC, nor can a reward address that a
+contract's internal call to the Registry set and that left the registry before the index followed one of its flows. Each snapshot therefore
 checks Σ discovered balances(h) against G − F and the discovered existing accounts against `pocol_getCaps.accounts`,
 and publishes `verification.complete` with any difference (`unlocatedWei`, `accountsMissing`).
 
@@ -81,10 +84,13 @@ reorganizations, and Windows-safe connection handling.
   system addresses), all registry records (`pocol_getMiners` bracketed by head-hash reads; graceStart from storage at h),
   `heldTotal`, `burnedTotal`, Escrow balance, `pocol_getCaps` when its `number` is h; then G, F, S and the
   verification. If Σ balances ≠ G − F, every known address is re-read at a new pinned height (full rescan); if it
-  still differs, the snapshot is published with `complete:false` and the difference.
+  still differs, the snapshot is published with `complete:false` and the difference. A new difference starts at most
+  one full rescan per 60 s (`RESCAN_MIN_SECONDS`; in between it is published), and while a difference is published
+  every known address is re-read every 60 s, so a published balance lags by at most that.
 - **Rewards:** for each new tip block, `snapshot_v3(height=h)` flows are added per address (`amountWei`) and per miner
   ID (`bondAccruedWei`); `rewardsFrom` is the first height covered; a gap longer than the window sets rewards to null
-  from then on until an explicit operator reset (documented).
+  from then on until an explicit operator reset: `python3 pocol_holders.py reset-rewards --db FILE` with the service
+  stopped (it keeps every other table; rewards count again from the next followed block, the new `rewardsFrom`).
 - **Published snapshots** are materialized rankings (rank, address, totals, type, counters), so pages read by
   `(snapshot, rank)`, `(snapshot, type, rank)` and `(snapshot, address)` indexes with no sort. At least the last
   3 snapshots and at least 3 minutes of snapshots are kept so a paged reader stays consistent; a page pinned to a
@@ -92,7 +98,11 @@ reorganizations, and Windows-safe connection handling.
 - **Statistics** (counts, sums, top-N shares, balance buckets, the hourly history point) are computed by the writer at
   publication and stored with the snapshot, so the stats endpoint is a single-row read.
 - **Bounds:** catch-up paced; at most one tip snapshot per new block, slower when a snapshot's materialization takes
-  longer than a block; reads to the node through `Gateway.query` (loopback) only, batched where pocold allows.
+  longer than a block; reads to the node through `Gateway.query` (loopback) only, batched where pocold allows
+  (`Gateway.index_batch`, BATCH_MAX 20), with an answer limit of pocold's RESP_MAX (a full registry); a snapshot whose
+  reads outlive the state window stops early. A node behind the index on the same chain is waited for (the last
+  snapshot is still served); everything is indexed again only when the node serves a block at every kept height and
+  none of them is the stored one.
 
 ## 4. Geography (`deploy/rewards/pocol_geoip.py`, `deploy/explorer/pocol_geo_reporter.py`)
 

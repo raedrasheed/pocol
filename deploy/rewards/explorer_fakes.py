@@ -42,12 +42,15 @@ def default_answers():
 class FakeNode(ThreadingHTTPServer):
     """A pocold JSON-RPC endpoint on 127.0.0.1: `answers[method]` is the answer's fields ({'result': ..} or
     {'error': ..}), the whole envelope when it has 'envelope', the body bytes when it has 'raw', or 'fail' for an
-    HTTP 500. `delay` seconds pass before each answer."""
+    HTTP 500. `delay` seconds pass before each answer. A batch (a JSON array) is answered member by member, the
+    envelopes in reverse order, or by `answers['batch'](requests, envelopes)` (the body bytes); `batches` records each
+    batch's size."""
     daemon_threads = True
 
     def __init__(self):
         self.answers = default_answers()
         self.calls = []
+        self.batches = []
         self.delay = 0
         super().__init__(('127.0.0.1', 0), NodeHandler)
         self.thread = threading.Thread(target=self.serve_forever, daemon=True)
@@ -56,6 +59,7 @@ class FakeNode(ThreadingHTTPServer):
     def reset(self):
         self.answers = default_answers()
         self.calls = []
+        self.batches = []
         self.delay = 0
 
     def stop(self):
@@ -68,25 +72,38 @@ class NodeHandler(BaseHTTPRequestHandler):
     def log_message(self, *_args):
         pass
 
-    def do_POST(self):
-        request = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+    def envelope(self, request):
         self.server.calls.append((request['method'], request['params']))
-        if self.server.delay:
-            time.sleep(self.server.delay)
         answer = self.server.answers.get(request['method'], {'error': {'code': -32601, 'message': 'Method not found'}})
         if answer == 'fail':
-            self.send_response(500); self.send_header('Content-Length', '0'); self.end_headers(); return
+            return None
         answer = copy.deepcopy(answer)
         if 'raw' in answer:
-            body = answer['raw']
+            return answer
+        return answer['envelope'] if 'envelope' in answer else {'jsonrpc': '2.0', 'id': request['id'], **answer}
+
+    def do_POST(self):
+        request = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+        if self.server.delay:
+            time.sleep(self.server.delay)
+        if isinstance(request, list):   # a batch: one envelope per member, in reverse order (ids decide)
+            self.server.batches.append(len(request))
+            answers = [self.envelope(r) for r in request]
+            body = (json.dumps(answers[::-1]).encode() if 'batch' not in self.server.answers
+                    else self.server.answers['batch'](request, answers))
         else:
-            envelope = answer['envelope'] if 'envelope' in answer else {'jsonrpc': '2.0', 'id': request['id'], **answer}
-            body = json.dumps(envelope).encode()
+            answer = self.envelope(request)
+            if answer is None:
+                self.send_response(500); self.send_header('Content-Length', '0'); self.end_headers(); return
+            body = answer['raw'] if 'raw' in answer else json.dumps(answer).encode()
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass   # a client that stopped reading at its own limit (Gateway.query's MAX_RESPONSE)
 
 
 def geography(**changes):
@@ -202,7 +219,8 @@ def map_registry(height=16, block_hash=HASH):
 class FakeHolders:
     """The holders index (pocol_holders.HolderIndex's answers): page(options) answers `self.page_answer(options)` and
     stats() `self.stats_answer()`, or raises it when it is an exception class (pocol_holders.SnapshotChanged,
-    Unavailable); registry(), winners(window) and rewards_by_address() for the miner map, counted in `reads`."""
+    Unavailable); registry(), winners(window), rewards_by_address() and map_inputs(known) for the miner map, counted in
+    `reads`."""
     def __init__(self):
         self.page_answer = holders_page
         self.stats_answer = holders_stats
@@ -236,6 +254,17 @@ class FakeHolders:
     def rewards_by_address(self):
         self.reads.append('rewards')
         return copy.deepcopy(self.map['rewards'])
+
+    def map_inputs(self, known=None):
+        """HolderIndex.map_inputs: the three of the snapshot stats() names (Unavailable as stats()), None when it is
+        `known`."""
+        snapshot = self.stats()['snapshot']
+        key = (snapshot['height'], snapshot['hash'])
+        if key == known:
+            return None
+        registry, winners, rewards = self.registry(), self.winners(), self.rewards_by_address()
+        return {'key': key, 'registry': registry, 'winners': winners,
+                'rewards': None if rewards is None else {k: v for k, v in rewards.items() if k != 'addresses'}}
 
 
 def send(port, method, path, headers=(), body=None, timeout=10):

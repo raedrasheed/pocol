@@ -515,6 +515,56 @@ class GeographyTests(DatabaseCase):
         self.assertEqual(answer['unknown'], {'miners': 3, 'blocks': 20})
         self.assertInvariants(answer)
 
+    def test_active_and_inactive_use_grace_accruing_and_the_exact_boundary(self):
+        # Height 1000, theta 360: A is new (no share yet) inside its grace window; B is ACCRUING (bond state 4) at
+        # exactly the inactivity boundary (1001 >= 641 + 360); C is one block short of it; D has exited.
+        holders = FakeHolders(records=[record(MINER_A, last_share=0, grace_start=700),
+                                       record(MINER_B, bond_state=4, last_share=641),
+                                       record(MINER_C, last_share=642), record(MINER_D, status=2)])
+        geography = self.make(holders=holders, peers=[])
+        self.assertEqual(self.send(geography, 'founder-1', '5.0.0.10', miner=MINER_A), 204)
+        self.assertEqual(self.send(geography, 'founder-2', '9.9.9.9', miner=MINER_B), 204)
+        self.assertEqual(self.send(geography, 'founder-3', '5.0.2.10', miner=MINER_D), 204)
+        answer = geography.answer()
+        countries = {c['code']: c['miners'] for c in answer['countries']}
+        self.assertEqual(countries['DE'], {'located': 1, 'active': 1, 'inactive': 0, 'connected': 1})
+        self.assertEqual(countries['US'], {'located': 1, 'active': 1, 'inactive': 1, 'connected': 1})
+        self.assertEqual(countries['FR'], {'located': 1, 'active': 0, 'inactive': 0, 'connected': 1})
+        self.assertEqual((answer['miners']['active'], answer['miners']['inactive'], answer['miners']['exited']), (3, 1, 1))
+        self.assertInvariants(answer)
+
+    def test_servers_that_disagree_on_a_peer_leave_it_unlocated(self):
+        geography = self.make(peers=[])
+        self.assertEqual(self.send(geography, 'founder-1', '5.0.0.10', miner=None, peer_ips=[('77.7.7.7', 'US')]), 204)
+        self.assertEqual(self.send(geography, 'founder-2', '9.9.9.9', miner=None, peer_ips=[('77.7.7.7', 'BR')]), 204)
+        answer = geography.answer()
+        self.assertEqual(answer['nodes'], {'observed': 3, 'located': 2, 'unlocated': 1})
+        nodes = {c['code']: c['nodes'] for c in answer['countries']}
+        self.assertEqual(nodes, {'DE': 1, 'US': 1})   # the two servers themselves; the disputed peer is in neither
+        self.assertInvariants(answer)
+
+    def test_the_gateways_own_lookup_beats_a_reporters_claim(self):
+        geography = self.make(peers=[])
+        self.assertEqual(self.send(geography, 'founder-1', '5.0.0.10', miner=None), 204)
+        self.assertEqual(self.send(geography, 'founder-2', '9.9.9.9', miner=None, peer_ips=[('5.0.0.10', 'BR')]), 204)
+        answer = geography.answer()
+        self.assertEqual(answer['nodes'], {'observed': 2, 'located': 2, 'unlocated': 0})
+        self.assertEqual({c['code']: c['nodes'] for c in answer['countries']}, {'DE': 1, 'US': 1})
+
+    def test_inputs_of_one_snapshot_are_read_together(self):
+        class Together(FakeHolders):
+            def registry(self):
+                raise AssertionError('read through inputs() only')
+            winners = miner_rewards = registry
+
+            def inputs(self):
+                return FakeHolders.registry(self), self.window, {MINER_A: 9}
+        geography = self.make(holders=Together())
+        self.assertEqual(self.send(geography, 'founder-1', '5.0.0.10', miner=MINER_A), 204)
+        answer = geography.answer()
+        self.assertEqual([(c['code'], c['rewardsWei']) for c in answer['countries'] if c['miners']['located']],
+                         [('DE', '9')])
+
     def assertInvariants(self, answer):
         miners, nodes = answer['miners'], answer['nodes']
         self.assertEqual(miners['located'] + miners['unknown'], miners['registered'])

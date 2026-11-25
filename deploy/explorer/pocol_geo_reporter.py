@@ -149,7 +149,8 @@ def read_node(timeout=RPC_TIMEOUT):
 
 def build_report(status, params, config, credential, database, now):
     """(body bytes, signature hex, report object) of one report; Failure(NODE) when the node is not the configured
-    network or its answer has another shape. The report carries keyed ids and countries only, never an IP."""
+    network or its answer has another shape. The report carries the node's head and own mining address and its peers'
+    keyed ids and countries, never an IP."""
     name, key, salt = credential
     chain, genesis = config['chainId'], config['genesisHash']
     for answer in (params, status):
