@@ -899,9 +899,14 @@ class SiteIdentity(unittest.TestCase):
         self.assertEqual(snapshot(root), before)
         self.assertEqual(self.run_tool(root, *args), 0, self.last_errors)
         kept = json.loads((root / si.DECLARED).read_text(encoding='utf-8'))['keptOut']
-        self.assertEqual(kept, json.loads((ROOT / si.DECLARED).read_text(encoding='utf-8'))['keptOut'])
+        expected = json.loads((ROOT / si.DECLARED).read_text(encoding='utf-8'))['keptOut']
         for site in (si.MAIN, si.IDE):
-            self.assertNotIn('PoCol-Studio-', (root / site / si.SUMS).read_text(encoding='utf-8'))
+            expected[Path(site).name] = [n for n in expected[Path(site).name] if n not in {f'downloads/{name}', 'downloads/PoCol-Studio-Chrome.zip'}]
+        self.assertEqual(kept, expected)
+        for site in (si.MAIN, si.IDE):
+            listed = [line.split(maxsplit=1)[1] for line in (root / site / si.SUMS).read_text(encoding='utf-8').splitlines() if line.strip()]
+            self.assertNotIn(f'downloads/{name}', listed)
+            self.assertNotIn('downloads/PoCol-Studio-Chrome.zip', listed)
         self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
         self.assert_consistent(root)
         # Refused, and nothing written: a name keptOut does not hold (now), a site without SHA256SUMS.txt, and a path
