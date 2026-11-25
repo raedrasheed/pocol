@@ -212,7 +212,7 @@ class DownloadLinks(unittest.TestCase):
         self.assertIn('PoCol Mainnet 0.5.0 packages and the signed network file are available here', en)
         self.assertIn('PoCol Mainnet 0.5.0', ar)
         self.assertEqual(retired, [])
-        self.assertEqual(sorted(href for href, _ in anchors(page) if 'downloads/' in href), ['downloads/network.pocol.json.sig?v=bb9663b1defa', 'downloads/network.pocol.json?v=a74c1cf432e7'])
+        self.assertEqual(sorted(href for href, _ in anchors(page) if 'downloads/' in href), (['downloads/network.pocol.json.sig?v=bb9663b1defa'] * 3 + ['downloads/network.pocol.json?v=a74c1cf432e7'] * 3))
         self.assertIn('this page links no packages from the retired network', en)
         self.assertIn('\u0627\u0644\u0634\u0628\u0643\u0629 \u0627\u0644\u0633\u0627\u0628\u0642\u0629', ar)
         self.assertNotIn('0.4.0', en + ar)
