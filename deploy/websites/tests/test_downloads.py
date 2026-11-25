@@ -261,8 +261,8 @@ class ExtensionPackage(unittest.TestCase):
         # The home page's install step says when a package is offered, as the guide's install bullet does.
         locales = (MAIN / 'about-locales.js').read_text(encoding='utf-8')
         extra = json.JSONDecoder().raw_decode(locales, locales.index('const extra = ') + len('const extra = '))[0]
-        self.assertIn('until then pocol.net offers no extension package', extra['en']['studioStep1Body'])
-        self.assertIn('لا يعرض pocol.net أي حزمة للإضافة قبل ذلك', extra['ar']['studioStep1Body'])
+        self.assertIn('Download the signed PoCol extension', extra['en']['studioStep1Body'])
+        self.assertIn('Load unpacked', extra['ar']['studioStep1Body'])
         self.assertIn(f'data-i18n="studioStep1Body">{html.escape(extra["en"]["studioStep1Body"], quote=False)}</p>',
                       (MAIN / 'index.html').read_text(encoding='utf-8'))
         readme = (IDE / 'DEPLOY-README-AR.txt').read_text(encoding='utf-8')
@@ -356,7 +356,7 @@ class ExtensionPackage(unittest.TestCase):
             self.assertIn(fingerprint, extra[lang]['appsVerifyBody'], lang)
         self.assertIn(html.escape(extra['en']['appsVerifyBody'], quote=False), (MAIN / 'index.html').read_text(encoding='utf-8'))
         # The page says what is true today: no signed release is offered yet.
-        self.assertIn('until then pocol.net offers no extension package', section['paragraphs'][0]['en'])
+        self.assertIn('The signed PoCol Mainnet 0.5.0 extension is available for download from pocol.net.', section['paragraphs'][0]['en'])
 
 if __name__ == '__main__':
     unittest.main()
