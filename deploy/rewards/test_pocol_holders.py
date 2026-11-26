@@ -150,17 +150,17 @@ class GenesisTests(unittest.TestCase):
     def test_the_mainnet_spec_gives_four_founders_and_four_million_pcol(self):
         identity = json.loads((HERE.parent / 'websites' / 'site-identity.json').read_text())
         spec = R.hex_bytes(identity['genesisSpec'])
-        self.assertEqual('0x' + R.keccak256(spec).hex(),
-                         '0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e')
+        # The declared identity (the one the identity switch rewrites), not a pin of it here.
+        self.assertEqual('0x' + R.keccak256(spec).hex(), identity['genesisHash'])
         members = H.genesis_members(spec)
         self.assertEqual(members, [
             ('0x15df38aaba05b83fb8c58d2dd9d804654278a96f', '0x15df38aaba05b83fb8c58d2dd9d804654278a96f'),
             ('0x4479d23cb5580b912a8402230071b8a7f0a701ec', '0xbf335311d1a3ffc8c0efd1dc422f727f48e6de11'),
             ('0xc319eeced588afe03515508bab5f27805534b307', '0x56bd8b1a42a6a3b09c04ebdd91e6fa3cc944b6bd'),
             ('0xe45343ea8d6d54fb693a6ad424fac11d85624b6e', '0x4ce8b7625efc6898e59d7436c3a5a7569e91b3fc')])
-        network = R.validated_network({'chainId': 2656089850, 'genesisHash': '0x' + R.keccak256(spec).hex(),
+        network = R.validated_network({'chainId': identity['chainId'], 'genesisHash': '0x' + R.keccak256(spec).hex(),
                                        'specVersion': 2, 'v3': True})
-        params = {'chainId': 2656089850, 'genesisHash': network.genesis, 'genesisPre': identity['genesisSpec']}
+        params = {'chainId': identity['chainId'], 'genesisHash': network.genesis, 'genesisPre': identity['genesisSpec']}
         query = lambda method, p, deadline=None: {'jsonrpc': '2.0', 'id': 1, 'result': params}
         with tempfile.TemporaryDirectory() as folder:
             index = H.HolderIndex(os.path.join(folder, 'h.sqlite3'), query, network, rewards=lambda h: None)

@@ -73,7 +73,7 @@ D=$(mktemp -d) && python3 deploy/websites/tools/site_snapshot.py --out "$D" \
   && sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D" --geoip-db ~/geoip/dbip-country-YYYY-MM.bin --check
 ```
 
-(احذف `--geoip-db` إن لم تكن هناك قاعدة.) يجب أن يطبع `CHECK PASSED: network 2656089850 0x664dc53a...` مع
+(احذف `--geoip-db` إن لم تكن هناك قاعدة.) يجب أن يطبع `CHECK PASSED: network <chain ID> <genesis hash>` (المعرّف والبصمة كما يعلنهما `deploy/websites/site-identity.json`) مع
 `site-<المعرّف الجديد> (14 files, this checkout's snapshot)` وسطر قاعدة GeoIP و
 `operator node reports disabled (no credential)`. ويرفض دون أي تغيير: ملف وحدة معدّلًا يدويًا (يستبدل فقط وحدات هذا
 الإصدار و04f77806 و1bb11f4c)، ومجلد `/opt/pocol-explorer-gateway` غير معروف، وكتلة Caddy معدّلة، وقاعدة تفشل فحصها،
@@ -108,7 +108,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Content-Type: application/j
 
 - بعد التثبيت مباشرة يقرأ فهرس الحائزين السلسلة من التكوين: يجيب `/api/holders.php` بالرمز 503 حتى أول لقطة، ثم
   `"state":"syncing"` ثم `"ready"`. مدة ذلك على PoCol Mainnet لم تُقَس.
-- عند الجاهزية: `"chainId":2656089850`، وارتفاع اللقطة قريب من رأس العقدة، و `verification.complete` صحيحة مع
+- عند الجاهزية: `"chainId"` بمعرّف السلسلة المعلن، وارتفاع اللقطة قريب من رأس العقدة، و `verification.complete` صحيحة مع
   `unlocatedWei` تساوي "0". الحسابات الوحيدة في تكوين PoCol Mainnet هي المؤسسون الأربعة، فأي فرق يعني حسابًا لا يمكن
   اكتشافه (F-104): يُنشر ولا يُخفى؛ سجّله مع ارتفاعه.
 - `/api/miner-geography.php`: `miners.registered` يساوي عدد سجلات المعدّنين، و `located` صفر و `unknown` يساوي

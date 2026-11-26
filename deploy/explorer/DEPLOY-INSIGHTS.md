@@ -76,10 +76,10 @@ D=$(mktemp -d) && python3 deploy/websites/tools/site_snapshot.py --out "$D" \
   && sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D" --geoip-db ~/geoip/dbip-country-YYYY-MM.bin --check
 ```
 
-(Leave out `--geoip-db` without a database.) It must print `CHECK PASSED: network 2656089850
-0x664dc53a2fa5e9e7c94ae3d735b1eefabb8630fcbabf5e8b0d34f5db0b8cc64e on the node, site-<new id> (14 files, this
+(Leave out `--geoip-db` without a database.) It must print `CHECK PASSED: network <chain ID>
+<genesis hash> on the node, site-<new id> (14 files, this
 checkout's snapshot), the loopback port, and the candidate Caddy configuration; the GeoIP database ... (release
-YYYY-MM, N IPv4 and M IPv6 ranges), operator node reports disabled (no credential).` followed by the copy's manifest.
+YYYY-MM, N IPv4 and M IPv6 ranges), operator node reports disabled (no credential).` followed by the copy's manifest. The chain ID and genesis hash are the ones `deploy/websites/site-identity.json` declares.
 It refuses, with no change made: a unit with custom edits (it replaces only the units of this release, of 04f77806 and
 of 1bb11f4c), an unrecognized `/opt/pocol-explorer-gateway`, an edited Caddy block, a database that fails its checks,
 a node of another network, and a copy that is not this checkout's snapshot.
@@ -119,7 +119,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Content-Type: application/j
   are unavailable: the holders index has no snapshot yet or is not installed." until its first snapshot, then
   `"state":"syncing"` and `"ready"`. The history pass is paced (5 ms per block plus the read); its duration on PoCol
   Mainnet has not been measured.
-- Once ready: `"chainId":2656089850`, the snapshot height close to the node's head, and in the statistics
+- Once ready: `"chainId"` the declared chain ID, the snapshot height close to the node's head, and in the statistics
   `verification.complete` true with `unlocatedWei` "0". PoCol Mainnet's only genesis accounts are the four founders,
   which the registry names, so a difference means an account the index cannot discover (F-104): it is published, not
   hidden; note it with its height.
