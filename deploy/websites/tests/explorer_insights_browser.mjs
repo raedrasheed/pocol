@@ -114,7 +114,8 @@ const COUNTRIES = [
   ['US', 3, 3, 1, 2, 5, 3000], ['DE', 2, 2, 0, 1, 3, 2000], ['FR', 1, 1, 0, 1, 1, 500], ['JP', 1, 0, 0, 0, 1, 400], ['NL', 0, 0, 0, 0, 2, 0], ['GI', 0, 0, 0, 0, 1, 0],
 ];
 function geography(state) {
-  const window = 8640, rows = state.reporters ? COUNTRIES : COUNTRIES.map(([c, , , , , n]) => [c, 0, 0, 0, 0, n, 0]);
+  // state.extra: countries a test adds to the fixture (same columns as COUNTRIES), e.g. between two refreshes.
+  const window = 8640, rows = (state.reporters ? COUNTRIES : COUNTRIES.map(([c, , , , , n]) => [c, 0, 0, 0, 0, n, 0])).concat(state.extra || []);
   const located = rows.reduce((a, r) => a + r[1], 0), blocks = rows.reduce((a, r) => a + r[6], 0), nodes = rows.reduce((a, r) => a + r[5], 0);
   return { schema: 'pocol-miners-geography-v2', ...identity, generatedAt: NOW, height: window, blockHash: hash('b', window),
     database: { provider: 'DB-IP Lite', release: '2026-11', license: 'CC BY 4.0' },
@@ -374,6 +375,30 @@ try {
     const legend = await until(ov.page, () => document.querySelector('#pocol-miners-map-compact .map-legend')?.innerText, 20000, 'the Overview legend');
     check('the Overview legend names the "Located, not active" key when a country has one', /Located, not active/.test(legend), legend);
     await ov.close();
+  }
+  {
+    // A refresh that splits the focused cluster keeps the focus on the selected country, and Clear by keyboard keeps it
+    // on the map.
+    const { page, state, close } = await open(newState(), { hash: '#page=Miner%20map', clock: true });
+    await until(page, () => document.querySelectorAll('#pocol-miners-map .pocol-marker').length > 0, 20000, 'the map');
+    await page.click('#pocol-miners-map .pocol-country-table button[aria-label="Show France on the map"]');
+    await page.click('#pocol-miners-map .map-zoom button[aria-label="Show the whole world"]');
+    await until(page, () => document.querySelector('#pocol-miners-map .pocol-marker.is-selected')?.getAttribute('data-codes') === 'DE FR', 5000, 'France selected in the Germany and France cluster');
+    await page.focus('#pocol-miners-map .pocol-marker[data-codes="DE FR"]');
+    // Poland now has the most located miners: it seeds a cluster with Germany and France is left on its own.
+    state.extra = [['PL', 3, 2, 0, 0, 1, 100]];
+    const geographyAsked = () => state.asked.filter((a) => a.includes('miner-geography')).length, loads = geographyAsked();
+    await page.clock.fastForward(31000);
+    const split = await until(page, () => { const c = [...document.querySelectorAll('#pocol-miners-map .pocol-marker')].map((m) => m.getAttribute('data-codes')); return c.includes('FR') && c.some((x) => x.split(' ').includes('PL') && x.split(' ').includes('DE')) && c; }, 10000, 'the split cluster after the refresh');
+    check('the 30 s refresh split the focused cluster: Poland with Germany, France alone', geographyAsked() > loads && Array.isArray(split), JSON.stringify(split));
+    await new Promise((r) => setTimeout(r, 500));
+    check('a refresh that splits the focused cluster keeps the focus on the selected country (France), not the first country of the old cluster', (await focusOf(page)) === 'marker:FR', await focusOf(page));
+    await page.focus('#pocol-miners-map [data-focus="panel:clear"]');
+    await page.keyboard.press('Enter');
+    await until(page, () => !document.querySelector('#pocol-miners-map .pocol-country-panel h3'), 5000, 'the cleared panel');
+    check('Enter on the panel\'s Clear clears the selection and keeps the focus on the cleared country\'s marker, not the page', (await focusOf(page)) === 'marker:FR'
+      && !(await page.evaluate(() => document.querySelector('#pocol-miners-map .pocol-marker.is-selected'))), await focusOf(page));
+    await close();
   }
   // ---- 4. Miners map ----
   {

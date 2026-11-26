@@ -533,8 +533,6 @@ export function cluster(points, unitsPerPx, radiusPx = CLUSTER_PX) {
   }
   return out;
 }
-/** Ring segments [{kind, from, length}] in fractions of the circle for active-and-sharing, inactive and other located
- * miners (located − active). */
 /** The marker core's class from a country's miner counts (the legend's keys): blue (no class) while any located miner is
  *  active and sharing, the inactive grey when the active ones are all inactive, the "located, not active" key when none
  *  is active; the nodes layer (counts null) is blue. */
@@ -542,6 +540,8 @@ export function markerCore(counts) {
   if (!counts || counts.active - counts.inactive > 0) return '';
   return counts.inactive > 0 ? 'is-inactive' : 'is-other';
 }
+/** Ring segments [{kind, from, length}] in fractions of the circle for active-and-sharing, inactive and other located
+ * miners (located − active). */
 export function ringSegments(located, active, inactive) {
   if (located <= 0) return [];
   const parts = [['active', active - inactive], ['inactive', inactive], ['other', located - active]].filter(([, n]) => n > 0);
@@ -716,9 +716,12 @@ function refocus(root, key) {
     target = peers.filter((e) => !e.disabled).sort((a, b) => Math.abs(peers.indexOf(a) - at) - Math.abs(peers.indexOf(b) - at))[0] || null;
   }
   if (!target && key.startsWith('marker:')) {
-    // A marker whose cluster changed: the marker now holding one of its countries, else the map itself.
+    // A marker whose cluster changed: the marker now holding the selected country if it was one of its countries, else
+    // the one holding one of its countries, else the map itself.
     const codes = key.slice(7).split(' '), markers = all.filter((e) => e.hasAttribute('data-codes'));
-    target = codes.map((c) => markers.find((m) => m.getAttribute('data-codes').split(' ').includes(c))).find(Boolean)
+    const holds = (m) => m.getAttribute('data-codes').split(' ').some((c) => codes.includes(c));
+    target = markers.find((m) => m.classList.contains('is-selected') && holds(m))
+      || codes.map((c) => markers.find((m) => m.getAttribute('data-codes').split(' ').includes(c))).find(Boolean)
       || all.find((e) => e.getAttribute('data-focus') === 'map') || null;
   }
   target?.focus({ preventScroll: true });
@@ -744,8 +747,9 @@ class View {
   keep(fn) {
     const a = document.activeElement, key = a && this.root.contains(a) ? a.closest('[data-focus]')?.getAttribute('data-focus') : null;
     const out = fn();
-    if (key && document.activeElement !== a) refocus(this.root, key);
-    else if (key && !a.isConnected) refocus(this.root, key);
+    // A redraw that placed the focus itself (a marker redraw moves it to the selected country) is left alone; only a
+    // focus that fell out of the view (its control replaced, the page body focused) is given back.
+    if (key && !this.root.contains(document.activeElement)) refocus(this.root, key);
     return out;
   }
 }
@@ -1531,7 +1535,18 @@ class MapView extends View {
       !c || c.miners.located === 0 ? h('p', { text: this.t('pNone', name) }) : null, this.shared.shapes.has(code) ? null : h('p', { text: this.t('pNoShape') })),
     rows.length ? h('dl', { class: 'pocol-country-stats' }, rows.map(([k, v]) => h('div', {}, h('dt', { text: k }), h('dd', {}, v)))) : null,
     h('div', { class: 'pocol-panel-actions' }, this.shared.shapes.has(code) ? h('button', { type: 'button', class: 'text-button', 'data-focus': 'panel:zoom', onclick: () => this.map?.fitCountry(code) }, icon('locate', 13), this.t('zoomTo')) : null,
-      h('button', { type: 'button', class: 'text-button', 'data-focus': 'panel:clear', onclick: () => this.select(null) }, this.t('clear'))));
+      h('button', { type: 'button', class: 'text-button', 'data-focus': 'panel:clear', onclick: () => this.clearSelection(code) }, this.t('clear'))));
+  }
+  /** The panel's Clear: the button goes with the panel, so a keyboard focus on it moves to the marker of the country it
+   *  cleared, else the map (never back to the page); a mouse click leaves the focus where the browser puts it. */
+  clearSelection(code) {
+    const a = document.activeElement;
+    let keyboard = false;
+    try { keyboard = !!a && this.root.contains(a) && a.matches(':focus-visible'); } catch { keyboard = !!a && this.root.contains(a); }
+    this.select(null);
+    if (!keyboard || this.root.contains(document.activeElement) || !this.map) return;
+    const marker = [...this.map.markerLayer.querySelectorAll('.pocol-marker[data-focus]')].find((m) => m.getAttribute('data-codes').split(' ').includes(code));
+    (marker || this.map.svg).focus({ preventScroll: true });
   }
   countryTable(d) {
     const reg = d.miners.registered, sel = (code) => () => { this.select(code); this.map?.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };

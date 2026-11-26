@@ -294,4 +294,3 @@ class FakeHolderChain:
                               **({'bondAccruedWei': str(a)} if a else {})) for (m, r), (p, a) in sorted(merged.items())]
         return {'schema': 'pocol-block-reward-v3', 'blockHeight': height, 'blockHash': self.blocks[height]['hash'],
                 'block': {'beneficiaries': beneficiaries}}
-

@@ -39,6 +39,11 @@ on:
       - 'prototypes/lp1-node/src/genesis_spec.rs'
       - 'prototypes/pocol-extension/package.json'
       - 'prototypes/pocol-extension/tests/data/decoder-corpus-v3.json'
+      # The explorer S1 publication plan step builds the extension (build.mjs from its lock file) and runs
+      # publisher_test.mjs, which pins the explorer snapshot's file and chunk counts.
+      - 'prototypes/pocol-extension/tests/publisher_test.mjs'
+      - 'prototypes/pocol-extension/build.mjs'
+      - 'prototypes/pocol-extension/package-lock.json'
       # Sites W14: the native package names the sites may name (assemble_release.py at package.py's version).
       - 'deploy/release/assemble_release.py'
       # The published extension ID and release key (test_downloads.py) and the release verifier release_page.py uses.
@@ -99,6 +104,9 @@ on:
       - 'prototypes/lp1-node/src/genesis_spec.rs'
       - 'prototypes/pocol-extension/package.json'
       - 'prototypes/pocol-extension/tests/data/decoder-corpus-v3.json'
+      - 'prototypes/pocol-extension/tests/publisher_test.mjs'
+      - 'prototypes/pocol-extension/build.mjs'
+      - 'prototypes/pocol-extension/package-lock.json'
       - 'deploy/release/assemble_release.py'
       # The published extension ID and release key (test_downloads.py) and the release verifier release_page.py uses.
       - 'deploy/release/allowed_signers'

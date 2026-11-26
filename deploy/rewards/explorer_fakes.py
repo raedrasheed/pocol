@@ -220,7 +220,8 @@ class FakeHolders:
     """The holders index (pocol_holders.HolderIndex's answers): page(options) answers `self.page_answer(options)` and
     stats() `self.stats_answer()`, or raises it when it is an exception class (pocol_holders.SnapshotChanged,
     Unavailable); registry(), winners(window), rewards_by_address() and map_inputs(known) for the miner map, counted in
-    `reads`."""
+    `reads` (a map_inputs snapshot as 'registry', 'winners', 'rewards'; a separate read as 'registry()',
+    'winners()', 'rewards_by_address()')."""
     def __init__(self):
         self.page_answer = holders_page
         self.stats_answer = holders_stats
@@ -243,27 +244,32 @@ class FakeHolders:
     def stats(self):
         return self._answer(self.stats_answer)
 
+    # The separate reads are listed under their own method names ('registry()', ...), never as a part of one
+    # map_inputs snapshot, so a test sees whether the miner map read its three inputs together.
     def registry(self):
-        self.reads.append('registry')
+        self.reads.append('registry()')
         return copy.deepcopy(self.map['registry'])
 
     def winners(self, window=8640):
-        self.reads.append('winners')
+        self.reads.append('winners()')
         return copy.deepcopy(self.map['winners'])
 
     def rewards_by_address(self):
-        self.reads.append('rewards')
+        self.reads.append('rewards_by_address()')
         return copy.deepcopy(self.map['rewards'])
 
     def map_inputs(self, known=None):
         """HolderIndex.map_inputs: the three of the snapshot stats() names (Unavailable as stats()), None when it is
-        `known`."""
+        `known`; otherwise one copy of `map` taken at once (one read transaction, as HolderIndex), listed in `reads`
+        as its three parts 'registry', 'winners', 'rewards'."""
         snapshot = self.stats()['snapshot']
         key = (snapshot['height'], snapshot['hash'])
         if key == known:
             return None
-        registry, winners, rewards = self.registry(), self.winners(), self.rewards_by_address()
-        return {'key': key, 'registry': registry, 'winners': winners,
+        one = copy.deepcopy(self.map)
+        self.reads.extend(['registry', 'winners', 'rewards'])
+        rewards = one['rewards']
+        return {'key': key, 'registry': one['registry'], 'winners': one['winners'],
                 'rewards': None if rewards is None else {k: v for k, v in rewards.items() if k != 'addresses'}}
 
 

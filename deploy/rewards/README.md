@@ -198,7 +198,11 @@ why it differs.
 
 `test_pocol_holders.py` runs the holders index on an in-process fake node (`holders_fakes.py`: branches, the 32-block
 state window, the registry, receipts and reward flows): the supply identity, the account types and bonds, rewards
-since the index start and their gap, reorganizations and pinned pages (409), retention, the index states, and a
+since the index start and their gap, reorganizations and pinned pages (409), retention, the index states, a snapshot
+scan longer than the 32-block state window (stopped before the batch that would leave it, resumed at a newer block
+reading again what moved since: transfers, contract payouts, registry rewards; published at one height and checked
+against the fake's state there), at most one full rescan per 60 s over ten
+minutes of contract payouts, the operator reset (every other table kept) on a path with URI characters, and a
 100,000-account set (publication 1.4-1.6 s, pages 0.4-0.6 ms, 3 ms for a one-digit search, no sort or table scan in
 any page's query plan). `test_pocol_geoip.py` builds a database from the synthetic `testdata/geoip-sample.csv` (not
 DB-IP data) and checks lookups, the public-address filter, keyed ids, credentials, report verification and the map

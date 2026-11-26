@@ -265,6 +265,9 @@ test('the map: projection, zoom bounds, clustering at the current zoom, ring seg
   assert.equal(M.markerCore({ located: 1, active: 0, inactive: 0 }), 'is-other', 'located, none active: not the active blue');
   assert.equal(M.markerCore({ located: 3, active: 1, inactive: 1 }), 'is-inactive');
   assert.match(CSS, /\.pocol-marker-core\.is-other \{ fill: #fff; stroke: #c9d6e0; \}/);
+  // Each doc comment sits directly above the function it describes.
+  assert.match(SOURCE, /\/\*\* Ring segments [^/]*\*\/\nexport function ringSegments\(/, 'the ring segments comment is above ringSegments');
+  assert.match(SOURCE, /\/\*\* The marker core's class [^/]*\*\/\nexport function markerCore\(/, 'the marker core comment is above markerCore');
   assert.deepEqual(M.choroplethLevels(3), [{ level: 1, lo: 1, hi: 1 }, { level: 2, lo: 2, hi: 2 }, { level: 3, lo: 3, hi: 3 }]);
   assert.deepEqual(M.choroplethLevels(100).map((l) => [l.lo, l.hi]), [[1, 25], [26, 50], [51, 75], [76, 100]]);
   assert.deepEqual(M.choroplethLevels(0), []);
@@ -282,4 +285,22 @@ test('the language: stored choice first, else the browser\'s; every text in both
   // The stated limits (§7) are in both languages.
   assert.equal(M.TEXTS.en.mapNotes.length, 4); assert.equal(M.TEXTS.en.notes.length, 5);
   assert.match(M.TEXTS.en.attribution.join(''), /^Map: Natural Earth · IP Geolocation by DB-IP$/);
+});
+
+test('the Websites workflow runs on a change of what its publisher step builds and runs, on pull requests and pushes alike', () => {
+  // The "Explorer S1 publication plan" step runs npm ci, npm run build and tests/publisher_test.mjs in the extension.
+  const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'websites.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(workflow, /npm ci --ignore-scripts\n\s+npm run build\n\s+node --test tests\/publisher_test\.mjs\n\s+working-directory: prototypes\/pocol-extension\n/);
+  const filters = (event) => {
+    const block = new RegExp(`\\n  ${event}:\\n[\\s\\S]*?\\n    paths:\\n((?:      .*\\n)+)`).exec(workflow);
+    assert.ok(block, `the ${event} trigger has path filters`);
+    return block[1].split('\n').map((l) => /^      - '([^']+)'$/.exec(l)?.[1]).filter(Boolean);
+  };
+  const pr = filters('pull_request'), push = filters('push');
+  for (const path of ['prototypes/pocol-extension/tests/publisher_test.mjs', 'prototypes/pocol-extension/build.mjs', 'prototypes/pocol-extension/package-lock.json',
+    'prototypes/pocol-extension/package.json', 'deploy/websites/**']) {
+    assert.ok(pr.includes(path), `pull_request paths name ${path}`);
+    assert.ok(push.includes(path), `push paths name ${path}`);
+  }
+  assert.deepEqual(push, pr, 'push has the same paths as pull_request');
 });

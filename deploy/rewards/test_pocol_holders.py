@@ -419,6 +419,7 @@ class VerificationTests(Base):
         chain = self.chain_with_contract()
         index = self.index(chain)
         self.assertTrue(self.settle(index)['verification']['complete'])
+        self.now[0] += H.RESCAN_MIN_SECONDS   # the first snapshot was a full scan: the next may start after this
         hidden = '0x' + '99' * 20
         chain.mine(internal=[('0x' + 'cc' * 20, hidden, PCOL // 4)])
         index.step()   # the difference is new: a full rescan is due, nothing is published at this height
@@ -442,6 +443,7 @@ class VerificationTests(Base):
         chain = self.chain_with_contract()
         index = self.index(chain)
         self.settle(index)
+        self.now[0] += H.RESCAN_MIN_SECONDS   # the first snapshot was a full scan: the next may start after this
         chain.mine(internal=[('0x' + 'cc' * 20, wallet(3), PCOL // 4)])
         stats = self.settle(index)
         self.assertTrue(stats['verification']['complete'])
@@ -1073,6 +1075,7 @@ class RescanScheduleTests(Base):
         chain = self.chain()
         index = self.index(chain)
         self.settle(index)
+        self.now[0] += H.RESCAN_MIN_SECONDS   # the first snapshot was a full scan: the next may start after this
         reads = []
         for i in range(3):   # a contract paying known wallets by internal calls in consecutive blocks
             chain.mine(internal=[(self.C, wallet(i), PCOL // 10)])
@@ -1089,6 +1092,30 @@ class RescanScheduleTests(Base):
         self.assertTrue(stats['verification']['complete'])
         rows = {r['address']: r for r in self.rows(index)}
         self.assertEqual(rows[wallet(2)]['availableWei'], str(PCOL + PCOL // 10))
+
+
+    def test_one_clock_gives_at_most_one_full_rescan_per_interval_over_ten_minutes(self):
+        chain = self.chain()
+        index = self.index(chain)
+        fulls = []
+        publish = index._publish
+        def recording(*args):   # (conn, h, .., full, now): the time of each full rescan's publication
+            if args[-2]:
+                fulls.append(args[-1])
+            return publish(*args)
+        index._publish = recording
+        self.settle(index)
+        start = self.now[0]
+        for i in range(60):    # 10 minutes of 10 s blocks, a contract paying a known wallet internally in each
+            self.now[0] += 10
+            chain.mine(internal=[(self.C, wallet(i % 30), PCOL // 100)])
+            self.settle(index)
+        self.assertEqual(self.now[0] - start, 600)
+        gaps = [b - a for a, b in zip(fulls, fulls[1:])]
+        self.assertTrue(all(g >= H.RESCAN_MIN_SECONDS for g in gaps), (fulls, gaps))
+        self.assertLessEqual(len(fulls), 1 + 600 // H.RESCAN_MIN_SECONDS)
+        # ... and, while the difference is published, still one every interval (ACCT-2).
+        self.assertGreaterEqual(len(fulls), 600 // H.RESCAN_MIN_SECONDS)
 
 
 class NodeBehindTests(Base):
@@ -1127,6 +1154,7 @@ class NodeBehindTests(Base):
         kept = self.restore(chain, kept, 52)   # inside the kept window, the same chain
         index.step()
         self.assertEqual(index.status()['heights'], before)
+        self.assertEqual(index.status()['state'], 'syncing')   # behind the index tip: waited for, not ready
         self.restore(chain, kept)
         chain.mine()
         self.settle(index)
@@ -1175,7 +1203,166 @@ class ScanWindowTests(Base):
         self.assertTrue(index.stats()['verification']['complete'])
 
 
+    def test_a_scan_longer_than_the_state_window_publishes_one_consistent_height(self):
+        chain = HF.FakeHolderChain()
+        count = 2 * H.SCAN_CHUNK + 50
+        chain.mine(txs=[tx(RW1, wallet(i), PCOL + i) for i in range(count)])
+        index = self.index(chain, batch=chain.batch)
+        balances, lags = [0], []
+        def slow(method, params):             # one new block per 33 balance reads: a full scan spans ~63 blocks
+            if method == 'eth_getBalance':
+                balances[0] += 1
+                if balances[0] % 33 == 0:
+                    chain.on_read = None
+                    chain.mine()
+                    chain.on_read = slow
+                lags.append(chain.head - int(params[1], 16))
+        chain.on_read = slow
+        with self.assertLogs('pocol_holders', 'WARNING') as logs:
+            for _ in range(20):
+                index.step()
+                if index.status()['heights']['snapshot'] is not None:
+                    break
+        chain.on_read = None
+        stopped = [line for line in logs.output if 'longer than the state window' in line]
+        self.assertGreaterEqual(len(stopped), 2, logs.output)      # the scan spanned three windows or more
+        h = index.status()['heights']['snapshot']
+        self.assertIsNotNone(h, 'a scan longer than the state window never published')
+        # Every read was made inside the window less its margin (the head is read before every batch) ...
+        self.assertLessEqual(max(lags), H.STATE_WINDOW - H.STATE_MARGIN)
+        # ... the stopped attempts' reads were kept, not made again ...
+        self.assertLess(balances[0], count + 200 * (len(stopped) + 1))
+        # ... and the snapshot is the state at one height, h, complete.
+        stats = index.stats()
+        self.assertEqual(stats['snapshot']['hash'], chain.blocks[h]['hash'])
+        self.assertTrue(stats['verification']['complete'], stats['verification'])
+        state = chain.states[h]
+        rows = self.rows(index)
+        for row in rows:
+            if row['type'] != 'system':
+                self.assertEqual(int(row['availableWei']), chain._account(state, row['address'])[0], row)
+        wallets = {r['address']: int(r['availableWei']) for r in rows if r['type'] == 'wallet'}
+        self.assertEqual({wallet(i): PCOL + i for i in range(count)}, {a: wallets.get(a) for a in
+                                                                        (wallet(i) for i in range(count))})
+        self.assertEqual(int(stats['verification']['balancesSumWei']), chain.balances_sum(h))
+
+    def test_a_resumed_scan_reads_again_what_changed_since_its_earlier_reads(self):
+        # Blocks mined while the scan runs move balances it has already staged: transfers to and from wallets early in
+        # its address order (their deltas), a payout between two known contracts no transaction names (every
+        # contract is read again) and a reward paid to a registry address that neither mined the block nor is a
+        # party of it (every registry address is read again). The snapshot must still be the state at its one height.
+        C, D = '0x' + '0c' * 20, '0x' + '0d' * 20     # first in the address order: staged by the first attempt
+        paid, payer = HF.FOUNDERS[0][0], HF.FOUNDERS[1][0]   # 0x15..: its own reward address, early in the order
+        chain = HF.FakeHolderChain()
+        count = 2 * H.SCAN_CHUNK
+        chain.mine(txs=[tx(RW1, wallet(i), PCOL + i) for i in range(count)])
+        chain.mine(txs=[tx(RW2, None, 10 * PCOL, creates=C), tx(RW2, None, PCOL, creates=D)])
+        index = self.index(chain, batch=chain.batch)
+        balances, moves = [0], [0]
+        def slow(method, params):
+            if method == 'eth_getBalance':
+                balances[0] += 1
+                if balances[0] % 33 == 0:
+                    chain.on_read = None
+                    moves[0] += 1
+                    k = moves[0]
+                    chain.mine(txs=[tx(RW1, wallet(k % 5), 7 + k), tx(wallet(5 + k % 5), wallet(10 + k % 5), 3)],
+                               internal=[(C, D, PCOL // 100)], miner=payer, flows=[(paid, paid, 1000 + k, 0)])
+                    chain.on_read = slow
+        chain.on_read = slow
+        outcomes = []
+        publish = index._publish
+        def recording(*args):
+            outcomes.append(publish(*args))
+            return outcomes[-1]
+        index._publish = recording
+        with self.assertLogs('pocol_holders', 'WARNING') as logs:
+            for _ in range(20):
+                index.step()
+                if index.status()['heights']['snapshot'] is not None:
+                    break
+        chain.on_read = None
+        self.assertGreaterEqual(len([x for x in logs.output if 'longer than the state window' in x]), 2, logs.output)
+        self.assertEqual(outcomes, ['published'])   # no stale staged read made a difference
+        h = index.status()['heights']['snapshot']
+        stats = index.stats()
+        self.assertTrue(stats['verification']['complete'], stats['verification'])
+        state = chain.states[h]
+        for row in self.rows(index):
+            if row['type'] != 'system':
+                self.assertEqual(int(row['availableWei']), chain._account(state, row['address'])[0], row)
+        self.assertEqual(int(stats['verification']['balancesSumWei']), chain.balances_sum(h))
+
+    def test_the_window_is_checked_before_the_first_batch(self):
+        chain = HF.FakeHolderChain()
+        chain.mine(txs=[tx(RW1, wallet(i), PCOL) for i in range(40)])
+        index = self.index(chain)
+        graces = [0]
+        def jump(method, params):             # the last graceStart read: the head moves 28 blocks
+            if method == 'eth_getStorageAt' and params[0] == H.REGISTRY and params[1] != '0x4':
+                graces[0] += 1
+                if graces[0] == len(HF.FOUNDERS):
+                    chain.on_read = None
+                    chain.mine_many(H.STATE_WINDOW - H.STATE_MARGIN)
+        chain.on_read = jump
+        with self.assertLogs('pocol_holders', 'WARNING') as logs:
+            index.step()
+        self.assertTrue(any('longer than the state window' in line for line in logs.output), logs.output)
+        self.assertEqual(chain.calls.get('eth_getBalance', 0), 0)   # no balance read at h past the margin
+        self.assertIsNone(index.status()['heights']['snapshot'])
+        self.assertTrue(self.settle(index)['verification']['complete'])
+
+    def test_a_reorganization_during_a_stopped_scan_starts_it_again(self):
+        chain = HF.FakeHolderChain()
+        count = H.SCAN_CHUNK + 50
+        chain.mine(txs=[tx(RW1, wallet(i), PCOL) for i in range(count)])
+        chain.mine(txs=[tx(RW1, wallet(5), PCOL)])   # branch A only: wallet 5 holds 2 PCOL at block 2
+        index = self.index(chain)
+        balances = [0]
+        def slow(method, params):
+            if method == 'eth_getBalance':
+                balances[0] += 1
+                if balances[0] % 33 == 0:
+                    chain.on_read = None
+                    chain.mine()
+                    chain.on_read = slow
+        chain.on_read = slow
+        with self.assertLogs('pocol_holders', 'WARNING'):
+            index.step()                      # pinned at block 2, stopped by the window after wallet 5 was read
+        chain.on_read = None
+        self.assertIsNone(index.status()['heights']['snapshot'])
+        chain.reorg(1)
+        chain.mine_many(30)                   # branch B: wallet 5 holds 1 PCOL
+        outcomes = []
+        publish = index._publish
+        def recording(*args):
+            outcomes.append(publish(*args))
+            return outcomes[-1]
+        index._publish = recording
+        stats = self.settle(index)
+        self.assertEqual(outcomes, ['published'])  # no stale branch-A read made a difference (and a rescan)
+        self.assertTrue(stats['verification']['complete'])
+        rows = {r['address']: r for r in self.rows(index)}
+        self.assertEqual(rows[wallet(5)]['availableWei'], str(PCOL))
+        ReorgTests.compare_with_fresh(self, chain, index)
+
+
 class ResetRewardsTests(Base):
+    KEPT = {'blocks': 'height', 'recent': 'height', 'accounts': 'address', 'deltas': 'height, address',
+            'history': 'height', 'snapshots': 'id', 'holders': 'snap, rank'}
+
+    @classmethod
+    def kept(cls, path):
+        """Every table the reset must keep, and every meta key but the three rewards ones (new24h's covered_from)."""
+        conn = sqlite3.connect(path)
+        try:
+            out = {t: conn.execute(f'SELECT * FROM {t} ORDER BY {order}').fetchall() for t, order in cls.KEPT.items()}
+            out['meta'] = dict(conn.execute("SELECT key, value FROM meta WHERE key NOT IN "
+                                            "('rewards_state', 'rewards_from', 'rewards_to')"))
+        finally:
+            conn.close()
+        return out
+
     def test_the_operator_command_restarts_rewards_and_keeps_everything_else(self):
         chain = HF.FakeHolderChain()
         chain.mine_many(3)
@@ -1188,10 +1375,14 @@ class ResetRewardsTests(Base):
         snapshot = index.status()['heights']['snapshot']
         index.close()
         self.opened.remove(index)
+        before = self.kept(self.path)
+        self.assertTrue(all(before[t] for t in ('blocks', 'accounts', 'history', 'snapshots', 'holders')))
+        self.assertNotEqual(before['meta'].get('covered_from', '-1'), '-1')   # new24h coverage is recorded
         out = __import__('io').StringIO()
         with unittest.mock.patch('sys.stdout', out):
             self.assertEqual(H.main(['reset-rewards', '--db', self.path]), 0)
         self.assertIn('they were: gap', out.getvalue())
+        self.assertEqual(self.kept(self.path), before)   # blocks, accounts, history, snapshots, new24h kept
         index = self.index(chain)
         self.assertEqual(index.status()['heights']['snapshot'], snapshot)
         self.assertEqual(index.stats()['history'], history)
@@ -1209,6 +1400,37 @@ class ResetRewardsTests(Base):
             sqlite3.connect(other).close()
             self.assertEqual(H.main(['reset-rewards', '--db', other]), 1)
         self.assertIn('not a holders index file', errors.getvalue())
+
+
+    def test_a_path_with_uri_characters(self):
+        # '?' cannot be in a Windows file name; '#', '%' and a space can.
+        folder = os.path.join(self.dir.name, 'index #1 %41' + ('' if os.name == 'nt' else ' ?a=b'))
+        os.mkdir(folder)
+        path = os.path.join(folder, 'holders %20.sqlite3')
+        chain = HF.FakeHolderChain()
+        chain.mine_many(2)
+        index = self.index(chain, path=path)
+        self.assertEqual(self.settle(index)['rewards']['to'], 2)     # the page reader opens this path
+        index.close()
+        self.opened.remove(index)
+        self.assertEqual(H.reset_rewards_file(path), 'ok')
+        conn = sqlite3.connect(path)
+        try:
+            self.assertEqual(conn.execute("SELECT value FROM meta WHERE key='rewards_state'").fetchone(), ('none',))
+        finally:
+            conn.close()
+        self.assertEqual(sorted(os.listdir(self.dir.name)), [os.path.basename(folder)])   # no other file made
+
+    def test_the_uri_is_the_absolute_path_not_a_resolved_one(self):
+        # Resolving would turn a Windows mapped network drive into a UNC path (file://server/...), which SQLite
+        # refuses; a relative path is made absolute and nothing else (a link in it stays).
+        uri = H.sqlite_uri(os.path.join('a b', 'c#d.sqlite3'), 'ro')
+        self.assertEqual(uri, Path(os.path.abspath(os.path.join('a b', 'c#d.sqlite3'))).as_uri() + '?mode=ro')
+        self.assertTrue(uri.endswith('/a%20b/c%23d.sqlite3?mode=ro'), uri)
+        if os.name != 'nt':
+            os.symlink(self.dir.name, os.path.join(self.dir.name, 'link'))
+            linked = os.path.join(self.dir.name, 'link', 'x.sqlite3')
+            self.assertIn('/link/x.sqlite3?mode=rw', H.sqlite_uri(linked, 'rw'))
 
 
 class MapInputsTests(Base):

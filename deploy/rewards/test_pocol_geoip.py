@@ -533,6 +533,25 @@ class GeographyTests(DatabaseCase):
         self.assertEqual((answer['miners']['active'], answer['miners']['inactive'], answer['miners']['exited']), (3, 1, 1))
         self.assertInvariants(answer)
 
+    def test_records_that_are_not_active_are_never_inactive_however_old_their_last_share(self):
+        # Height 1000, theta 360: every record's last share is 1000 blocks old. Only A is active (so inactive); D has
+        # exited, E is punished (a tomb) and F's bond is not held (bond state 3): none of them is inactive.
+        miner_f = '0x' + 'f' * 40
+        holders = FakeHolders(records=[record(MINER_A, last_share=0), record(MINER_D, status=2, last_share=0),
+                                       record(MINER_E, tomb=1, last_share=0),
+                                       record(miner_f, bond_state=3, last_share=0)])
+        geography = self.make(holders=holders, peers=[])
+        self.assertEqual(self.send(geography, 'founder-1', '5.0.0.10', miner=MINER_D), 204)
+        self.assertEqual(self.send(geography, 'founder-2', '9.9.9.9', miner=MINER_E), 204)
+        self.assertEqual(self.send(geography, 'founder-3', '5.0.2.10', miner=miner_f), 204)
+        answer = geography.answer()
+        self.assertEqual((answer['miners']['active'], answer['miners']['inactive']), (1, 1))
+        countries = {c['code']: c['miners'] for c in answer['countries']}
+        self.assertEqual(countries, {'DE': {'located': 1, 'active': 0, 'inactive': 0, 'connected': 1},
+                                     'US': {'located': 1, 'active': 0, 'inactive': 0, 'connected': 1},
+                                     'FR': {'located': 1, 'active': 0, 'inactive': 0, 'connected': 1}})
+        self.assertInvariants(answer)
+
     def test_servers_that_disagree_on_a_peer_leave_it_unlocated(self):
         geography = self.make(peers=[])
         self.assertEqual(self.send(geography, 'founder-1', '5.0.0.10', miner=None, peer_ips=[('77.7.7.7', 'US')]), 204)
@@ -750,6 +769,70 @@ class GeographyTests(DatabaseCase):
             geo.Geography(None, b'short', NET, FakeHolders(), None)
         with self.assertRaises(ValueError):
             geo.Geography(None, None, {'chainId': 0, 'genesisHash': NET['genesisHash']}, FakeHolders(), None)
+
+
+class ActiveRuleCrossCheckTests(unittest.TestCase):
+    """The active and inactive rule (§2) is written twice: in Geography.answer() (pocol_geoip, over any holders index)
+    and in the holders index's published registry flags (pocol_holders, HolderIndex._publish). Both are evaluated here
+    on one table of boundary records at one snapshot of the real holders index (holders_fakes' in-process v3 node),
+    record by record, and must agree."""
+
+    def test_geography_and_the_holders_index_classify_every_boundary_record_alike(self):
+        import pocol_holders as H
+        import holders_fakes as HF
+        # theta 5; the registry snapshot is at height 8, so h + 1 = 9 >= max(lastShare, graceStart) + 5 is the test.
+        cases = {   # record changes, (active, inactive)
+            'last share exactly at the boundary': ({'lastShare': 4}, (True, True)),
+            'last share one block short': ({'lastShare': 5}, (True, False)),
+            'recent last share': ({'lastShare': 8}, (True, False)),
+            'grace start exactly at the boundary': ({'lastShare': 0, 'graceStart': 4}, (True, True)),
+            'grace start one block short': ({'lastShare': 0, 'graceStart': 5}, (True, False)),
+            'accruing bond, old last share': ({'bondState': 4, 'lastShare': 0}, (True, True)),
+            'bond state 2, old last share': ({'bondState': 2, 'lastShare': 0}, (False, False)),
+            'bond state 3, old last share': ({'bondState': 3, 'lastShare': 0}, (False, False)),
+            'exited, old last share': ({'status': 2, 'lastShare': 0}, (False, False)),
+            'status 0, old last share': ({'status': 0, 'lastShare': 0}, (False, False)),
+            'punished (tomb), old last share': ({'tomb': True, 'lastShare': 0}, (False, False)),
+            'punished and exited, old last share': ({'tomb': True, 'status': 2, 'lastShare': 0}, (False, False)),
+        }
+        members = [('0x' + f'{i + 1:040x}', '0x' + f'{i + 0x100:040x}') for i in range(len(cases) + 1)]
+        ids = dict(zip(cases, (m for m, _ in members[1:])))   # members[0] stays a live miner that mines every block
+        chain = HF.FakeHolderChain(members=members, cp={25: 5})
+
+        def setup(state, n):
+            for name, (changes, _) in cases.items():
+                state.records[ids[name]].update(changes)
+        chain.mine_many(6)
+        chain.mine(mutate=setup)
+        chain.mine()
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        index = H.HolderIndex(Path(folder.name) / 'holders.sqlite3', chain.query, chain.network, rewards=chain.rewards,
+                              pace=0, slowdown=0)
+        self.addCleanup(index.close)   # before the folder goes (Windows cannot delete an open SQLite file)
+        for _ in range(4):
+            index.step()
+        registry = index.registry()
+        self.assertEqual((registry['height'], registry['thetaInact']), (8, 5))
+        flags = {r['id']: (r['active'], r['inactive']) for r in registry['records']}
+
+        class One:
+            """A holders index of one registry record, adapted as gateway.HolderMapInputs adapts it."""
+            def __init__(self, r):
+                self.record = {**r, 'tomb': int(r['tomb']), 'graceStart': r['graceStart'] or 0}
+
+            def registry(self):
+                return {**registry, 'records': [self.record]}
+
+            def winners(self, window):
+                return {'from': 1, 'to': registry['height'], 'blocks': 0, 'miners': {}}
+        for name, (_, expected) in cases.items():
+            with self.subTest(name):
+                r = next(r for r in registry['records'] if r['id'] == ids[name])
+                miners = geo.Geography(None, None, NET, One(r), None, Clock()).answer()['miners']
+                self.assertEqual(flags[ids[name]], expected, 'the holders index flags')
+                self.assertEqual((bool(miners['active']), bool(miners['inactive'])), expected, 'the miner map')
+                self.assertEqual((miners['active'], miners['inactive']), tuple(map(int, flags[ids[name]])))
 
 
 if __name__ == '__main__':

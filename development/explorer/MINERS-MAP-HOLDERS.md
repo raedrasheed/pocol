@@ -84,9 +84,24 @@ reorganizations, and Windows-safe connection handling.
   system addresses), all registry records (`pocol_getMiners` bracketed by head-hash reads; graceStart from storage at h),
   `heldTotal`, `burnedTotal`, Escrow balance, `pocol_getCaps` when its `number` is h; then G, F, S and the
   verification. If Σ balances ≠ G − F, every known address is re-read at a new pinned height (full rescan); if it
-  still differs, the snapshot is published with `complete:false` and the difference. A new difference starts at most
-  one full rescan per 60 s (`RESCAN_MIN_SECONDS`; in between it is published), and while a difference is published
-  every known address is re-read every 60 s, so a published balance lags by at most that.
+  still differs, the snapshot is published with `complete:false` and the difference. At most one full rescan runs per
+  60 s (`RESCAN_MIN_SECONDS`), whether a new difference or the periodic rescan starts it (one clock, the last full
+  rescan's time; in between the difference is published), and while a difference is published every known address
+  is re-read every 60 s, so a published balance lags by about one minute plus one snapshot's duration.
+- **Scans longer than the state window:** the head is read before every batch of reads; a snapshot whose next batch
+  would read state h with the head 28 or more blocks past h (`STATE_WINDOW − STATE_MARGIN`) stops before it, keeps
+  every balance it read (staged per batch) and goes on at the next pinned height h′, where it reads again only what
+  may have changed since: the addresses with a delta in (h, h′], every contract, every registry ID and reward
+  address and the system addresses; then it reads the rest. The snapshot is published at one height, the last
+  pinned one, with every balance current there as the index knows it (the supply identity checks the rest). So a
+  first or full scan of any number of known addresses publishes; the bound is that one attempt must read the set it
+  re-reads every time (contracts, registry addresses, system addresses, the addresses touched since the previous
+  attempt) plus some progress within about 28 blocks (about 4.7 minutes of 10 s blocks), in batches of 20. Not
+  measured against pocold. A reorganization below the scan's pinned height, or a full rescan that becomes due during
+  a partial scan, starts the scan again. Limit: a payment by internal call from a contract the index has not
+  discovered, to an address already read in an earlier attempt, is not re-read, so a full rescan spread over several
+  attempts cannot locate it; the supply identity still marks such a snapshot incomplete (`unlocatedWei` ≠ 0), never
+  complete. A scan that fits in one attempt has no such gap.
 - **Rewards:** for each new tip block, `snapshot_v3(height=h)` flows are added per address (`amountWei`) and per miner
   ID (`bondAccruedWei`); `rewardsFrom` is the first height covered; a gap longer than the window sets rewards to null
   from then on until an explicit operator reset: `python3 pocol_holders.py reset-rewards --db FILE` with the service
@@ -100,7 +115,8 @@ reorganizations, and Windows-safe connection handling.
 - **Bounds:** catch-up paced; at most one tip snapshot per new block, slower when a snapshot's materialization takes
   longer than a block; reads to the node through `Gateway.query` (loopback) only, batched where pocold allows
   (`Gateway.index_batch`, BATCH_MAX 20), with an answer limit of pocold's RESP_MAX (a full registry); a snapshot whose
-  reads outlive the state window stops early. A node behind the index on the same chain is waited for (the last
+  reads would outlive the state window stops before the batch and goes on later from the reads it made (above). A
+  node behind the index on the same chain is waited for (the last
   snapshot is still served); everything is indexed again only when the node serves a block at every kept height and
   none of them is the stored one.
 

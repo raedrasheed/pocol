@@ -202,11 +202,17 @@ lists accounts and state is served only for the newest 32 blocks, so the index b
   reads the block at h again (a change discards the snapshot). It checks the supply identity: the sum of the found
   balances must equal the minted supply less the base fees destroyed. A difference first makes the next round read
   every known address again; one that survives that is published with `verification.complete: false` and the
-  difference. A new difference starts at most one such rescan per 60 s, and while a difference is published every
-  known address is read again every 60 s, so a published balance then lags by at most 60 s. The node reads are
-  loopback batches of 20 (`Gateway.index_batch`) with pocold's 8 MiB answer limit (a full registry); a snapshot whose
-  reads outlive the state window stops and is tried again later at a newer block. When `pocol_getCaps` answers for
-  h, its account count is compared too (else `accountsOnChain` is null).
+  difference. At most one such full rescan runs per 60 s, whether a new difference or the periodic rescan starts it,
+  and while a difference is published every known address is read again every 60 s, so a published balance then lags
+  by about one minute plus one snapshot's duration. The node reads are loopback batches of 20
+  (`Gateway.index_batch`) with pocold's 8 MiB answer limit (a full registry), and the head is read before every
+  batch. A snapshot whose next batch would read h with the head 28 or more blocks past it stops before that batch,
+  keeps the balances it read and goes on at a newer block, where it reads again only what may have changed since
+  (the addresses touched since, every contract, the registry's IDs and reward addresses and the system addresses)
+  and then the rest; it is published at that one height. So a first or full scan longer than the state window still
+  publishes. The bound: each attempt must read that re-read set plus some progress within about 28 blocks (about
+  4.7 minutes at 10 s blocks); not measured against pocold. When `pocol_getCaps` answers for h, its account count is
+  compared too (else `accountsOnChain` is null).
 - Mining rewards: each new block's executed reward flows (`pocol_rewards.snapshot_v3` of that block: the settlement's
   winner, proposer and share payments, the tip share and the evidence reporter's cut; bond refunds and transfers are
   not rewards) per reward address and miner ID, from the first block the index followed (`rewardsFrom`). A gap longer

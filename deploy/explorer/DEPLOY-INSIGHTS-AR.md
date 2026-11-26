@@ -124,7 +124,8 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Content-Type: application/j
 | ماذا | كيف | المتوقع؛ ومتى تتصرف |
 |---|---|---|
 | حالة الفهرس | `curl -s https://explorer.pocol.net/api/holders.php \| head -c 400` | `ready`، وارتفاع اللقطة يتقدّم خلف الرأس ببضع كتل؛ بقاء `reconnecting` أكثر من بضع دقائق يعني أن العقدة لا تجيب |
-| الاكتمال | `verification` في `holders-stats.php` | `complete` صحيحة؛ أي فرق يُنشر (F-104) |
+| الاكتمال | `verification` في `holders-stats.php` | `complete` صحيحة؛ أي فرق يُنشر (F-104)، وما دام منشورًا تُقرأ كل الأرصدة المعروفة كل 60 ثانية، فيتأخر الرصيد المنشور نحو دقيقة واحدة مضافًا إليها مدة لقطة واحدة |
+| المسح الطويل | `sudo journalctl -u pocol-explorer-gateway.service --no-pager \| grep 'longer than the state window'` | لا شيء، أو أسطر قليلة أثناء المسح الأول (الكامل): كل توقف يحتفظ بما قرأه ويكمل عند كتلة أحدث، ويبقى ارتفاع اللقطة يتقدّم. إذا لم يتقدّم أبدًا فالمحاولة الواحدة لا تستطيع قراءة كل العقود ومعرّفات السجل وعناوين مكافآتها وعناوين النظام والعناوين التي ظهرت منذ المحاولة السابقة خلال 28 كتلة (نحو 4.7 دقائق؛ README، قسم Holders index): أبلغ عنه مع أسطر السجل |
 | المكافآت | `rewards.from` في `holders-stats.php` | ارتفاع بدء الفهرس؛ null تعني فجوة تجاوزت نافذة 32 كتلة (F-103): أعد ضبطها بالأمر `pocol_holders.py reset-rewards` (README، قسم Holders index)، ولا يُمسّ شيء غيرها |
 | ذاكرة البوابة ومعالجها | `systemctl show pocol-explorer-gateway.service -p MemoryCurrent -p CPUUsageNSec` و `systemd-cgtop -b -n 1` | أقل بكثير من `MemoryMax=256M` (المقيس: لقطة 100,000 حساب أقل من 50 ميغابايت)؛ استرجع إن اقتربت من الحد أو أُعيد تشغيل الخدمة |
 | حمل العقدة | `ps -o rss,pcpu,etime -C pocold` ورأس `pocol_status` وأقرانها | تبقى عقدة المراقبة متزامنة مع أقرانها؛ كل كتلة جديدة تضيف قراءة مكافآت واحدة (`snapshot_v3`)، وكل لقطة تقرأ الأرصدة التي تغيّرت |

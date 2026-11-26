@@ -41,14 +41,20 @@ reward flow's miner ID and reward address, the registry at each snapshot, the ge
 addresses. Not discoverable over RPC (stated, never estimated): an address that only received PCOL by an internal call
 of a non-system contract, or a reward address set by a contract's internal call to the Registry that left the registry
 before the index followed one of its flows. Such value shows as verification.unlocatedWei. While a difference is
-published, every known address is read again every RESCAN_MIN_SECONDS, so a published balance lags by at most that;
-a new difference starts at most one full rescan per RESCAN_MIN_SECONDS. A node behind the index on the same chain (a
-resync or restore) is waited for: nothing is removed and the last snapshot is still served. Reads are batched
-(pocold batches of READ_BATCH) when `batch` is given; a snapshot whose reads outlive the state window stops early.
+published, every known address is read again every RESCAN_MIN_SECONDS, so a published balance lags by about that
+plus one snapshot's duration; at most one full rescan, of either cause, runs per RESCAN_MIN_SECONDS (one clock,
+full_at). A node behind the index on the same chain (a resync or restore) is waited for: nothing is removed and the
+last snapshot is still served. Reads are batched (pocold batches of READ_BATCH) when `batch` is given, and the head is
+read before every batch: a snapshot whose reads would outlive the state window stops before that batch, keeps the
+reads it made and goes on at the next pinned height, reading again only what may have changed since (_dirty_set), so
+a scan longer than the window (a first or full scan of many addresses) still publishes, at one height. What every
+attempt must read whole (every contract, registry ID and reward address, the system addresses and the addresses
+touched since the previous attempt) has to fit in the window (STATE_WINDOW - STATE_MARGIN blocks).
 Standard library only (Python 3.10+).
 """
 import json
 import logging
+import os
 import re
 import sqlite3
 import sys
@@ -79,8 +85,8 @@ KEEP_SECONDS = 180.0
 HISTORY_SECONDS = 3600         # one statistics history point per hour of block time
 HISTORY_POINTS_MAX = 2000
 RESCAN_SECONDS = 3600.0        # a full rescan at least this often, even when the identity holds
-RESCAN_MIN_SECONDS = 60.0      # a new difference starts a full rescan at most this often; while a difference is
-                               # published (complete false) a full rescan runs this often
+RESCAN_MIN_SECONDS = 60.0      # at most one full rescan (a new difference or periodic) this often; while a difference
+                               # is published (complete false) a full rescan runs this often
 SNAPSHOT_SLOWDOWN = 2.0        # the next snapshot waits this many times the last snapshot's duration
 COMMIT_BLOCKS = 200
 READ_BATCH = 20                # pocold BATCH_MAX (rpc.rs)
@@ -132,6 +138,18 @@ class Unavailable(RuntimeError):
 
 class NodeAnswerInvalid(RuntimeError):
     """A node answer of an unexpected shape: nothing of it is stored."""
+
+
+class WindowPassed(RuntimeError):
+    """The head moved so far past a snapshot's pinned height that its next read could leave the state window."""
+
+
+def sqlite_uri(path, mode):
+    """A SQLite URI for `path` opened with `mode` ('ro', 'rw'): the absolute path percent-encoded (Path.as_uri), so a
+    '?', '#', '%' or space in it names the file instead of starting the query or a fragment; Windows-safe
+    (file:///C:/...). The path is made absolute, not resolved: resolving turns a mapped network drive into a UNC path
+    (file://server/...), whose authority SQLite refuses."""
+    return Path(os.path.abspath(path)).as_uri() + '?mode=' + mode
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -427,7 +445,7 @@ CREATE TABLE IF NOT EXISTS dirty(address TEXT PRIMARY KEY, nonce INTEGER NOT NUL
 CREATE TABLE IF NOT EXISTS scan(address TEXT PRIMARY KEY, balance TEXT NOT NULL, nonce INTEGER, code INTEGER)
     WITHOUT ROWID;
 '''
-SCAN_CHUNK = 1000              # addresses read and staged per write while a snapshot reads balances
+SCAN_CHUNK = 1000              # dirty addresses fetched per query while a snapshot reads balances (bounded memory)
 ROW_COLUMNS = 'rank, address, type, label, miner_ids, reward_address, total, available, bonded, share, txs, mined, rewards'
 # Every statement a page runs (test_pocol_holders checks their query plans): rank ranges on the primary key, type-rank
 # ranges on holders_type, a search's address range on holders_address, then each row by its primary key.
@@ -448,7 +466,7 @@ PAGE_SQL = {
 }
 META_DEFAULTS = {'rewards_state': 'none', 'rewards_from': '-1', 'rewards_to': '-1', 'refreshed': '-1', 'full': '0',
                  'residual': '0', 'rescan_at': '0', 'covered_from': '-1', 'final': '-1', 'full_at': '0',
-                 'difference_at': '-1e18'}
+                 'scan_at': '-1', 'scan_full': '0'}
 
 
 def default_rewards(query, network, fork_schedule=DEFAULT_FORK_SCHEDULE):
@@ -522,7 +540,7 @@ class HolderIndex:
         return conn
 
     def _reader(self):
-        conn = sqlite3.connect(f'file:{self.path}?mode=ro', uri=True, timeout=0.5, isolation_level=None)
+        conn = sqlite3.connect(sqlite_uri(self.path, 'ro'), uri=True, timeout=0.5, isolation_level=None)
         try:
             conn.execute('PRAGMA query_only=1')
             deadline = time.monotonic() + PAGE_SECONDS
@@ -876,6 +894,9 @@ class HolderIndex:
                     self._set(conn, 'final', -1)
                 if int(self._meta(conn, 'covered_from')) > fork:
                     self._set(conn, 'covered_from', -1)
+                if int(self._meta(conn, 'scan_at')) > fork:
+                    # A snapshot's reads in progress were (partly) at removed heights: its scan starts again.
+                    self._clear_scan(conn)
             conn.execute('COMMIT')
         except BaseException:
             conn.execute('ROLLBACK')
@@ -920,6 +941,14 @@ class HolderIndex:
         HolderIndex._set(conn, 'rewards_state', state)
         HolderIndex._set(conn, 'rewards_from', -1)
         HolderIndex._set(conn, 'rewards_to', -1)
+
+    @staticmethod
+    def _clear_scan(conn):
+        """No snapshot scan in progress: its work list and its reads so far are dropped."""
+        conn.execute('DELETE FROM dirty')
+        conn.execute('DELETE FROM scan')
+        HolderIndex._set(conn, 'scan_at', -1)
+        HolderIndex._set(conn, 'scan_full', 0)
 
     def reset_rewards(self):
         """Operator reset after a gap: the totals are cleared and rewards count again from the next followed block
@@ -1022,57 +1051,25 @@ class HolderIndex:
         if sum(r['bond'] for r in records if held(r)) != held_total:
             return 'moved'  # pocol_getMiners was not the state at h
         active = [r for r in records if r['status'] == 1 and not r['tomb']]
-        graces = self._read_many([('eth_getStorageAt', [REGISTRY, hex(record_slot(r['id']) + 3), at]) for r in active])
-        grace = {r['id']: _word(v, 'graceStart') >> 192 for r, v in zip(active, graces)}
-
         registry_addresses = set()
         for r in records:
             registry_addresses.update((r['id'], r['reward']))
         new = sorted(a for a in registry_addresses
                      if conn.execute('SELECT 1 FROM accounts WHERE address=?', (a,)).fetchone() is None)
-        self._dirty_set(conn, h, full, registry_addresses, new)
-        # The dirty set's reads at h, in chunks of SCAN_CHUNK addresses staged in `scan` (bounded memory); applied
-        # only after the block at h is read again.
-        last = ''
-        while True:
-            chunk = conn.execute('SELECT address, nonce, code FROM dirty WHERE address>? ORDER BY address LIMIT ?',
-                                 (last, SCAN_CHUNK)).fetchall()
-            if not chunk:
-                break
-            if last and self._latest()['height'] - h >= STATE_WINDOW - STATE_MARGIN:
-                # The scan outlived the state window at h: it stops here rather than read on into -32017 answers,
-                # and the next attempt waits slowdown x the time spent (the node is not scanned back to back).
-                LOG.warning('holders index: the snapshot at block %d took longer than the state window; '
-                            'trying again at a newer block', h)
-                self.next_snapshot = self.clock() + (time.monotonic() - started) * self.slowdown
-                return 'moved'
-            last = chunk[-1][0]
-            calls = []
-            for address, nonce, code in chunk:
-                calls.append(('eth_getBalance', [address, at]))
-                if nonce:
-                    calls.append(('eth_getTransactionCount', [address, at]))
-                if code:
-                    calls.append(('eth_getCode', [address, at]))
-            results = iter(self._read_many(calls))
-            staged = []
-            for address, nonce, code in chunk:
-                balance = _qty(next(results), 'balance')
-                n = _qty(next(results), 'nonce', 64) if nonce else None
-                c = None
-                if code:
-                    value = next(results)
-                    if not isinstance(value, str) or not DATA.fullmatch(value):
-                        raise NodeAnswerInvalid('Malformed code')
-                    c = 1 if len(value) > 2 else 0
-                staged.append((address, str(balance), n, c))
-            conn.execute('BEGIN IMMEDIATE')
-            try:
-                conn.executemany('INSERT INTO scan VALUES(?,?,?,?)', staged)
-                conn.execute('COMMIT')
-            except BaseException:
-                conn.execute('ROLLBACK')
-                raise
+        try:
+            graces = self._read_pinned([('eth_getStorageAt', [REGISTRY, hex(record_slot(r['id']) + 3), at])
+                                        for r in active], h)
+            grace = {r['id']: _word(v, 'graceStart') >> 192 for r, v in zip(active, graces)}
+            full = self._dirty_set(conn, h, full, registry_addresses, new)
+            self._scan(conn, h)
+        except WindowPassed:
+            # The reads outlived the state window at h: they stop here rather than read on into -32017 answers. The
+            # balances read so far stay staged and the next attempt goes on from them at its own pinned height
+            # (_dirty_set), and it waits slowdown x the time spent (the node is not scanned back to back).
+            LOG.warning('holders index: the snapshot at block %d took longer than the state window; '
+                        'its reads so far are kept and it goes on at a newer block', h)
+            self.next_snapshot = self.clock() + (time.monotonic() - started) * self.slowdown
+            return 'moved'
         try:
             caps = self._read('pocol_getCaps', [])
         except RuntimeError:
@@ -1092,8 +1089,7 @@ class HolderIndex:
                          'nonce=COALESCE((SELECT s.nonce FROM scan s WHERE s.address=accounts.address), nonce), '
                          'code=COALESCE((SELECT s.code FROM scan s WHERE s.address=accounts.address), code), '
                          'checked=? WHERE address IN (SELECT address FROM scan)', (h,))
-            conn.execute('DELETE FROM scan')
-            conn.execute('DELETE FROM dirty')
+            self._clear_scan(conn)
             self._set(conn, 'refreshed', h)
             outcome = self._publish(conn, h, block_hash, check['timestamp'], records, grace, held_total, burned, caps,
                                     full, now)
@@ -1107,27 +1103,111 @@ class HolderIndex:
         return outcome
 
     def _dirty_set(self, conn, h, full, registry_addresses, new):
-        """Fills `dirty` (address, read the nonce, read the code): in a full rescan every known address (the code only
-        where none was seen); otherwise the addresses never read, every contract, the transaction parties and created
-        contracts since the last refresh (senders: nonce; creations: nonce and code), every registry ID and reward
-        address and the system addresses. Registry addresses new to the index are read whole."""
+        """Fills `dirty` (address, read the nonce, read the code), the work list of the snapshot at h: in a full rescan
+        every known address (the code only where none was seen); otherwise the addresses never read, every contract,
+        the transaction parties and created contracts since the last refresh (senders: nonce; creations: nonce and
+        code), every registry ID and reward address and the system addresses. Registry addresses new to the index are
+        read whole. Returns whether the scan is a full rescan.
+
+        A scan stopped by the state window (scan_at, the pinned height of its last attempt) goes on rather than start
+        again: its staged reads stay valid at h except for what may have changed since scan_at, which is read again at
+        h: the addresses with a delta in (scan_at, h] (as for the refreshed balances), every contract (its balance moves
+        without a transaction naming it), the system addresses and every registry address. So every balance a
+        snapshot publishes is one the index knows to be current at h, exactly as for an address the dirty set leaves
+        out; the supply identity at h checks the rest. The scan starts again when a full rescan becomes due during a
+        partial one, without the deltas of (scan_at, h] (past the kept blocks) and after a reorganization."""
         conn.execute('BEGIN IMMEDIATE')
         try:
-            conn.execute('DELETE FROM dirty')
-            conn.execute('DELETE FROM scan')
-            if full:
-                conn.execute('INSERT INTO dirty SELECT address, 1, CASE WHEN code=1 THEN 0 ELSE 1 END FROM accounts')
+            scan_at = int(self._meta(conn, 'scan_at'))
+            oldest = conn.execute('SELECT MIN(height) FROM blocks').fetchone()[0]
+            scan_full = self._meta(conn, 'scan_full') == '1'
+            if (0 <= scan_at <= h and oldest is not None and oldest <= scan_at + 1
+                    and (scan_full or not full)):
+                full = scan_full
+                conn.execute('DELETE FROM scan WHERE address IN (SELECT address FROM deltas WHERE height>? AND '
+                             'height<=?)', (scan_at, h))
+                conn.execute('DELETE FROM scan WHERE code=1 OR address IN (SELECT address FROM accounts WHERE code=1)')
+                conn.executemany('DELETE FROM scan WHERE address=?',
+                                 [(a,) for a in sorted({*LABELS, *registry_addresses, *new})])
             else:
-                conn.execute('INSERT INTO dirty SELECT address, 1, 1 FROM accounts WHERE checked IS NULL')
-                conn.execute('INSERT OR IGNORE INTO dirty SELECT address, 0, 0 FROM accounts WHERE code=1')
-                conn.execute('INSERT INTO dirty SELECT address, MAX((flags & ?) != 0), MAX((flags & ?) != 0) '
-                             'FROM deltas WHERE height>? AND height<=? GROUP BY address '
-                             'ON CONFLICT(address) DO UPDATE SET nonce=MAX(nonce, excluded.nonce), '
-                             'code=MAX(code, excluded.code)',
-                             (SENT | CREATED, CREATED, int(self._meta(conn, 'refreshed')), h))
-                conn.executemany('INSERT OR IGNORE INTO dirty VALUES(?,0,0)',
-                                 [(a,) for a in sorted({*LABELS, *registry_addresses})])
+                self._clear_scan(conn)
+            upsert = ('ON CONFLICT(address) DO UPDATE SET nonce=MAX(nonce, excluded.nonce), '
+                      'code=MAX(code, excluded.code)')
+            if full:
+                conn.execute('INSERT INTO dirty SELECT address, 1, CASE WHEN code=1 THEN 0 ELSE 1 END FROM accounts '
+                             'WHERE 1 ' + upsert)
+                self._set(conn, 'scan_full', 1)
+            conn.execute('INSERT INTO dirty SELECT address, 1, 1 FROM accounts WHERE checked IS NULL ' + upsert)
+            conn.execute('INSERT OR IGNORE INTO dirty SELECT address, 0, 0 FROM accounts WHERE code=1')
+            conn.execute('INSERT INTO dirty SELECT address, MAX((flags & ?) != 0), MAX((flags & ?) != 0) '
+                         'FROM deltas WHERE height>? AND height<=? GROUP BY address ' + upsert,
+                         (SENT | CREATED, CREATED, int(self._meta(conn, 'refreshed')), h))
+            conn.executemany('INSERT OR IGNORE INTO dirty VALUES(?,0,0)',
+                             [(a,) for a in sorted({*LABELS, *registry_addresses})])
             conn.executemany('INSERT OR REPLACE INTO dirty VALUES(?,1,1)', [(a,) for a in new])
+            self._set(conn, 'scan_at', h)
+            conn.execute('COMMIT')
+        except BaseException:
+            conn.execute('ROLLBACK')
+            raise
+        return full
+
+    def _read_pinned(self, calls, h):
+        """`calls` read in batches of READ_BATCH, each after a head read: WindowPassed once the head is
+        STATE_WINDOW - STATE_MARGIN or more past h (the batch would read state about to leave the window)."""
+        out = []
+        for start in range(0, len(calls), READ_BATCH):
+            if self._latest()['height'] - h >= STATE_WINDOW - STATE_MARGIN:
+                raise WindowPassed('The state window passed block %d' % h)
+            out += self._read_many(calls[start:start + READ_BATCH])
+        return out
+
+    def _scan(self, conn, h):
+        """The dirty addresses not read yet, read at h in batches (the window checked before each) and staged in
+        `scan` batch by batch, so a stopped scan keeps every read it made; applied only after the block at h is read
+        again."""
+        at, last = hex(h), ''
+        while True:
+            chunk = conn.execute('SELECT d.address, d.nonce, d.code FROM dirty d WHERE d.address>? AND NOT EXISTS '
+                                 '(SELECT 1 FROM scan s WHERE s.address=d.address) ORDER BY d.address LIMIT ?',
+                                 (last, SCAN_CHUNK)).fetchall()
+            if not chunk:
+                return
+            last = chunk[-1][0]
+            group, calls = [], []
+            for entry in chunk + [None]:
+                mine = []
+                if entry is not None:
+                    address, nonce, code = entry
+                    mine.append(('eth_getBalance', [address, at]))
+                    if nonce:
+                        mine.append(('eth_getTransactionCount', [address, at]))
+                    if code:
+                        mine.append(('eth_getCode', [address, at]))
+                if group and (entry is None or len(calls) + len(mine) > READ_BATCH):
+                    self._stage(conn, group, self._read_pinned(calls, h))
+                    group, calls = [], []
+                if entry is not None:
+                    group.append(entry)
+                    calls += mine
+
+    @staticmethod
+    def _stage(conn, group, answers):
+        results = iter(answers)
+        staged = []
+        for address, nonce, code in group:
+            balance = _qty(next(results), 'balance')
+            n = _qty(next(results), 'nonce', 64) if nonce else None
+            c = None
+            if code:
+                value = next(results)
+                if not isinstance(value, str) or not DATA.fullmatch(value):
+                    raise NodeAnswerInvalid('Malformed code')
+                c = 1 if len(value) > 2 else 0
+            staged.append((address, str(balance), n, c))
+        conn.execute('BEGIN IMMEDIATE')
+        try:
+            conn.executemany('INSERT INTO scan VALUES(?,?,?,?)', staged)
             conn.execute('COMMIT')
         except BaseException:
             conn.execute('ROLLBACK')
@@ -1150,13 +1230,12 @@ class HolderIndex:
                 indexed += 1
         unlocated = expected - balances
         if (unlocated and not full and str(unlocated) != self._meta(conn, 'residual')
-                and now - float(self._meta(conn, 'difference_at')) >= self.rescan_min_seconds):
+                and now - float(self._meta(conn, 'full_at')) >= self.rescan_min_seconds):
             # A difference not seen before: every known address is read again at a new pinned height. At most one
-            # such rescan per rescan_min_seconds (contract payouts to known addresses in every block do not make
-            # every block a full rescan): within it the difference is published, and the periodic rescan below
-            # follows.
+            # full rescan per rescan_min_seconds, of either cause (one clock, full_at: contract payouts to known
+            # addresses in every block do not make every block a full rescan): within it the difference is
+            # published, and the periodic rescan below follows.
             self._set(conn, 'full', 1)
-            self._set(conn, 'difference_at', now)
             return 'rescan'
         escrow = int(conn.execute('SELECT balance FROM accounts WHERE address=?', (ESCROW,)).fetchone()[0] or 0)
         pending = escrow - held_total - burned
@@ -1318,7 +1397,7 @@ class HolderIndex:
         if unlocated:
             # While a difference is published, an unchanged difference does not prove the known balances current (an
             # undiscovered contract can pay a known address): every known address is read again every
-            # rescan_min_seconds, so a published balance lags by at most that.
+            # rescan_min_seconds, so a published balance lags by about that plus one snapshot's duration.
             due = float(self._meta(conn, 'full_at')) + self.rescan_min_seconds
             self._set(conn, 'rescan_at', min(float(self._meta(conn, 'rescan_at')), due))
         return 'published'
@@ -1532,8 +1611,7 @@ def reset_rewards_file(path):
     accounts, snapshots, the statistics history and new24h coverage are kept. Returns the previous rewards state."""
     if not Path(path).is_file():
         raise FileNotFoundError(f'{path}: no holders index file')
-    conn = sqlite3.connect(f'file:{Path(path).resolve().as_posix()}?mode=rw', uri=True, timeout=30,
-                           isolation_level=None)
+    conn = sqlite3.connect(sqlite_uri(path, 'rw'), uri=True, timeout=30, isolation_level=None)
     try:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if not {'meta', 'reward_flows', 'rewards_address', 'rewards_miner'} <= tables or conn.execute(

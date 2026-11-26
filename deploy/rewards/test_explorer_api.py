@@ -713,10 +713,13 @@ class HolderRouteTests(GatewayServerCase):
         self.assertEqual(holder_get(self, '/api/miner-geography.php')[::2], (503, {'error': api.MAP_UNAVAILABLE}))
 
     def test_budget_slots_and_costs(self):
-        with patch.object(gateway.time, 'monotonic', return_value=1000.0):  # no refill during the check
+        # The clock is frozen at the host's own monotonic time, not a constant: the buckets refill from it once the
+        # patch ends, so a constant above the host's uptime would leave them negative afterwards.
+        frozen = time.monotonic()
+        with patch.object(gateway.time, 'monotonic', return_value=frozen):  # no refill during the check
             for path, cost in (('/api/holders.php', 2), ('/api/holders-stats.php', 1), ('/api/miner-geography.php', 5)):
                 with self.subTest(path=path):
-                    self.gateway.tokens, self.gateway.token_time = 50.0, 1000.0
+                    self.gateway.tokens, self.gateway.token_time = 50.0, frozen
                     self.gateway.clients.clear(); self.gateway.cache.clear()
                     self.assertEqual(holder_get(self, path)[0], 200)
                     self.assertEqual(self.gateway.tokens, 50.0 - cost)
@@ -725,7 +728,10 @@ class HolderRouteTests(GatewayServerCase):
                 status, headers, answer = holder_get(self, path)
                 self.assertEqual((status, headers.get('Retry-After'), answer), (429, '3', {'error': api.BUSY}))
             self.assertEqual(self.gateway.tokens, 0.0, 'a refused request is not charged')
-        # The gateway's holder slots busy: 429 with Retry-After, the node reads unaffected.
+        # The gateway's holder slots busy: 429 with Retry-After, the node reads unaffected. The budget spent above is
+        # given back first (a full bucket from now): otherwise only the time since the frozen clock would refill it.
+        self.gateway.tokens, self.gateway.token_time = gateway.GLOBAL_BURST, time.monotonic()
+        self.gateway.clients.clear()
         for _ in range(gateway.HOLDER_SLOTS): self.assertTrue(self.gateway.holder_slots.acquire(blocking=False))
         try:
             self.gateway.cache.clear()
@@ -854,8 +860,9 @@ class GeoReportTests(GatewayServerCase):
         self.assertEqual(self.post_report()[0], 503)
         self.gateway.miner_map = G.Geography(self.database, None, F.NET, gateway.HolderMapInputs(self.holders), None,
                                              credentials=self.credentials)
-        with patch.object(gateway.time, 'monotonic', return_value=1000.0):
-            self.gateway.tokens, self.gateway.token_time = 0.0, 1000.0
+        frozen = time.monotonic()   # the host's own clock (as in test_budget_slots_and_costs), not a constant
+        with patch.object(gateway.time, 'monotonic', return_value=frozen):
+            self.gateway.tokens, self.gateway.token_time = 0.0, frozen
             status, headers, raw = self.post_report()
             self.assertEqual((status, headers.get('Retry-After'), json.loads(raw)), (429, '3', {'error': api.BUSY}))
             self.gateway.tokens = 5.0
@@ -938,6 +945,80 @@ class HolderIndexServerTests(unittest.TestCase):
         self.chain.mine_many(2)
         self.settle()
         self.assertEqual(self.get(pinned), (409, {'error': 'The holder snapshot changed. Refreshing.', 'reset': True}))
+
+
+class HolderMapSnapshotTests(unittest.TestCase):
+    """gateway.HolderMapInputs over the real holders index (H-5): the registry, the blocks won and the miners' rewards
+    of one miner map answer are those of one snapshot, even when the index publishes another between two of its reads
+    and has followed rewards past its newest snapshot."""
+
+    def test_the_three_inputs_are_one_snapshots_while_the_index_moves(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        chain = HF.FakeHolderChain()
+        chain.mine_many(3)
+        index = H.HolderIndex(Path(folder.name) / 'holders.sqlite3', chain.query, chain.network,
+                              rewards=chain.rewards, pace=0, slowdown=0)
+        self.addCleanup(index.close)
+        for _ in range(4):
+            index.step()
+        snapshot = index.map_inputs()
+        h = snapshot['key'][0]
+        self.assertEqual((snapshot['registry']['height'], snapshot['winners']['to'], snapshot['rewards']['to']), (h, h, h))
+        expected = {m: int(v['paidWei']) + int(v['bondAccruedWei']) for m, v in snapshot['rewards']['miners'].items()}
+        # Rewards followed past the newest snapshot (index.rewards_by_address is ahead of it).
+        index.next_snapshot = float('inf')
+        chain.mine_many(2)
+        index.step()
+        self.assertEqual(index.rewards_by_address()['to'], h + 2)
+        self.assertEqual(index.map_inputs()['key'], snapshot['key'])
+
+        class MovesBetweenReads:
+            """The index, publishing a newer snapshot right after any one read of it."""
+            def __init__(self):
+                self.published = []
+
+            def __getattr__(self, name):
+                method = getattr(index, name)
+                def read(*args, **kwargs):
+                    value = method(*args, **kwargs)
+                    if not self.published:
+                        index.next_snapshot = 0.0
+                        chain.mine()
+                        for _ in range(4):
+                            index.step()
+                        self.published.append(index.map_inputs()['key'])
+                    return value
+                return read
+
+        moving = MovesBetweenReads()
+        registry, window, rewards = gateway.HolderMapInputs(moving).inputs()
+        self.assertEqual(moving.published[0][0], h + 3, 'the index did publish a newer snapshot during the read')
+        self.assertEqual((registry['height'], registry['blockHash']), snapshot['key'])
+        self.assertEqual(window['to'], h, 'the blocks won at the registry snapshot')
+        self.assertEqual(rewards, expected, 'the rewards as they stood at the registry snapshot')
+        self.assertNotEqual(rewards, {m: int(v['paidWei']) + int(v['bondAccruedWei'])
+                                      for m, v in index.rewards_by_address()['miners'].items()},
+                            'the newer rewards differ, so the check above can tell them apart')
+
+
+class FreshHostClockTests(unittest.TestCase):
+    """The request-budget tests freeze time.monotonic(); they hold on a host whose monotonic clock is small (Linux
+    and Windows count it from boot), not only on one up for more than a constant number of seconds."""
+
+    def test_the_budget_tests_hold_on_a_freshly_booted_host(self):
+        real = time.monotonic
+        start = real()
+        def fresh():     # a host up for one second when the test starts
+            return real() - start + 1.0
+        for case in (HolderRouteTests('test_budget_slots_and_costs'),
+                     GeoReportTests('test_503_without_the_credential_or_the_miner_map_and_429_when_the_budget_is_spent')):
+            with self.subTest(case=case.id()):
+                result = unittest.TestResult()
+                with patch.object(time, 'monotonic', fresh):
+                    case.run(result)
+                self.assertEqual((result.testsRun, result.skipped), (1, []))
+                self.assertEqual([text for _, text in result.failures + result.errors], [])
 
 
 class IndexReadTests(unittest.TestCase):
