@@ -242,6 +242,25 @@ test('a chatgpt.site origin anywhere in the build is refused', () => {
   refused(pack({ edits: [['studio-content.js', (t) => t.replace("['https://studio.pocol.net']", "['https://studio.pocol.net', 'https://pocol-studio.mystic-gecko-9511.chatgpt.site']")]] }), /studio-content\.js names a retired chatgpt\.site/);
   refused(pack({ edits: [['README-STUDIO.md', (t) => t + '\nhttps://x.chatgpt.site\n']] }), /README-STUDIO\.md names a retired chatgpt\.site/);
 });
+test('a carriage return in any text member is refused, so a CRLF checkout cannot make the signed package', () => {
+  // The 0.5.0 package first published (f947c019...) was the CI build (6e38e72f...) with CRLF in 52 text files.
+  const crlf = (t) => t.replace(/\n/g, '\r\n');
+  refused(pack({ edits: [['sw.js', crlf]] }), /sw\.js has a carriage return \(CRLF line endings\)/);
+  refused(pack({ edits: [['LICENSE', crlf]] }), /LICENSE has a carriage return/);
+  refused(pack({ edits: [['tools/Export-Studio-Wallet.ps1', crlf]] }), /tools\/Export-Studio-Wallet\.ps1 has a carriage return/);
+  refused(pack({ edits: [['lib/rlp.js', (t) => t + '\r']] }), /lib\/rlp\.js has a carriage return/);
+  // The PNG icons are binary: a 0x0D byte in them is not a line ending.
+  const r = pack({ prepare: (dist) => { const p = join(dist, 'icons', 'pocol-16.png'); writeFileSync(p, Buffer.concat([readFileSync(p), Buffer.from([13, 10])])); } });
+  assert.equal(r.status, 0, r.stderr); assert.equal(r.zip, true);
+});
+test('every committed text file of the extension is checked out with LF on every OS', () => {
+  const attr = spawnSync('git', ['-C', EXT, 'check-attr', 'text', 'eol', '--', 'sw.js', 'src/sw.js', 'LICENSE', 'tools/Export-Studio-Wallet.ps1', 'src/icons/pocol-16.png'], { encoding: 'utf8' });
+  if (attr.status !== 0) return; // not a git checkout
+  assert.match(attr.stdout, /^src\/sw\.js: eol: lf$/m);
+  assert.match(attr.stdout, /^LICENSE: eol: lf$/m);
+  assert.match(attr.stdout, /^tools\/Export-Studio-Wallet\.ps1: eol: lf$/m);
+  assert.match(attr.stdout, /^src\/icons\/pocol-16\.png: text: auto$/m);
+});
 test('an unreadable retired list fails closed for a release', () => {
   rmSync(join(tree, 'dist'), { recursive: true, force: true }); cpSync(rel, join(tree, 'dist'), { recursive: true }); edit('lib/studio-network.js', releaseIdentity);
   setSlot(slotWith(TEST_KEY)); edit('manifest.json', (t) => JSON.stringify({ ...JSON.parse(t), key: TEST_KEY }, null, 2) + '\n');

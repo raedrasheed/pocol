@@ -7,3 +7,8 @@
 # The disk monitor is copied from a checkout to the Linux founder servers (bash scripts, systemd units, Python): keep LF
 # on every checkout, Windows included.
 /deploy/monitoring/** text eol=lf
+# The extension's release package must be byte for byte the CI build on every checkout: the owner packages and signs it
+# on Windows, where Git defaults to core.autocrlf=true, and a CRLF checkout once gave a package (f947c019...) whose 52
+# text files differ from the CI build (6e38e72f...) only in their line endings. Keep LF in its text files on every
+# checkout; text=auto leaves the PNG icons and screenshots binary. scripts/package-release.py also refuses a CR.
+/prototypes/pocol-extension/** text=auto eol=lf
