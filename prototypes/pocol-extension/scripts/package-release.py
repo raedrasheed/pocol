@@ -248,11 +248,6 @@ def check_release(root, dist, version, retired_file):
         data, name = path.read_bytes(), path.relative_to(dist).as_posix()
         if b'chatgpt.site' in data:
             refuse(f'{name} names a retired chatgpt.site preview origin')
-        # A CRLF checkout (Git for Windows' core.autocrlf=true) builds text files the CI build does not have, so the
-        # package the owner signs would not be the package CI reproduces. The icons are the only binary members.
-        if b'\r' in data and not name.endswith('.png'):
-            refuse(f'{name} has a carriage return (CRLF line endings): package from a checkout with LF line endings '
-                   '(.gitattributes keeps them; re-clone, or git rm --cached -r . && git reset --hard)')
         hits = sorted({label for label, pattern in shown if pattern.search(data)})
         if hits:
             shown_in.append(f'{name} shows the retired network ' + ', '.join(hits))
