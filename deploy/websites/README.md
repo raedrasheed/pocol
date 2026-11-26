@@ -20,7 +20,10 @@ files that remain. Until the rebuild, pages that link the removed invitation or 
   language). The 43 other translations were translations of the retired network's text and would not have followed the
   English and Arabic rebuild, so they were removed from the served files; they stay in Git history (snapshot 0df6f62).
   Studio is already English and Arabic. The explorer, the IDE and the extension UI stay English at launch (their
-  bundles have no sources). `tests/test_launch_decisions.py` checks the set.
+  bundles have no sources). `tests/test_launch_decisions.py` checks the set. Exception (owner instruction of
+  2026-11-25, [OWNER-DECISIONS-2026-11-25.md](../../development/decisions/OWNER-DECISIONS-2026-11-25.md)): the
+  explorer's new Holders and Miners map views (`explorer.pocol.net/assets/pocol-insights.js`) carry their own English |
+  العربية switch; the rest of the explorer bundle stays English.
 - **Explorer gateway host.** The explorer gateway, its `/rpc`, and the Studio relay `/studio/*` are served at
   `explorer.pocol.net`, which replaces the old PHP site; the owner moves its DNS record at launch. The extension's host
   permission and endpoint, the IDE `rpcUrl` (`site_identity.py --rpc-url`), the explorer's named gateway host
@@ -29,7 +32,9 @@ files that remain. Until the rebuild, pages that link the removed invitation or 
   serves the explorer snapshot as static files (Caddy `file_server`, with the CSP and headers its `.htaccess` set) and
   answers its same-origin reads `/api/rpc.php`, `/api/health.php`, `/api/miner-locations.php` and
   `/api/transactions.php` in the gateway process (`deploy/rewards/explorer_api.py`, with the checks of the PHP relays
-  it replaces); pocol.net's network summary (`pocol.net/api/network.php`, `POCOL_SUMMARY_RPC`) keeps reading the same
+  it replaces), and since 2026-11-25 the explorer insights' `/api/holders.php`, `/api/holders-stats.php`,
+  `/api/miner-geography.php` and `POST /api/geo-report.php` (`deploy/explorer/README.md`, Holders index and Miner
+  map); pocol.net's network summary (`pocol.net/api/network.php`, `POCOL_SUMMARY_RPC`) keeps reading the same
   `/api/rpc.php`. `deploy/explorer` installs the gateway service, the static copy and the Caddy site (to which the
   Studio installer adds its route). The PHP relays, both `.htaccess` files and `explorer-config.example.php` are
   retired: the explorer snapshot holds no server code, and `site_identity.py --check` refuses any.
@@ -63,7 +68,12 @@ files that remain. Until the rebuild, pages that link the removed invitation or 
   host may keep its own access logs. `tests/test_privacy_page.py` checks the page against `privacy.js` and each of those
   statements against the code it describes (a change there fails the test until the policy follows), and
   `tests/browser_security.mjs` renders it in both languages at phone width. The owner reviews the text before the page
-  is published.
+  is published. Revised 2026-11-25 for the explorer's Miners map (one new item in "The websites", in both languages,
+  dated 25 November 2026): the gateway looks up the public addresses of its own node's peers and of reporting servers
+  in a local country database (DB-IP IP to Country Lite, CC BY 4.0, "IP Geolocation by DB-IP"), in memory, replaces
+  each by a keyed code, writes no IP address to disk and publishes only countries and counts; visitors' addresses are
+  not looked up. `test_privacy_page.py` checks those statements against `pocol_geoip.py`, `gateway.py`,
+  `explorer_api.py` and `pocol_geo_reporter.py`. Publishing the revised page is the owner's step.
 
 Left out of Git and kept in the release asset:
 - the download archives (`*.zip`): the old native packages and the extension packages;

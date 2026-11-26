@@ -15,10 +15,13 @@ python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v   #
 python3 -B -m unittest discover -s deploy/explorer -v                         # the explorer gateway host's Caddy site
 node --test deploy/websites/tests/explorer_w7.test.mjs                        # the explorer's W7 edits and helpers
 node --test deploy/websites/tests/explorer_prod.test.mjs                      # the explorer's production-readiness edits
+node --test deploy/websites/tests/explorer_insights.test.mjs                  # the Holders and Miners map edits and module
 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
   POCOL_CHROMIUM=/path/to/chromium node deploy/websites/tests/browser_security.mjs
 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
   POCOL_CHROMIUM=/path/to/chromium node deploy/websites/tests/explorer_w7_browser.mjs   # the W7 Overview, fake relay
+PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs POCOL_INSIGHTS_SHOTS=/tmp/shots \
+  POCOL_CHROMIUM=/path/to/chromium node deploy/websites/tests/explorer_insights_browser.mjs   # Holders, Miners map
 ```
 
 ## Explorer v3 membership (Sites W7)
@@ -36,8 +39,8 @@ full block (about 393 KB) fits, and 20 full blocks, the refresh before W7, are r
 `explorer_w7_browser.mjs` loads the snapshot in Chromium against a fake relay (no node or gateway; every outside
 request aborted) with 300 members: when the gateway refuses the refresh's transaction read (429, its busy answer) after
 the status and block reads, the Latest transactions panel says so with the gateway's message instead of "No
-transactions in this window" (also for a message without a closing period); the map's summary counts the loaded
-members page ("256 members on the loaded page"); and an account view left open follows the loaded window: when the head
+transactions in this window" (also for a message without a closing period); the Overview never presents the loaded
+members page as registered miners (since the Miners map edits below, its map is the insights card); and an account view left open follows the loaded window: when the head
 moves on, the account's new transaction appears, one that left the latest 20 blocks goes, and only the new block is
 read in full (the activity caches each block's matches by hash); when that read is refused, the last list stays with a
 warning above it that it may be out of date.
@@ -60,10 +63,33 @@ in a row is reported after two retries. On a failure the smoke now prints what t
 two texts. The Transactions tab names the first block the gateway's transaction index still keeps
 (`pocol_transactions.py` `index.from`) once older blocks have been removed. The Miner map says that the network records
 no miner location and that peers are not placed by their IP addresses; it no longer points to a GeoIP installer that
-does not exist. Without geography data (the gateway never serves any) the map panel, on its tab and on the Overview, is
-only that notice: its map, IP counts, filters, "Automatic GeoIP" tag and DB-IP attribution are shown only with data.
-`explorer_w7_browser.mjs` scenario 7 checks that none of those texts is on the page, and scenario 3 serves a geography
-answer so the map's members summary is still checked; the smoke checks the same on the devnet.
+does not exist. Since the Holders and Miners map edits (below) that notice and the old one-node map stay in the bundle
+byte for byte, so these edits still replay, but they are never reached: `explorer_prod.test.mjs` checks that.
+
+## Explorer Holders page and Miners map (development/explorer/MINERS-MAP-HOLDERS.md)
+
+`tools/explorer-insights-edits.json` (5 anchored edits, applied last, same tool and rules) adds the `Holders` tab, the
+Holders and Miner map subtitles, and three empty mount points (`div#pocol-holders`, `div#pocol-miners-map`, and the
+Overview's `div#pocol-miners-map-compact`) in place of the old one-node map component, whose v1 poll of
+`/api/miner-locations.php` no longer runs; it exposes `globalThis.PocolExplorerShared = {chainId, genesisHash,
+countries}` from the bundle's own identity constants (`Ae`, `je`, so no identity literal is added) and its 240 Natural
+Earth shapes. The views are a hand-written module, `assets/pocol-insights.js` and `.css` (index.html loads them with
+`?v=` content versions that `site_identity.py` keeps; both are in the S1 include list). It validates every answer of
+`/api/holders.php`, `/api/holders-stats.php` and `/api/miner-geography.php` (schema, the bundle's chain identity, shapes,
+integer strings, the supply identities, exact shares) before showing any of it, formats amounts from BigInt and
+percentages from integer ratios, and is English or Arabic (RTL, Western digits, `localStorage`
+`pocol-explorer-language`) for these views only. `explorer_insights.test.mjs` replays the edits and tests the module's
+pure functions (validators with each broken field, clustering, zoom bounds, rings, choropleth ranges, text parity).
+`explorer_insights_browser.mjs` serves the snapshot with the gateway's CSP and contract-shaped fixtures: paging pinned to
+the snapshot, the order, type, search and size controls, copy, the account dialog, "Newer data available", the 409
+reset, a 429 retry, a refused answer, the completeness notice, the history empty state, Arabic and its persistence, the
+map's shapes, choropleth, clustering and its split on zoom, the country panel, layers, the country table with Unknown,
+the sources and limits, the Overview card, and no horizontal scroll at 360, 768, 1024 and 1440 px.
+`explorer_w7_browser.mjs` scenarios 3 and 7 and the smoke now check the new map in place of the old notice.
+The two chart colours, `#1aa9e4` and the explorer's inactive grey `#8298aa`, fail the dataviz palette check
+(normal-vision ΔE 10.6 < 15; the grey is below the chroma floor; CVD ΔE 8.7 passes), so they never carry meaning
+alone: segments carry their share as a label or in the legend, the map's rings are named in each marker's label and
+tooltip, and every chart has a table view.
 
 ## Site texts and download checks (Sites W14)
 
@@ -88,7 +114,10 @@ that the W14 edits, undone on a copy, give back every served file byte for byte.
 no page links or names a retired network's package (`PoCol-Mainnet-0.4.x` or older; the owner's request of 2026-11-23
 removed the last, labelled link and the `LEGACY_NATIVE` exemption), and that the "MAINNET EDITION" buttons offer no package before the signed release. `test_privacy_page.py`
 checks `privacy.html` against `privacy.js` (English static text, Arabic for every entry, text-only rendering, the footer
-link on every page) and each statement of the policy against the code it describes. `browser_security.mjs` renders the
+link on every page) and each statement of the policy against the code it describes; since 2026-11-25 that includes the
+Miners map item (`test_the_miner_map_geoip_statement_is_what_the_code_does`: only public addresses are looked up, in a
+local file, each replaced by its keyed id, the report's source after its signature, no write but the database build,
+no network import in `pocol_geoip.py`, an exact-key public answer, the DB-IP attribution in both languages). `browser_security.mjs` renders the
 policy in both languages at 390 px. `api_security.php` counts HELD (1) and ACCRUING (4) members as eligible miners. Its reward vectors each balance (paid,
 bond and beneficiary count agree), so only the check a vector names refuses it; `reward_check_mutants.py` removes each
 `reward.php` refusal check alone (duplicate pair, empty beneficiary, explicit zero bond fill, a final block's
@@ -225,7 +254,19 @@ hidden-path rule, read from its text, so Caddy's own handling is tested only wit
 (never `pocol_getMiners`; full blocks one per request), the account view shows "Earning bond" with the bond as
 x/B PCOL, the transaction view decodes the call and shows that miner's record read at the head, and the Miners tab and the
 Overview count the loaded page. A three-miner devnet cannot fill the member set, so that replacement reverts: its
-decoding and the victim read are what is checked. A failed run keeps its work directory's logs and inputs (`explorer-gateway.log`,
+decoding and the victim read are what is checked. The gateway also runs the holders index (`POCOL_HOLDERS_DB`) and
+the miner map with a GeoIP database built from the synthetic `deploy/rewards/testdata/geoip-sample.csv` (release
+2000-01, not DB-IP data) and no reporters' credential: `/api/holders.php` ranks the holders by Total with the newcomer
+as a miner ID holding its bond; `/api/holders-stats.php` answers the same snapshot with the holder count, a sum of
+Total equal to the balances less the protocol burns, and the devnet's genesis difference (its `--accounts` and the
+founders' bonds are not the Mainnet profile's 10^24 wei per founder) published exactly as `unlocatedWei` with
+`complete: false`; `/api/miner-geography.php` counts every registered miner as Unknown with the observer as its only
+source; `POST /api/geo-report.php` is 503 and a holders size of 7 is 400. In the page, the Holders tab lists every
+holder of the index (ranks, the newcomer as a Miner) with its statistics, the Miner map tab draws the map with the
+registry's count, the Unknown row and the DB-IP attribution and none of the old one-node notice, and the Overview's map
+card gives the same counts; the Holders tab joins the 390 and 1366 px scroll checks. Operator reports, the holders
+supply identity on a devnet's true genesis supply, rewards and reorganizations are checked in
+`deploy/explorer/e2e_explorer_devnet.py`. A failed run keeps its work directory's logs and inputs (`explorer-gateway.log`,
 `caddy.log`, the `Caddyfile`, the devnet's node logs) in `$POCOL_E2E_KEEP` (CI: `evidence/kept`, uploaded) or
 `prototypes/pocol-extension/tests/failures/`.
 

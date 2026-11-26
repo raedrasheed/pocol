@@ -5,11 +5,15 @@
 # favicon.ico and site.webmanifest have manifest MIME ids 12 and 13 (owner answer Q3).
 # The bundle line follows a rename: tools/site_identity.py rewrites it (an identity switch or anchored edits such as W7),
 # and its --check refuses a list that names any other explorer bundle.
+# assets/pocol-insights.js and .css are the Holders page and the Miners map (tools/explorer-insights-edits.json mounts
+# them); index.html loads them with ?v= content versions that tools/site_identity.py keeps current.
 # A change of the bundle's size moves the chunk counts the extension's publisher test pins for this list
 # (prototypes/pocol-extension/tests/publisher_test.mjs, 'W5: the S1 explorer include list').
 index.html
-assets/index-e46a96e9d375.js
+assets/index-0ce9ca52c312.js
 assets/index-oGnBWUS-.css
+assets/pocol-insights.js
+assets/pocol-insights.css
 favicon.ico
 site.webmanifest
 apple-touch-icon.png

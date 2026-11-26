@@ -42,12 +42,15 @@ def default_answers():
 class FakeNode(ThreadingHTTPServer):
     """A pocold JSON-RPC endpoint on 127.0.0.1: `answers[method]` is the answer's fields ({'result': ..} or
     {'error': ..}), the whole envelope when it has 'envelope', the body bytes when it has 'raw', or 'fail' for an
-    HTTP 500. `delay` seconds pass before each answer."""
+    HTTP 500. `delay` seconds pass before each answer. A batch (a JSON array) is answered member by member, the
+    envelopes in reverse order, or by `answers['batch'](requests, envelopes)` (the body bytes); `batches` records each
+    batch's size."""
     daemon_threads = True
 
     def __init__(self):
         self.answers = default_answers()
         self.calls = []
+        self.batches = []
         self.delay = 0
         super().__init__(('127.0.0.1', 0), NodeHandler)
         self.thread = threading.Thread(target=self.serve_forever, daemon=True)
@@ -56,6 +59,7 @@ class FakeNode(ThreadingHTTPServer):
     def reset(self):
         self.answers = default_answers()
         self.calls = []
+        self.batches = []
         self.delay = 0
 
     def stop(self):
@@ -68,25 +72,38 @@ class NodeHandler(BaseHTTPRequestHandler):
     def log_message(self, *_args):
         pass
 
-    def do_POST(self):
-        request = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+    def envelope(self, request):
         self.server.calls.append((request['method'], request['params']))
-        if self.server.delay:
-            time.sleep(self.server.delay)
         answer = self.server.answers.get(request['method'], {'error': {'code': -32601, 'message': 'Method not found'}})
         if answer == 'fail':
-            self.send_response(500); self.send_header('Content-Length', '0'); self.end_headers(); return
+            return None
         answer = copy.deepcopy(answer)
         if 'raw' in answer:
-            body = answer['raw']
+            return answer
+        return answer['envelope'] if 'envelope' in answer else {'jsonrpc': '2.0', 'id': request['id'], **answer}
+
+    def do_POST(self):
+        request = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+        if self.server.delay:
+            time.sleep(self.server.delay)
+        if isinstance(request, list):   # a batch: one envelope per member, in reverse order (ids decide)
+            self.server.batches.append(len(request))
+            answers = [self.envelope(r) for r in request]
+            body = (json.dumps(answers[::-1]).encode() if 'batch' not in self.server.answers
+                    else self.server.answers['batch'](request, answers))
         else:
-            envelope = answer['envelope'] if 'envelope' in answer else {'jsonrpc': '2.0', 'id': request['id'], **answer}
-            body = json.dumps(envelope).encode()
+            answer = self.envelope(request)
+            if answer is None:
+                self.send_response(500); self.send_header('Content-Length', '0'); self.end_headers(); return
+            body = answer['raw'] if 'raw' in answer else json.dumps(answer).encode()
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass   # a client that stopped reading at its own limit (Gateway.query's MAX_RESPONSE)
 
 
 def geography(**changes):
@@ -138,6 +155,122 @@ class FakeTransactions:
         if isinstance(self.answer, type) and issubclass(self.answer, Exception):
             raise self.answer('moved')
         return self.answer(options)
+
+
+MINER = '0x' + 'ef' * 20
+SUPPLY = 4_000_000 * 10 ** 18
+
+
+def holder_row(rank=1, **changes):
+    value = {'rank': rank, 'address': '0x' + f'{rank:040x}', 'type': 'wallet', 'label': None, 'minerIds': [],
+             'rewardAddress': None, 'totalWei': str(10 ** 18), 'availableWei': str(10 ** 18), 'bondedWei': '0',
+             'sharePercentE10': str(10 ** 30 // SUPPLY), 'transactions': 2, 'blocksMined': None, 'rewardsWei': None}
+    value.update(changes)
+    return value
+
+
+def holders_page(options, rows=None, **changes):
+    """An answer of the holders index (pocol-holders-v1) for `options`."""
+    value = {'schema': 'pocol-holders-v1', 'chainId': NET['chainId'], 'genesisHash': NET['genesisHash'],
+             'page': options['page'], 'size': options['size'], 'order': options['order'], 'type': options['type'],
+             'q': options['q'], 'total': 1,
+             'snapshot': dict(options.get('snapshot', {'height': 16, 'hash': HASH}), timestamp=1700000000),
+             'index': {'state': 'ready', 'head': 16, 'historyHeight': 16, 'updatedAt': 1700000005},
+             'supply': {'currentSupplyWei': str(SUPPLY)}, 'verification': {'complete': True},
+             'rows': [holder_row()] if rows is None else rows}
+    value.update(changes)
+    return value
+
+
+def holders_stats(**changes):
+    """An answer of the holders index (pocol-holders-stats-v1)."""
+    wei = lambda n: str(n)
+    value = {'schema': 'pocol-holders-stats-v1', 'chainId': NET['chainId'], 'genesisHash': NET['genesisHash'],
+             'snapshot': {'height': 16, 'hash': HASH, 'timestamp': 1700000000},
+             'index': {'state': 'ready', 'head': 16, 'historyHeight': 16, 'updatedAt': 1700000005},
+             'supply': {'genesisWei': wei(SUPPLY), 'issuedWei': '0', 'mintedWei': wei(SUPPLY), 'baseFeeBurnedWei': '0',
+                        'protocolBurnedWei': '0', 'totalBurnedWei': '0', 'currentSupplyWei': wei(SUPPLY),
+                        'circulatingWei': wei(SUPPLY - 80 * 10 ** 18), 'availableWei': wei(SUPPLY),
+                        'bondedWei': wei(80 * 10 ** 18), 'systemWei': '0', 'pendingRewardsWei': '0'},
+             'verification': {'complete': True, 'balancesSumWei': wei(SUPPLY), 'expectedSumWei': wei(SUPPLY),
+                              'unlocatedWei': '0', 'accountsIndexed': 8, 'accountsOnChain': 8, 'accountsMissing': 0},
+             'holders': {'count': 8, 'withAvailable': 4, 'withBonded': 4, 'new24h': None, 'new24hFrom': None},
+             'concentration': {f'top{n}': {'totalWei': '1', 'sharePercentE10': '0'} for n in (1, 10, 50, 100)},
+             'distribution': [{'minWei': str(lo), 'maxWei': None if hi is None else str(hi), 'accounts': 0, 'totalWei': '0'}
+                              for lo, hi in zip([0] + [10 ** (18 + i) for i in range(7)],
+                                                [10 ** (18 + i) for i in range(7)] + [None])],
+             'history': {'from': 16, 'points': [{'height': 16, 'timestamp': 1700000000, 'holders': 8,
+                                                 'currentSupplyWei': wei(SUPPLY), 'top10SharePercentE10': '0'}]},
+             'rewards': {'from': None, 'to': None}}
+    value.update(changes)
+    return value
+
+
+def map_registry(height=16, block_hash=HASH):
+    """A HolderIndex.registry() answer: MINER live and active, a second record exited (tomb as pocol_getMiners'
+    boolean, graceStart null off the ActList, as HolderIndex answers)."""
+    return {'height': height, 'blockHash': block_hash, 'thetaInact': 360, 'records': [
+        {'id': MINER, 'reward': ADDRESS, 'status': 1, 'tomb': False, 'bondState': 1, 'lastShare': 15, 'graceStart': 0,
+         'registeredAt': 0, 'active': True, 'inactive': False},
+        {'id': '0x' + '71' * 20, 'reward': '0x' + '71' * 20, 'status': 2, 'tomb': False, 'bondState': 3, 'lastShare': 1,
+         'graceStart': None, 'registeredAt': 0, 'active': False, 'inactive': False}]}
+
+
+class FakeHolders:
+    """The holders index (pocol_holders.HolderIndex's answers): page(options) answers `self.page_answer(options)` and
+    stats() `self.stats_answer()`, or raises it when it is an exception class (pocol_holders.SnapshotChanged,
+    Unavailable); registry(), winners(window), rewards_by_address() and map_inputs(known) for the miner map, counted in
+    `reads` (a map_inputs snapshot as 'registry', 'winners', 'rewards'; a separate read as 'registry()',
+    'winners()', 'rewards_by_address()')."""
+    def __init__(self):
+        self.page_answer = holders_page
+        self.stats_answer = holders_stats
+        self.asked = []
+        self.reads = []
+        self.map = {'registry': map_registry(), 'winners': {'from': 1, 'to': 16, 'blocks': 16, 'perMiner': {MINER: 10}},
+                    'rewards': {'from': 2, 'to': 16, 'addresses': {ADDRESS: str(5 * 10 ** 18)},
+                                'miners': {MINER: {'paidWei': str(5 * 10 ** 18), 'bondAccruedWei': '7'}}}}
+
+    @staticmethod
+    def _answer(answer, *args):
+        if isinstance(answer, type) and issubclass(answer, Exception):
+            raise answer('fake')
+        return answer(*args)
+
+    def page(self, options):
+        self.asked.append(options)
+        return self._answer(self.page_answer, options)
+
+    def stats(self):
+        return self._answer(self.stats_answer)
+
+    # The separate reads are listed under their own method names ('registry()', ...), never as a part of one
+    # map_inputs snapshot, so a test sees whether the miner map read its three inputs together.
+    def registry(self):
+        self.reads.append('registry()')
+        return copy.deepcopy(self.map['registry'])
+
+    def winners(self, window=8640):
+        self.reads.append('winners()')
+        return copy.deepcopy(self.map['winners'])
+
+    def rewards_by_address(self):
+        self.reads.append('rewards_by_address()')
+        return copy.deepcopy(self.map['rewards'])
+
+    def map_inputs(self, known=None):
+        """HolderIndex.map_inputs: the three of the snapshot stats() names (Unavailable as stats()), None when it is
+        `known`; otherwise one copy of `map` taken at once (one read transaction, as HolderIndex), listed in `reads`
+        as its three parts 'registry', 'winners', 'rewards'."""
+        snapshot = self.stats()['snapshot']
+        key = (snapshot['height'], snapshot['hash'])
+        if key == known:
+            return None
+        one = copy.deepcopy(self.map)
+        self.reads.extend(['registry', 'winners', 'rewards'])
+        rewards = one['rewards']
+        return {'key': key, 'registry': one['registry'], 'winners': one['winners'],
+                'rewards': None if rewards is None else {k: v for k, v in rewards.items() if k != 'addresses'}}
 
 
 def send(port, method, path, headers=(), body=None, timeout=10):

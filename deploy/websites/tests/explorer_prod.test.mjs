@@ -10,9 +10,11 @@
 //    reported at once, as before. The transaction view (explorer_smoke.mjs: registerReplacing) needs it: its
 //    receipt read is heavy on v3, and the node answers -32021 busy when its heavy lane is full. A 429 is retried no
 //    sooner than its Retry-After (at most 30 s), as the gateway asks (Retry-After: 3).
-// 3. The texts: the transaction index's first kept block, and miner geography (the network records no miner location;
-//    peers are not placed by IP address). Without geography data (this gateway never serves any) the Miner map is only
-//    that notice: none of its GeoIP texts (map, counts, filters, attribution) is shown beside it.
+// 3. The texts: the transaction index's first kept block, and the old one-node miner geography notice. That notice and
+//    the old map component stay in the bundle byte for byte (these edits replay over them), but since the Miners map and
+//    Holders edits (tools/explorer-insights-edits.json, development/explorer/MINERS-MAP-HOLDERS.md §6) they are never
+//    reached: the component is not rendered, its v1 poll does not run, and a Miner map subtitle branch comes first. The
+//    new views are assets/pocol-insights.js (explorer_insights.test.mjs, explorer_insights_browser.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -130,11 +132,16 @@ test('a final answer is reported at once: a refused method, a moved chain, a 400
   await once(() => ({ status: 200, text: 'not json' }), /unreadable response/);
 });
 
-test('the texts: the first kept block of the transaction index, and miner geography without IP placement', () => {
+test('the texts: the first kept block of the transaction index; the old miner geography notice is kept but unreachable', () => {
   assert.equal(count(BUNDLE, 'Number.isSafeInteger(E?.from)&&E.from>0?`Transactions from block #${E.from.toLocaleString()} onward; this gateway no longer keeps older ones.`:`Every included transaction, from the first block onward.`'), 1);
   for (const gone of ['Update-PoCol-Explorer-GeoIP.sh', 'Check the GeoIP gateway update', 'Automatic country estimates from observed network connections.']) assert.equal(count(BUNDLE, gone), 0, gone);
   assert.equal(count(BUNDLE, 'Miner locations are unavailable: the PoCol network does not record where miners are, and this explorer does not place peers by their IP addresses.'), 1);
   assert.equal(count(BUNDLE, 'Miner locations are not published: the network does not record them.'), 1);
+  // Unreachable since the insights edits: the subtitle chain tests t===`Miner map` with the new text first, the old
+  // component (nt) is rendered nowhere, and its hook ($e, the v1 poll whose error is the notice above) is not called.
+  assert.equal(count(BUNDLE, 't===`Miner map`?`Registered miners by country where an operator node reports it; every other miner is Unknown.`:t===`Miner map`?`Miner locations are not published: the network does not record them.`:'), 1);
+  assert.equal(count(BUNDLE, '(0,N.jsx)(nt,'), 0);
+  assert.equal(count(BUNDLE, '$e(`/api/miner-locations.php`)'), 0);
   // Without geography data the panel returns only its notice (before the map, its counts and its GeoIP texts).
   const notice = BUNDLE.indexOf('if(!r.data)return(0,N.jsx)(`section`,{className:`panel miner-map-panel');
   const panel = BUNDLE.indexOf('"aria-label":`Automatic network geography`');

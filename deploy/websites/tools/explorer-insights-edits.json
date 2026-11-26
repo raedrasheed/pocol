@@ -1,0 +1,32 @@
+[
+ {
+  "file": "explorer-bundle",
+  "old": "qe=`pocol-network-geography-v1`,Je=new Map(Ke.map(e=>[e.code,e])),",
+  "new": "qe=`pocol-network-geography-v1`,Je=(globalThis.PocolExplorerShared=Object.freeze({chainId:Ae,genesisHash:je,countries:Ke}),new Map(Ke.map(e=>[e.code,e]))),",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "[`Miners`,Ee],[`Miner map`,w],[`Network`,he]];function F(){let e=$e(`/api/miner-locations.php`),[t,n]=",
+  "new": "[`Holders`,De],[`Miners`,Ee],[`Miner map`,w],[`Network`,he]];function F(){let[t,n]=",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "share activity.`:t===`Miner map`?",
+  "new": "share activity.`:t===`Holders`?`PCOL balances of every discovered account at one block height, checked against the supply.`:t===`Miner map`?`Registered miners by country where an operator node reports it; every other miner is Unknown.`:t===`Miner map`?",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "(0,N.jsx)(nt,{compact:!0,miners:F,networkReady:!!l,stale:_t,source:e,onExpand:()=>Qe(`Miner map`),onAccount:P}),",
+  "new": "(0,N.jsx)(`div`,{id:`pocol-miners-map-compact`,className:`pocol-insights-mount`}),",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "t===`Miner map`&&(0,N.jsx)(nt,{miners:F,networkReady:!!l,stale:_t,source:e,onAccount:P}),",
+  "new": "t===`Holders`&&(0,N.jsx)(`div`,{id:`pocol-holders`,className:`pocol-insights-mount`}),t===`Miner map`&&(0,N.jsx)(`div`,{id:`pocol-miners-map`,className:`pocol-insights-mount`}),",
+  "count": 1
+ }
+]

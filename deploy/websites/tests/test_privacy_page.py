@@ -174,6 +174,48 @@ class PolicyMatchesTheCode(unittest.TestCase):
                       'at most the 4,096 most recently seen; neither writes IP addresses to disk.', en)
         self.assertIn('بوابة المستكشف', ar); self.assertIn('4096', ar)
 
+    def test_the_miner_map_geoip_statement_is_what_the_code_does(self):
+        # The explorer's Miners map (2026-11-25, development/explorer/MINERS-MAP-HOLDERS.md §4): the gateway looks up
+        # only public addresses in a local database file (no network access), replaces each by its keyed id at once
+        # (observer peers: observe_peers; a report's source address: verify_report, after the signature), writes
+        # nothing but the database `build`, and publishes an answer of exactly the contract's keys (no IP, no id). The
+        # reporter writes no file and sends its node's head, its own mining address and its peers' keyed ids and
+        # countries (pocol_geo_reporter.build_report), never an IP; the policy says so. Only the report route passes a
+        # source.
+        geoip = (ROOT / 'deploy' / 'rewards' / 'pocol_geoip.py').read_text(encoding='utf-8')
+        self.assertIn('nodes[keyed_id(salt, address)] = database.lookup(address) if database is not None else None', geoip)
+        self.assertIn("report['sourceId'] = keyed_id(credentials.salt, source) if source is not None else None", geoip)
+        self.assertIn('source = public_address(source_ip)', geoip)
+        self.assertLess(geoip.index('if not hmac.compare_digest(expected, signatures[0].lower()) or key is None:'),
+                        geoip.index('source = public_address(source_ip)'))
+        writes = [m.start() for m in re.finditer(r"'wb'|'w'|'a'|'ab'|write_text|write_bytes", geoip)]
+        self.assertEqual(len(writes), 1)
+        self.assertLess(geoip.index('def build('), writes[0]); self.assertLess(writes[0], geoip.index('class GeoDatabase:'))
+        self.assertNotRegex(geoip, r'\bimport (?:urllib|http|socket|ssl)\b|from (?:urllib|http)\b')
+        reporter = (ROOT / 'deploy' / 'explorer' / 'pocol_geo_reporter.py').read_text(encoding='utf-8')
+        self.assertNotRegex(reporter, r"open\([^)]*['\"][wa]|write_text|write_bytes")
+        self.assertIn("'peers': [{'id': i, 'country': nodes[i]} for i in ids[:listed]],", reporter)
+        gateway = (ROOT / 'deploy' / 'rewards' / 'gateway.py').read_text(encoding='utf-8')
+        self.assertIn("GEOIP_DB = '/opt/pocol-explorer-gateway/geoip/dbip-country.bin'", gateway)
+        api = (ROOT / 'deploy' / 'rewards' / 'explorer_api.py').read_text(encoding='utf-8')
+        self.assertIn("set(value) != GEOGRAPHY_V2_KEYS", api)
+        self.assertEqual(re.findall(r'[(, ]source\)', api), [' source)', ' source)'])  # handle -> geo_report -> the gateway
+        en, ar = (json.dumps(translations()[k], ensure_ascii=False) for k in ('en', 'ar'))
+        for text in ('DB-IP IP to Country Lite, licensed CC BY 4.0; IP Geolocation by DB-IP, https://db-ip.com',
+                     'No IP address is written to disk or published: the page shows only countries and counts.',
+                     'The IP addresses of people who open the explorer are not looked up.',
+                     "sends its node's newest block, its node's own mining address, and those codes and countries, never "
+                     'an IP address; the gateway counts that mining address in the country of the address the report '
+                     'came from'):
+            self.assertIn(text, en)
+        self.assertNotIn('sends only those codes and countries', en)
+        # The report's fields are exactly what the policy names: the node's head and mining address, keyed peers.
+        self.assertIn("'head': {'height': head['height'], 'hash': head['hash'].lower()}", reporter)
+        self.assertIn("'miner': miner.lower() if miner else None", reporter)
+        for text in ('DB-IP IP to Country Lite', 'CC BY 4.0', 'IP Geolocation by DB-IP', 'https://db-ip.com', 'ولا يُكتب أي عنوان IP على القرص',
+                     'وعنوان التعدين الخاص بعقدتها', 'ولا ترسل أي عنوان IP'):
+            self.assertIn(text, ar)
+
     def test_the_explorer_still_loads_google_fonts_as_the_policy_says(self):
         css = ''.join(p.read_text(encoding='utf-8') for p in (ROOT / 'deploy/websites/explorer.pocol.net/assets').glob('*.css'))
         self.assertIn('fonts.googleapis.com', css)

@@ -14,6 +14,11 @@ reads): a refusal of the gateway's request budget is each path's busy answer (42
 body without one Content-Length or with Transfer-Encoding is refused, repeated transaction query keys are refused,
 health has no PHP-only keys (phpReady, curlReady), and an empty filtered object is {} (PHP encoded []).
 The answers carry the security headers the explorer's .htaccess set; Caddy sets the same on the static files.
+
+The holders and miner map reads (/api/holders.php, /api/holders-stats.php, /api/miner-geography.php, GET and HEAD)
+and the operator node reports (POST /api/geo-report.php) never had a PHP relay; they follow
+development/explorer/MINERS-MAP-HOLDERS.md §4.1 and §5 (strict queries, every answer checked to the contract's exact
+fields, 429 with Retry-After, 409 reset, 503 without data).
 Standard library only; no network access besides the gateway's own node reads.
 """
 import json
@@ -63,6 +68,12 @@ ROUTES = {
     '/api/health.php': (('GET',), 'Use GET for the connection check.'),
     '/api/miner-locations.php': (('GET', 'HEAD'), 'Use GET to read automatic network geography.'),
     '/api/transactions.php': (('GET', 'HEAD'), 'Use GET to read transaction history.'),
+    # The holders and miner map reads and the operator node reports (MINERS-MAP-HOLDERS.md §4.1, §5): no PHP relay
+    # ever answered these paths; their answers follow the contract (429 with Retry-After, 409 reset, 503 without data).
+    '/api/holders.php': (('GET', 'HEAD'), 'Use GET to read PCOL holders.'),
+    '/api/holders-stats.php': (('GET', 'HEAD'), 'Use GET to read the PCOL holder statistics.'),
+    '/api/miner-geography.php': (('GET', 'HEAD'), 'Use GET to read the miner map.'),
+    '/api/geo-report.php': (('POST',), 'Use POST to send a signed operator node report.'),
 }
 BUSY = 'The data service is busy. Please retry shortly.'
 REFUSED = 'Only supported, bounded explorer reads are accepted.'
@@ -79,6 +90,33 @@ DATABASE_KEYS = ('provider', 'release', 'updatedAt')
 NODE_KEYS = ('id', 'country', 'connections', 'observer', 'miner')
 TRANSACTION_KEYS = ('page', 'size', 'order', 'q', 'height', 'hash')
 ORDERS = ('newest', 'oldest', 'value_desc', 'value_asc')
+# GET /api/holders.php (§5.1): the query keys, orders and account types (pocol_holders.QUERY_KEYS, ORDERS, TYPES).
+HOLDER_KEYS = ('page', 'size', 'order', 'type', 'q', 'height', 'hash')
+HOLDER_ORDERS = ('balance_desc', 'balance_asc')
+HOLDER_TYPES = ('all', 'wallet', 'miner', 'reward', 'contract', 'system')
+HOLDER_LABELS = ('MinerRegistry', 'RewardEscrow', 'ShareLedger', 'ChainCaps', 'ChunkFactory', 'PAY', 'SYSTEM')
+HOLDERS_UNAVAILABLE = 'PCOL holders are unavailable: the holders index has no snapshot yet or is not installed.'
+HOLDERS_RESET = 'The holder snapshot changed. Refreshing.'
+MAP_UNAVAILABLE = 'The miner map is unavailable: the holders index has no registry snapshot yet or is not installed.'
+# POST /api/geo-report.php (§4.1; pocol_geoip.REPORT_ERRORS, MAX_REPORT_BYTES).
+MAX_REPORT = 16384
+REPORT_ERRORS = {400: 'The report is malformed.', 401: 'Unknown reporter or bad signature.',
+                 409: 'The report is stale or replayed.', 413: 'Request size limit exceeded.',
+                 415: 'Content-Type must be application/json.', 503: 'Operator reports are not enabled.'}
+# The exact keys of each answer: a field the backend added (an address, a keyed id) never reaches a public answer.
+HOLDERS_PAGE_KEYS = frozenset({'schema', 'chainId', 'genesisHash', 'page', 'size', 'order', 'type', 'q', 'total',
+                               'snapshot', 'index', 'supply', 'verification', 'rows'})
+HOLDER_ROW_KEYS = frozenset({'rank', 'address', 'type', 'label', 'minerIds', 'rewardAddress', 'totalWei', 'availableWei',
+                             'bondedWei', 'sharePercentE10', 'transactions', 'blocksMined', 'rewardsWei'})
+STATS_KEYS = frozenset({'schema', 'chainId', 'genesisHash', 'snapshot', 'index', 'supply', 'verification', 'holders',
+                        'concentration', 'distribution', 'history', 'rewards'})
+SUPPLY_KEYS = ('genesisWei', 'issuedWei', 'mintedWei', 'baseFeeBurnedWei', 'protocolBurnedWei', 'totalBurnedWei',
+               'currentSupplyWei', 'circulatingWei', 'availableWei', 'bondedWei', 'systemWei', 'pendingRewardsWei')
+GEOGRAPHY_V2_KEYS = frozenset({'schema', 'chainId', 'genesisHash', 'generatedAt', 'height', 'blockHash', 'database',
+                               'miners', 'nodes', 'sources', 'blocksWindow', 'countries', 'unknown'})
+MAP_MINER_KEYS = frozenset({'registered', 'active', 'inactive', 'exited', 'punished', 'located', 'unknown', 'connected',
+                            'thetaInact'})
+COUNTRY_KEYS = frozenset({'code', 'miners', 'nodes', 'blocks', 'blocksSharePercentE10', 'rewardsWei'})
 
 
 def valid_origin(origin):
@@ -292,6 +330,201 @@ def transactions_page(value, network, size):
     return value
 
 
+# ---------------- holders.php, holders-stats.php and miner-geography.php (§5) ----------------
+_DECIMAL = re.compile(r'0|[1-9][0-9]{0,77}')
+_SIGNED = re.compile(r'0|-?[1-9][0-9]{0,77}')
+_LOWER_ADDRESS = re.compile(r'0x[0-9a-f]{40}')
+_LOWER_HASH = re.compile(r'0x[0-9a-f]{64}')
+_REPORTER = re.compile(r'[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?')   # pocol_geoip.REPORTER_NAME
+
+
+def holder_options(query):
+    """holders.php: the pocol_getHolders options of a query string, or None (400). Defaults page 1, size 25,
+    balance_desc, type all, no search; page 1..10^9, size 25/50/100, q a 0x address prefix of 1..40 hex digits
+    (lower-cased), height and hash only together. A key of ours given twice or as an array (page[]=1) is refused, other
+    keys are ignored (the transaction_options rules; pocol_holders.holder_options is the same function)."""
+    if len(query) > MAX_QUERY:
+        return None
+    found = {}
+    for pair in query.split('&') if query else []:
+        if not pair:
+            continue
+        raw_key, _, raw_value = pair.partition('=')
+        key = unquote_to_bytes(raw_key.replace('+', ' ')).decode('utf-8', 'replace').lstrip(' ')
+        base = key.split('[', 1)[0]
+        if base not in HOLDER_KEYS:
+            continue
+        if base != key or base in found:
+            return None
+        found[base] = unquote_to_bytes(raw_value.replace('+', ' ')).decode('utf-8', 'replace')
+    page, size, order, kind, q = (found.get('page', '1'), found.get('size', '25'), found.get('order', 'balance_desc'),
+                                  found.get('type', 'all'), found.get('q', ''))
+    if (not re.fullmatch(r'[0-9]+', page) or not 1 <= int(page) <= 1000000000 or size not in ('25', '50', '100')
+            or order not in HOLDER_ORDERS or kind not in HOLDER_TYPES or (q != '' and not re.fullmatch(r'0x[0-9a-fA-F]{1,40}', q))):
+        return None
+    options = {'page': int(page), 'size': int(size), 'order': order, 'type': kind, 'q': q.lower()}
+    if 'height' in found or 'hash' in found:
+        height, block = found.get('height'), found.get('hash')
+        if height is None or not re.fullmatch(r'[0-9]+', height) or int(height) > MAX_ID or not _hash(block):
+            return None
+        options['snapshot'] = {'height': int(height), 'hash': block.lower()}
+    return options
+
+
+def plain_query(query):
+    """holders-stats.php and miner-geography.php take no parameter: any query of at most MAX_QUERY bytes is ignored
+    (a cache-busting key), a longer one is refused (400)."""
+    return len(query) <= MAX_QUERY
+
+
+def _n(value, low=0, high=MAX_ID):
+    return type(value) is int and low <= value <= high
+
+
+def _n_or_null(value, low=0):
+    return value is None or _n(value, low)
+
+
+def _wei(value, pattern=_DECIMAL):
+    return isinstance(value, str) and pattern.fullmatch(value) is not None
+
+
+def _keys(value, keys):
+    return isinstance(value, dict) and set(value) == set(keys)
+
+
+def _identity(value, schema, network):
+    return (isinstance(value, dict) and value.get('schema') == schema and type(value.get('chainId')) is int
+            and value['chainId'] == network.chain_id and value.get('genesisHash') == network.genesis)
+
+
+def _snapshot(value):
+    return (_keys(value, ('height', 'hash', 'timestamp')) and _n(value['height']) and _n(value['timestamp'])
+            and isinstance(value['hash'], str) and _LOWER_HASH.fullmatch(value['hash']) is not None)
+
+
+def _index(value):
+    return (_keys(value, ('state', 'head', 'historyHeight', 'updatedAt')) and value['state'] in ('ready', 'syncing', 'reconnecting')
+            and _n(value['head'], -1) and _n(value['historyHeight'], -1) and _n(value['updatedAt']))
+
+
+def _holder_row(row, kind):
+    if not _keys(row, HOLDER_ROW_KEYS) or not _n(row['rank'], 1) or not isinstance(row['address'], str) \
+            or _LOWER_ADDRESS.fullmatch(row['address']) is None:
+        return False
+    if row['type'] not in HOLDER_TYPES[1:] or (kind != 'all' and row['type'] != kind):
+        return False
+    if not (row['label'] is None or row['label'] in HOLDER_LABELS) or not isinstance(row['minerIds'], list):
+        return False
+    if not all(isinstance(m, str) and _LOWER_ADDRESS.fullmatch(m) for m in row['minerIds']):
+        return False
+    if not (row['rewardAddress'] is None or (isinstance(row['rewardAddress'], str) and _LOWER_ADDRESS.fullmatch(row['rewardAddress']))):
+        return False
+    return (all(_wei(row[k]) for k in ('totalWei', 'availableWei', 'bondedWei', 'sharePercentE10'))
+            and _n(row['transactions']) and _n_or_null(row['blocksMined'])
+            and (row['rewardsWei'] is None or _wei(row['rewardsWei'])))
+
+
+def holders_page(value, network, options):
+    """holders.php: the holders index page (pocol-holders-v1) of this network for exactly `options` (its echo, its
+    pinned snapshot) with at most `size` rows of the contract's fields, or None."""
+    if not _identity(value, 'pocol-holders-v1', network) or set(value) != HOLDERS_PAGE_KEYS:
+        return None
+    if any(value[k] != options[k] or type(value[k]) is not type(options[k]) for k in ('page', 'size', 'order', 'type', 'q')):
+        return None
+    if not _n(value['total']) or not _snapshot(value['snapshot']) or not _index(value['index']):
+        return None
+    pinned = options.get('snapshot')
+    if pinned is not None and (value['snapshot']['height'], value['snapshot']['hash']) != (pinned['height'], pinned['hash']):
+        return None
+    if not _keys(value['supply'], ('currentSupplyWei',)) or not _wei(value['supply']['currentSupplyWei']):
+        return None
+    if not _keys(value['verification'], ('complete',)) or type(value['verification']['complete']) is not bool:
+        return None
+    rows = value['rows']
+    if not isinstance(rows, list) or len(rows) > options['size'] or not all(_holder_row(r, options['type']) for r in rows):
+        return None
+    return value
+
+
+def holders_stats(value, network):
+    """holders-stats.php: the holder statistics (pocol-holders-stats-v1) of this network with the contract's fields
+    (and the index's `rewards` range), or None."""
+    if not _identity(value, 'pocol-holders-stats-v1', network) or set(value) not in (STATS_KEYS, STATS_KEYS - {'rewards'}):
+        return None
+    if not _snapshot(value['snapshot']) or not _index(value['index']):
+        return None
+    if not _keys(value['supply'], SUPPLY_KEYS) or not all(_wei(value['supply'][k]) for k in SUPPLY_KEYS):
+        return None
+    v = value['verification']
+    if (not _keys(v, ('complete', 'balancesSumWei', 'expectedSumWei', 'unlocatedWei', 'accountsIndexed', 'accountsOnChain',
+                      'accountsMissing')) or type(v['complete']) is not bool or not _wei(v['balancesSumWei'])
+            or not _wei(v['expectedSumWei']) or not _wei(v['unlocatedWei'], _SIGNED) or not _n(v['accountsIndexed'])
+            or not _n_or_null(v['accountsOnChain']) or not _n_or_null(v['accountsMissing'], -MAX_ID)):
+        return None
+    h = value['holders']
+    if (not _keys(h, ('count', 'withAvailable', 'withBonded', 'new24h', 'new24hFrom')) or not _n(h['count'])
+            or not _n(h['withAvailable']) or not _n(h['withBonded']) or not _n_or_null(h['new24h']) or not _n_or_null(h['new24hFrom'])):
+        return None
+    c = value['concentration']
+    if not _keys(c, ('top1', 'top10', 'top50', 'top100')) or not all(
+            _keys(c[k], ('totalWei', 'sharePercentE10')) and _wei(c[k]['totalWei']) and _wei(c[k]['sharePercentE10']) for k in c):
+        return None
+    d = value['distribution']
+    if not isinstance(d, list) or len(d) != 8 or not all(
+            _keys(b, ('minWei', 'maxWei', 'accounts', 'totalWei')) and _wei(b['minWei']) and (b['maxWei'] is None or _wei(b['maxWei']))
+            and _n(b['accounts']) and _wei(b['totalWei']) for b in d):
+        return None
+    history = value['history']
+    if not _keys(history, ('from', 'points')) or not _n_or_null(history['from']) or not isinstance(history['points'], list) \
+            or len(history['points']) > 2000 or not all(
+                _keys(p, ('height', 'timestamp', 'holders', 'currentSupplyWei', 'top10SharePercentE10')) and _n(p['height'])
+                and _n(p['timestamp']) and _n(p['holders']) and _wei(p['currentSupplyWei']) and _wei(p['top10SharePercentE10'])
+                for p in history['points']):
+        return None
+    if 'rewards' in value and (not _keys(value['rewards'], ('from', 'to')) or not _n_or_null(value['rewards']['from'])
+                               or not _n_or_null(value['rewards']['to'])):
+        return None
+    return value
+
+
+def miner_geography(value, network):
+    """miner-geography.php: the miner map (pocol-miners-geography-v2) of this network, or None. Every key is the
+    contract's and every value a count, a flag, a country code, a decimal, a block hash or a reporter name, so no IP
+    address, keyed id or miner address can be in the public answer."""
+    if not _identity(value, 'pocol-miners-geography-v2', network) or set(value) != GEOGRAPHY_V2_KEYS:
+        return None
+    if not _n(value['generatedAt']) or not _n(value['height']) or not isinstance(value['blockHash'], str) \
+            or _LOWER_HASH.fullmatch(value['blockHash']) is None:
+        return None
+    database = value['database']
+    if database is not None and (not _keys(database, ('provider', 'release', 'license'))
+                                 or not all(isinstance(database[k], str) and len(database[k]) <= 64 for k in database)):
+        return None
+    if not _keys(value['miners'], MAP_MINER_KEYS) or not all(_n(x) for x in value['miners'].values()):
+        return None
+    if not _keys(value['nodes'], ('observed', 'located', 'unlocated')) or not all(_n(x) for x in value['nodes'].values()):
+        return None
+    sources = value['sources']
+    if not isinstance(sources, list) or len(sources) > 64 or not all(
+            _keys(s, ('kind', 'name', 'fresh', 'reportedAt')) and s['kind'] in ('observer', 'operator')
+            and isinstance(s['name'], str) and _REPORTER.fullmatch(s['name']) and type(s['fresh']) is bool
+            and _n_or_null(s['reportedAt']) for s in sources):
+        return None
+    if not _keys(value['blocksWindow'], ('from', 'to', 'blocks')) or not all(_n(x) for x in value['blocksWindow'].values()):
+        return None
+    countries = value['countries']
+    if not isinstance(countries, list) or len(countries) > 512 or not all(
+            _keys(c, COUNTRY_KEYS) and isinstance(c['code'], str) and re.fullmatch(r'[A-Z]{2}', c['code'])
+            and _keys(c['miners'], ('located', 'active', 'inactive', 'connected')) and all(_n(x) for x in c['miners'].values())
+            and _n(c['nodes']) and _n(c['blocks']) and _wei(c['blocksSharePercentE10'])
+            and (c['rewardsWei'] is None or _wei(c['rewardsWei'])) for c in countries):
+        return None
+    if not _keys(value['unknown'], ('miners', 'blocks')) or not all(_n(x) for x in value['unknown'].values()):
+        return None
+    return value
+
+
 # ---------------- the relay ----------------
 class Response:
     __slots__ = ('status', 'headers', 'body')
@@ -314,21 +547,25 @@ def json_response(status, value, extra=()):
 
 
 class Relay:
-    """The four /api paths over one Gateway. `transaction_options_valid` is the transaction index's own option check
-    (gateway.valid_options) and `cost` the token cost of one call (gateway.COSTS)."""
+    """The /api paths over one Gateway. `transaction_options_valid` and `holder_options_valid` are the transaction and
+    holders indexes' own option checks (gateway.valid_options, gateway.valid_holder_options) and `cost` the token cost
+    of one call (gateway.COSTS)."""
 
-    def __init__(self, gateway, site_origin=SITE_ORIGIN, *, cost=lambda call: 1, transaction_options_valid=lambda _: False):
+    def __init__(self, gateway, site_origin=SITE_ORIGIN, *, cost=lambda call: 1, transaction_options_valid=lambda _: False,
+                 holder_options_valid=lambda _: False):
         if not valid_origin(site_origin):
             raise ValueError('Invalid site origin')
         self.gateway = gateway
         self.site_origin = site_origin
         self.cost = cost
         self.transaction_options_valid = transaction_options_valid
+        self.holder_options_valid = holder_options_valid
         self.slots = threading.BoundedSemaphore(RELAY_SLOTS)
 
-    def handle(self, method, target, headers, rfile, client=None):
+    def handle(self, method, target, headers, rfile, client=None, source=None):
         """The Response to `method target` for an /api path (404 for one not in ROUTES). `client` is the key the
-        gateway charges the request to (gateway.client_key)."""
+        gateway charges the request to (gateway.client_key); `source` the sender's own address (gateway.client_address),
+        given only to an operator node report."""
         parts = urlsplit(target)
         path = parts.path
         if path not in ROUTES:
@@ -342,7 +579,17 @@ class Relay:
             return self.health(client)
         if path == '/api/miner-locations.php':
             return self.miner_locations(method, client)
-        return self.transactions(method, parts.query, client)
+        if path == '/api/transactions.php':
+            return self.transactions(method, parts.query, client)
+        if path == '/api/holders.php':
+            return self.holders(method, parts.query, client)
+        if path == '/api/holders-stats.php':
+            return self.holder_stats(method, parts.query, client)
+        if path == '/api/miner-geography.php':
+            return self.miner_map(method, parts.query, client)
+        if path == '/api/geo-report.php':
+            return self.geo_report(headers, rfile, client, source)
+        return json_response(404, {'error': 'Not found'})  # a ROUTES entry without a branch
 
     def forward(self, payload, client=None):
         """lib.php pocol_forward, in process: (status, answer, error). A free relay slot, the gateway's token budget,
@@ -459,3 +706,85 @@ class Relay:
         if method == 'HEAD':
             return Response(200, [('Content-Type', JSON_TYPE), ('Cache-Control', 'no-store'), *SECURITY_HEADERS])
         return json_response(200, {'data': data})
+
+    def index_read(self, method, call, client, check, unavailable, reset=None):
+        """One holders or miner map read through forward (the relay slots, the budget, the deadline, the gateway's
+        HOLDER_SLOTS): 200 {"data": ..} when `check` accepts the result, 429 with Retry-After when the relay, the
+        budget or the gateway's slots are busy, 409 `reset` when the pinned snapshot changed (-32022), 503
+        `unavailable` otherwise (no index, no snapshot yet, an answer of another shape)."""
+        status, answer, _ = self.forward(call, client)
+        if status == 429:
+            return json_response(429, {'error': BUSY}, [('Retry-After', '3')])
+        reply = answer[0] if status == 200 else {}
+        error = reply.get('error')
+        code = error.get('code') if isinstance(error, dict) and type(error.get('code')) is int else None
+        if code == -32021:
+            return json_response(429, {'error': BUSY}, [('Retry-After', '3')])
+        if code == -32022 and reset is not None:
+            return json_response(409, {'error': reset, 'reset': True})
+        data = check(reply.get('result')) if error is None and 'result' in reply else None
+        if data is None:
+            return json_response(503, {'error': unavailable})
+        if method == 'HEAD':
+            return Response(200, [('Content-Type', JSON_TYPE), ('Cache-Control', 'no-store'), *SECURITY_HEADERS])
+        return json_response(200, {'data': data})
+
+    def holders(self, method, query, client=None):
+        options = holder_options(query)
+        if options is None:
+            return json_response(400, {'error': 'Invalid holder query.'})
+        # The gateway refuses options its holders index does not take (and every option without the index).
+        if not self.holder_options_valid(options):
+            return json_response(503, {'error': HOLDERS_UNAVAILABLE})
+        network = self.gateway.network
+        return self.index_read(method, {'jsonrpc': '2.0', 'id': 1, 'method': 'pocol_getHolders', 'params': [options]},
+                               client, lambda value: holders_page(value, network, options), HOLDERS_UNAVAILABLE,
+                               reset=HOLDERS_RESET)
+
+    def holder_stats(self, method, query, client=None):
+        if not plain_query(query):
+            return json_response(400, {'error': 'Invalid holder statistics query.'})
+        network = self.gateway.network
+        return self.index_read(method, {'jsonrpc': '2.0', 'id': 1, 'method': 'pocol_getHolderStats', 'params': []},
+                               client, lambda value: holders_stats(value, network), HOLDERS_UNAVAILABLE)
+
+    def miner_map(self, method, query, client=None):
+        if not plain_query(query):
+            return json_response(400, {'error': 'Invalid miner map query.'})
+        network = self.gateway.network
+        return self.index_read(method, {'jsonrpc': '2.0', 'id': 1, 'method': 'pocol_getMinerGeography', 'params': []},
+                               client, lambda value: miner_geography(value, network), MAP_UNAVAILABLE)
+
+    def geo_report(self, headers, rfile, client=None, source=None):
+        """POST /api/geo-report.php (§4.1): an operator node report, signed with its reporter's key. The request checks
+        of rpc.php (one Content-Type application/json: 415; one Content-Length of digits and no Transfer-Encoding: 400;
+        at most 16384 bytes: 413, refused before the body is read), and no Origin at all (a reporter never sends one,
+        a browser always does on a cross-site POST): 400. Then 503 without the geo-reporters credential, the request
+        budget (429 with Retry-After) and the gateway's verify_report (204 accepted; 400, 401, 409). The source
+        address goes to the gateway's country lookup only; nothing here logs or keeps it. The relay slots are not
+        taken: a report reads no node and is never queued behind the explorer's reads."""
+        if headers.get_all('Origin'):
+            return json_response(400, {'error': REPORT_ERRORS[400]})
+        types = headers.get_all('Content-Type') or ['']
+        if len(types) != 1 or types[0].split(';')[0].strip().lower() != 'application/json':
+            return json_response(415, {'error': REPORT_ERRORS[415]})
+        lengths = headers.get_all('Content-Length') or []
+        if headers.get('Transfer-Encoding') is not None or len(lengths) != 1 or not re.fullmatch(r'[0-9]{1,12}', lengths[0].strip()):
+            return json_response(400, {'error': REPORT_ERRORS[400]})
+        size = int(lengths[0])
+        if size > MAX_REPORT:
+            return json_response(413, {'error': REPORT_ERRORS[413]})
+        if not self.gateway.reports_enabled():
+            return json_response(503, {'error': REPORT_ERRORS[503]})
+        try:
+            body = rfile.read(size)
+        except OSError:
+            return json_response(400, {'error': REPORT_ERRORS[400]})
+        if len(body) != size:
+            return json_response(400, {'error': REPORT_ERRORS[400]})
+        if not self.gateway.charge(self.cost({'method': 'pocol_geoReport'}), client):
+            return json_response(429, {'error': BUSY}, [('Retry-After', '3')])
+        status = self.gateway.geo_report(headers, body, source)
+        if status == 204:
+            return Response(204, [('Cache-Control', 'no-store'), *SECURITY_HEADERS])
+        return json_response(status if status in REPORT_ERRORS else 400, {'error': REPORT_ERRORS.get(status, REPORT_ERRORS[400])})

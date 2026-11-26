@@ -656,15 +656,16 @@ test('W5: favicon.ico (12, image/x-icon) and site.webmanifest (13, application/m
   const d=decodeManifest(p.manifest);assert.deepEqual(d.files.map(f=>[f.path,f.mime]),[['/favicon.ico',12],['/index.html',1],['/site.webmanifest',13]]);
   for(const id of W5.unknownMimeIds)assert.equal(MIME.has(id),false,'mime '+id);
 });
-test('W5: the S1 explorer include list publishes 12 files from the tracked snapshot, with the expected unique chunks',()=>{
+test('W5: the S1 explorer include list publishes 14 files from the tracked snapshot, with the expected unique chunks',()=>{
   const root=new URL('../../../deploy/websites/explorer.pocol.net/',import.meta.url);
   const include=parseIncludeList(readFileSync(new URL('../tools/explorer-s1-include.txt',root),'utf8'));
-  assert.equal(include.length,12);assert.ok(include.every(path=>denyReason(path)===null&&mimeIdFor(path)!==null),'nothing denied or unsupported is listed');
+  assert.equal(include.length,14);assert.ok(include.every(path=>denyReason(path)===null&&mimeIdFor(path)!==null),'nothing denied or unsupported is listed');
   const files=include.map(path=>({path,data:new Uint8Array(readFileSync(new URL(path.slice(1),root)))}));
   const p=prepareSite(files);const fileChunks=p.files.reduce((n,f)=>n+f.chunks.length,0);
   // icon-512.png and pocol-icon.png are byte-identical, so their 7 chunks are stored once. The explorer bundle is 29
-  // chunks since its W7 edits (tools/explorer-w7-edits.json); a change of its size moves these counts.
-  assert.equal(p.manifestChunks.length,1);assert.equal(fileChunks,76);assert.equal(p.chunks.length,70,"69 unique file chunks and the manifest");assert.equal(planTransactions(p).length,74,"70 chunks, deploy, createVersion, publish, setCurrent");
+  // chunks since its W7 edits (tools/explorer-w7-edits.json); a change of its size moves these counts. The Holders and
+  // Miners map module (assets/pocol-insights.js, 6 chunks, and .css, 1 chunk) added 7.
+  assert.equal(p.manifestChunks.length,1);assert.equal(fileChunks,83);assert.equal(p.chunks.length,77,"76 unique file chunks and the manifest");assert.equal(planTransactions(p).length,81,"77 chunks, deploy, createVersion, publish, setCurrent");
 });
 
 // ---------------- Sites W4 needs W1: the publisher's calls against the Studio gateway ----------------

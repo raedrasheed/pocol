@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Bounded read-only PoCol explorer gateway: POST /rpc, GET /health and the explorer snapshot's same-origin reads
-(/api/rpc.php, /api/health.php, /api/miner-locations.php, /api/transactions.php; explorer_api.py). Python 3.10+,
-standard library only."""
+(/api/rpc.php, /api/health.php, /api/miner-locations.php, /api/transactions.php, /api/holders.php,
+/api/holders-stats.php, /api/miner-geography.php) and operator node reports (POST /api/geo-report.php; explorer_api.py).
+Python 3.10+, standard library only."""
 import argparse
 import collections
 import http.client
@@ -17,19 +18,30 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sqlite3
 try:
-    from pocol_geoip import Geography
-except ImportError:
-    Geography = None
-try:
     from pocol_transactions import TransactionIndex, SnapshotChanged, valid_options
 except ImportError:
     TransactionIndex = None
     class SnapshotChanged(RuntimeError): pass
     def valid_options(_): return False
-# The reward and membership reader is part of the gateway (installed beside it), and so is the transaction index
-# (pocol_transactions.py, used when POCOL_TX_DB names its file). GeoIP has no module in the repository: the network
-# gives no truthful miner location (deploy/explorer/README.md, Miner map), so pocol_getNetworkGeography and
-# /api/miner-locations.php stay unavailable unless the owner decides otherwise.
+try:
+    import pocol_holders
+    from pocol_holders import HolderIndex, valid_options as valid_holder_options
+    HolderSnapshotChanged = pocol_holders.SnapshotChanged
+except ImportError:
+    pocol_holders = HolderIndex = None
+    class HolderSnapshotChanged(RuntimeError): pass
+    def valid_holder_options(_): return False
+try:
+    import pocol_geoip
+except ImportError:
+    pocol_geoip = None
+# The reward and membership reader is part of the gateway (installed beside it), and so are the transaction index
+# (pocol_transactions.py, used when POCOL_TX_DB names its file), the holders index (pocol_holders.py, used when
+# POCOL_HOLDERS_DB names its file) and the country geography (pocol_geoip.py, MINERS-MAP-HOLDERS.md §4): the miner map
+# of /api/miner-geography.php, with the GeoIP database when GEOIP_DB (or POCOL_GEOIP_DB) is installed and operator
+# node reports when the geo-reporters credential is. pocol_getNetworkGeography and /api/miner-locations.php (schema v1)
+# stay unavailable: the network gives no truthful per-peer miner location (deploy/explorer/README.md, Miner map), and
+# nothing installs a v1 module (Gateway.geography is only set by tests).
 from pocol_rewards import (snapshot_v3 as reward_snapshot, validated_fork_schedule, validated_network, DEFAULT_FORK_SCHEDULE,
                            MAX_CALLS_V3, MAX_SECONDS_V3, keccak256, _abi_two_arrays, hex_bytes, REGISTRY, CAPS, CALL_GAS,
                            ACTIVE_SLICE_GAS, MAX_MEMBERS_V3, ACTIVE_PAGE)
@@ -40,6 +52,11 @@ from urllib.parse import urlsplit
 
 MAX_REQUEST = 16384
 MAX_RESPONSE = 4 * 1024 * 1024
+# The holders index's own node reads (never a public answer): pocold's RESP_MAX (8 MiB, rpc.rs) plus the envelope,
+# since pocol_getMiners alone is about 253 bytes per record (6.2 MB at REG_RECORDS_MAX 24,576); a batch is at most
+# BATCH_MAX (20, rpc.rs) members.
+INDEX_RESPONSE_MAX = 8 * 1024 * 1024 + 65536
+INDEX_BATCH_MAX = 20
 NO_PARAMS = {'pocol_status', 'pocol_getParams', 'pocol_getMiners', 'eth_blockNumber', 'net_peerCount', 'eth_gasPrice', 'pocol_getNetworkGeography', 'pocol_getBlockReward',
              'pocol_getRemovable', 'pocol_finality', 'pocol_getMemberCounts'}
 # Sites W6: v3 membership read through MinerRegistry views (PoColSystemV3.sol): pages of the active list with each
@@ -71,11 +88,29 @@ COSTS = {'pocol_getBlockReward': 20, 'pocol_getMember': 20, 'pocol_getMemberCoun
          # A transaction history page: a count and an indexed read over the index file, no node read. Measured at
          # 500,000 rows: under 0.15 s in every order at any depth, about 0.9 s for a one-digit search prefix (the
          # slowest); pocol_transactions.PAGE_SECONDS interrupts a page at 2 s. Pages run behind TX_SLOTS.
-         'pocol_getTransactions': 5}
-# Node reads (every method but pocol_getTransactions) take one of RPC_SLOTS, transaction pages one of TX_SLOTS, both
-# without waiting (busy: -32021). Pages never take a node read's slot, so transaction pages (however many clients send
-# them) can make only the Transactions tab busy, never the explorer's other reads.
-RPC_SLOTS, TX_SLOTS = 4, 2
+         'pocol_getTransactions': 5,
+         # The holders and miner map reads (HOLDER_METHODS), over the holders index file and memory. Measured: a
+         # holders page at 100,000 accounts 0.4-0.6 ms at any depth, order or type, 3 ms for a one-digit search
+         # (test_pocol_holders ScaleTests; pocol_holders.PAGE_SECONDS interrupts a page at 2 s); the statistics one
+         # stored row (with at most 2,000 history points); the miner map about 0.1 s at REG_RECORDS_MAX (24,576)
+         # records (the registry snapshot read and the per-country counts), and at most one observer pocol_status
+         # read per pocol_geoip.OBSERVE_SECONDS.
+         'pocol_getHolders': 2, 'pocol_getHolderStats': 1, 'pocol_getMinerGeography': 5,
+         # One operator node report (HMAC-SHA256 of at most 16 KiB and a parse; no node read).
+         'pocol_geoReport': 1}
+# The internal reads of /api/holders.php, /api/holders-stats.php and /api/miner-geography.php. They are not in
+# valid_call (so /rpc refuses them) nor in explorer_api.METHODS (so /api/rpc.php refuses them): only those routes call
+# them, with the options the route parsed.
+HOLDER_METHODS = frozenset({'pocol_getHolders', 'pocol_getHolderStats', 'pocol_getMinerGeography'})
+# Node reads (every method but pocol_getTransactions and HOLDER_METHODS) take one of RPC_SLOTS, transaction pages one
+# of TX_SLOTS and the holder reads one of HOLDER_SLOTS, all without waiting (busy: -32021). Pages never take a node
+# read's slot, so transaction or holder pages (however many clients send them) can make only their own tab busy, never
+# the explorer's other reads. The miner map's observer read (one pocol_status per OBSERVE_SECONDS) runs in its
+# HOLDER_SLOTS slot.
+RPC_SLOTS, TX_SLOTS, HOLDER_SLOTS = 4, 2, 2
+# The built GeoIP database (pocol_geoip.py build; the installer's --geoip-db copies it here). POCOL_GEOIP_DB names
+# another file. Without the file nothing is located (the answer's database is null).
+GEOIP_DB = '/opt/pocol-explorer-gateway/geoip/dbip-country.bin'
 # MinerRegistry record word w0 (REGISTRY-LAYOUT.md): status 0..7, tomb 8..15, bondState 16..23, recPos 24..55,
 # actPos 56..87, lastShare 88..151, registeredAt 152..215 (earn-in). Every value the v3 programs write is labelled.
 STATUS_LABELS = {0: 'NONE', 1: 'ACTIVE', 2: 'EXITED'}
@@ -101,21 +136,29 @@ CLIENT_BURST, CLIENT_RATE, CLIENTS_MAX = 40.0, 10.0, 4096
 API_RESERVE = 30.0
 
 
-def client_key(peer, headers):
-    """The client a request is charged to. Behind Caddy (a loopback peer) it is the last X-Forwarded-For hop: the
-    address Caddy itself appends (Caddy 2.5 and later replace a client's own X-Forwarded-For unless trusted_proxies is
-    set, which the explorer block never sets). Otherwise the peer address. An IPv6 client counts by its /64."""
+def client_address(peer, headers):
+    """The client's own IP address (an ipaddress object), or None when it is not one. Behind Caddy (a loopback peer)
+    it is the last X-Forwarded-For hop: the address Caddy itself appends (Caddy 2.5 and later replace a client's own
+    X-Forwarded-For unless trusted_proxies is set, which the explorer block never sets). Otherwise the peer address.
+    It is used in memory only: never logged or stored."""
     try:
         address = ipaddress.ip_address(peer)
     except ValueError:
-        return 'unknown'
+        return None
     if address.is_loopback:
         values = headers.get_all('X-Forwarded-For') or [] if headers is not None else []
         if values:
             try:
                 address = ipaddress.ip_address(values[-1].split(',')[-1].strip())
             except ValueError:
-                return 'unknown'
+                return None
+    return address
+
+def client_key(peer, headers):
+    """The client a request is charged to: client_address, an IPv6 client counted by its /64."""
+    address = client_address(peer, headers)
+    if address is None:
+        return 'unknown'
     if address.version == 6 and not address.is_loopback:
         return str(ipaddress.ip_network(f'{address}/64', strict=False))
     return str(address)
@@ -275,20 +318,85 @@ def member_record(address, words, clocks, removal, b_reg):
         'removal': removal, 'removalLabel': label(REMOVAL_LABELS, removal, 'removal verdict')})
     return record
 
+class HolderMapInputs:
+    """pocol_geoip.Geography's holders_index over a pocol_holders.HolderIndex: the registry, the blocks won and the
+    miners' rewards of one published snapshot (HolderIndex.map_inputs, one read transaction), so one miner map answer
+    never mixes block heights. inputs() gives the three together; registry(), winners() and miner_rewards() are each
+    one of them.
+
+    HolderIndex.registry() carries `tomb` as pocol_getMiners' boolean and graceStart null for a record that is not a
+    live ActList member; Geography takes integers (graceStart only matters for a live ActList member, which always has
+    one, so null is 0 here). The winners name the per-miner counts `perMiner`, Geography `miners`. A miner's mining
+    rewards since the index start are the amounts paid for its flows plus its bond accruals as they stood at that
+    snapshot, None while they are not exact. Before the first snapshot every answer is None (Geography.answer() then
+    is None: the route's 503). The adapted value is cached under the snapshot's (height, blockHash), so a miner map
+    answer does not parse the whole registry again until the index publishes another snapshot."""
+
+    def __init__(self, index):
+        self.index = index
+        self.lock = threading.Lock()
+        self.key = None
+        self.value = (None, None, None)
+
+    def inputs(self):
+        unavailable = pocol_holders.Unavailable if pocol_holders is not None else RuntimeError
+        with self.lock:
+            key, cached = self.key, self.value
+        try:
+            read = self.index.map_inputs(key)
+        except unavailable:
+            return None, None, None
+        if read is None:
+            return cached
+        registry, window, rewards = read['registry'], read['winners'], read['rewards']
+        records = []
+        for record in registry['records']:
+            if type(record.get('tomb')) is not bool or not (record.get('graceStart') is None or type(record['graceStart']) is int):
+                raise ValueError('A holders index registry record has another shape')
+            records.append({**record, 'tomb': int(record['tomb']), 'graceStart': record['graceStart'] or 0})
+        registry = {**registry, 'records': records}
+        window = {'from': window['from'], 'to': window['to'], 'blocks': window['blocks'], 'miners': window['perMiner']}
+        miners = None
+        if rewards is not None:
+            miners = {m: int(v['paidWei']) + int(v['bondAccruedWei']) for m, v in rewards['miners'].items()}
+        value = (registry, window, miners)
+        with self.lock:
+            self.key, self.value = tuple(read['key']), value
+        return value
+
+    def registry(self):
+        return self.inputs()[0]
+
+    def winners(self, window):
+        if window != pocol_geoip.BLOCKS_WINDOW:
+            raise ValueError('The miner map reads the blocks of the last BLOCKS_WINDOW blocks only')
+        return self.inputs()[1]
+
+    def miner_rewards(self):
+        return self.inputs()[2]
+
+
 class Gateway:
-    def __init__(self, upstream_port=8545, geography=None, transactions=None, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network):
+    def __init__(self, upstream_port=8545, geography=None, transactions=None, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network,
+                 holders=None, miner_map=None):
         self.fork_schedule = validated_fork_schedule(fork_schedule)
         # The network only from the operator's validated configuration; there is no built-in one.
         self.network = validated_network(network)
         self.chain_id = self.network.chain_id
         self.port = upstream_port
+        # `geography`: a schema-v1 network geography module (pocol_getNetworkGeography, /api/miner-locations.php);
+        # none exists, so main() never sets one. `holders`: the holders index (pocol_holders.HolderIndex);
+        # `miner_map`: the pocol-miners-geography-v2 answer and the operator reports (pocol_geoip.Geography).
         self.geography = geography
         self.transactions = transactions
+        self.holders = holders
+        self.miner_map = miner_map
         self.cache = collections.OrderedDict()
         self.cache_size = 0
         self.lock = threading.Lock()
         self.rpc_slots = threading.BoundedSemaphore(RPC_SLOTS)
         self.tx_slots = threading.BoundedSemaphore(TX_SLOTS)
+        self.holder_slots = threading.BoundedSemaphore(HOLDER_SLOTS)
         self.reward_slot = threading.Lock()
         self.reward_failed_at = -float('inf')
         self.tokens, self.token_time = GLOBAL_BURST, time.monotonic()
@@ -313,28 +421,79 @@ class Gateway:
             self.tokens -= cost
             if client is not None: self.clients[client] = (own - cost, now)
             return True
-    def query(self, method, params, deadline=None):
-        """One node read. With `deadline` (a time.monotonic() value) the read is refused once it has passed and its
-        socket timeout is at most the time left, so a caller's total limit holds for every read it makes."""
+    def _post(self, payload, deadline, max_bytes):
         timeout = 5
         if deadline is not None:
             timeout = min(timeout, deadline - time.monotonic())
             if timeout <= 0: raise RuntimeError('Explorer read time limit reached')
         conn = http.client.HTTPConnection('127.0.0.1', self.port, timeout=timeout)
         try:
-            body = json.dumps({'jsonrpc':'2.0','id':1,'method':method,'params':params}, separators=(',', ':')).encode()
+            body = json.dumps(payload, separators=(',', ':')).encode()
             conn.request('POST', '/', body=body, headers={'Content-Type':'application/json','Connection':'close'})
             reply = conn.getresponse()
             if reply.status != 200: raise RuntimeError('Node temporarily unavailable')
-            raw = reply.read(MAX_RESPONSE + 1)
-            if len(raw) > MAX_RESPONSE: raise RuntimeError('Node response exceeds explorer limit')
-            result = json.loads(raw)
-            if not isinstance(result, dict) or result.get('id') != 1: raise RuntimeError('Invalid node response')
-            return result
+            raw = reply.read(max_bytes + 1)
+            if len(raw) > max_bytes: raise RuntimeError('Node response exceeds explorer limit')
+            return json.loads(raw)
         finally: conn.close()
+    def query(self, method, params, deadline=None, max_bytes=MAX_RESPONSE):
+        """One node read. With `deadline` (a time.monotonic() value) the read is refused once it has passed and its
+        socket timeout is at most the time left, so a caller's total limit holds for every read it makes. `max_bytes`
+        bounds the answer (MAX_RESPONSE; the holders index's own reads INDEX_RESPONSE_MAX)."""
+        result = self._post({'jsonrpc':'2.0','id':1,'method':method,'params':params}, deadline, max_bytes)
+        if not isinstance(result, dict) or result.get('id') != 1: raise RuntimeError('Invalid node response')
+        return result
+    def index_query(self, method, params, deadline=None):
+        """query() for the holders index (pocol_holders.HolderIndex's `query` and its reward reads): answers up to
+        INDEX_RESPONSE_MAX, so a full registry (pocol_getMiners at REG_RECORDS_MAX) is read whole."""
+        return self.query(method, params, deadline=deadline, max_bytes=INDEX_RESPONSE_MAX)
+    def index_batch(self, calls):
+        """One pocold batch (one connection) of at most INDEX_BATCH_MAX (method, params): their envelopes in order
+        (pocol_holders.HolderIndex's `batch`). A whole-batch error object or an answer that is not exactly one
+        envelope per id is refused."""
+        if not 1 <= len(calls) <= INDEX_BATCH_MAX: raise ValueError('A node batch has 1 to 20 reads')
+        payload = [{'jsonrpc':'2.0','id':i + 1,'method':m,'params':p} for i, (m, p) in enumerate(calls)]
+        result = self._post(payload, None, INDEX_RESPONSE_MAX)
+        if not isinstance(result, list) or len(result) != len(calls): raise RuntimeError('Invalid node batch response')
+        by_id = {}
+        for item in result:
+            ident = item.get('id') if isinstance(item, dict) else None
+            if type(ident) is not int or not 1 <= ident <= len(calls) or ident in by_id:
+                raise RuntimeError('Invalid node batch response')
+            by_id[ident] = item
+        return [by_id[i + 1] for i in range(len(calls))]
     def read(self, method, params, deadline):
         """query(), with the caller's deadline when it has one (a call without one reads exactly as /rpc always has)."""
         return self.query(method, params) if deadline is None else self.query(method, params, deadline=deadline)
+    def observer_status(self):
+        """The raw pocol_status of this host's node (its peers' addresses included), for the miner map's observer
+        source only (pocol_geoip.Geography reads it at most once per OBSERVE_SECONDS and keeps only keyed ids and
+        countries). One read bounded to 3 s."""
+        answer = self.query('pocol_status', [], deadline=time.monotonic() + 3)
+        if 'error' in answer or not isinstance(answer.get('result'), dict): raise RuntimeError('Node status unavailable')
+        return answer['result']
+    def reports_enabled(self):
+        """Whether POST /api/geo-report.php takes reports: the miner map is installed with the geo-reporters
+        credential."""
+        return self.miner_map is not None and self.miner_map.reports_enabled
+    def geo_report(self, headers, body, source):
+        """The status of one operator node report (pocol_geoip.verify_report through Geography.report): 204 accepted,
+        or 400, 401, 409, 413, 415, 503. `source` is the sender's address (client_address) or None; Geography looks it
+        up and keeps only its keyed id and country, in memory."""
+        if not self.reports_enabled(): return 503
+        return self.miner_map.report(headers, body, None if source is None else str(source))
+    def holder_read(self, method, params):
+        """The result of one HOLDER_METHODS read (holder_options parsed and checked its params)."""
+        if method == 'pocol_getMinerGeography':
+            if self.miner_map is None: raise RuntimeError('The miner map is not installed')
+            value = self.miner_map.answer()
+            if value is None: raise RuntimeError('The holders index has no registry snapshot yet')
+            return value
+        if self.holders is None: raise RuntimeError('Holders index is not installed')
+        if method == 'pocol_getHolders':
+            if len(params) != 1 or not valid_holder_options(params[0]): raise ValueError('Invalid holder options')
+            return self.holders.page(params[0])
+        return self.holders.stats()
     def verify_network(self):
         params = self.query('pocol_getParams', []).get('result', {})
         genesis = params.get('genesisHash')
@@ -451,7 +610,8 @@ class Gateway:
             if item and item[0] > now:
                 self.cache.move_to_end(key)
                 answer = json.loads(item[1]); answer['id'] = request['id']; return answer
-        slots = self.tx_slots if method == 'pocol_getTransactions' else self.rpc_slots
+        slots = (self.tx_slots if method == 'pocol_getTransactions' else self.holder_slots if method in HOLDER_METHODS
+                 else self.rpc_slots)
         if not slots.acquire(blocking=False):
             return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32021,'message':'Explorer busy; retry shortly'}}
         reward_locked = False
@@ -486,6 +646,8 @@ class Gateway:
             elif method == 'pocol_getTransactions':
                 if self.transactions is None: raise RuntimeError('Transaction index is not installed')
                 answer = {'jsonrpc':'2.0','id':request['id'],'result':self.transactions.page(params[0])}
+            elif method in HOLDER_METHODS:
+                answer = {'jsonrpc':'2.0','id':request['id'],'result':self.holder_read(method, params)}
             elif method in MEMBERS:
                 answer = {'jsonrpc':'2.0','id':request['id'],'result':self.membership(method, params, deadline)}
             elif method == 'pocol_getNetworkGeography':
@@ -510,11 +672,21 @@ class Gateway:
             return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32022,'message':'Chain changed. Retry the membership read.'}}
         except SnapshotChanged:
             return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32022,'message':'Chain changed. Refresh transactions.'}}
+        except HolderSnapshotChanged:
+            return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32022,'message':'The holder snapshot changed. Refresh holders.'}}
         except (OSError, ValueError, RuntimeError, KeyError, sqlite3.Error, http.client.HTTPException):
             return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32000,'message':'Node data temporarily unavailable'}}
         finally:
             if reward_locked: self.reward_slot.release()
             slots.release()
+
+def holder_index(gateway, path):
+    """The holders index of `gateway` (main(), POCOL_HOLDERS_DB): its reads loopback through Gateway.index_query
+    (answers up to INDEX_RESPONSE_MAX, a full registry) and Gateway.index_batch (pocold batches of BATCH_MAX), the
+    gateway's network and fork schedule."""
+    if HolderIndex is None: raise RuntimeError('Holders index module is missing')
+    return HolderIndex(path, gateway.index_query, gateway.network, batch=gateway.index_batch,
+                       fork_schedule=gateway.fork_schedule)
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
@@ -564,11 +736,14 @@ class Handler(BaseHTTPRequestHandler):
     def client(self):
         return client_key(self.client_address[0], self.headers)
     def explorer(self, method):
-        response = self.server.explorer.handle(method, self.path, self.headers, self.rfile, client=self.client())
+        # The sender's own address goes only to an operator node report (its country lookup), in memory.
+        response = self.server.explorer.handle(method, self.path, self.headers, self.rfile, client=self.client(),
+                                               source=client_address(self.client_address[0], self.headers))
         self.send_response(response.status)
         for name, value in response.headers: self.send_header(name, value)
         body = b'' if method == 'HEAD' or response.body is None else response.body
-        if method != 'HEAD': self.send_header('Content-Length', str(len(body)))
+        # A 204 (an accepted report) has no body and no Content-Length (RFC 9110 8.6).
+        if method != 'HEAD' and response.status != 204: self.send_header('Content-Length', str(len(body)))
         self.send_header('Connection', 'close')
         self.end_headers()
         self.close_connection = True
@@ -617,7 +792,8 @@ class Server(ThreadingHTTPServer):
         # The explorer's /api reads: the Origin a browser request may carry (the explorer site), the gateway's call
         # costs and the transaction index's option check.
         self.explorer = explorer_api.Relay(gateway, site_origin, cost=lambda call: COSTS.get(call['method'], 1),
-                                           transaction_options_valid=lambda options: valid_options(options))
+                                           transaction_options_valid=lambda options: valid_options(options),
+                                           holder_options_valid=lambda options: valid_holder_options(options))
         self.slots = threading.BoundedSemaphore(16)
         self.busy_slots = threading.BoundedSemaphore(BUSY_SLOTS)
         super().__init__(address, Handler)
@@ -676,8 +852,7 @@ if __name__ == '__main__':
         network = load_v3_network(args.v3_network)
     except (OSError, ValueError, RuntimeError) as error:
         parser.error(str(error))
-    geography = Geography.from_config() if Geography is not None and Path('/opt/pocol-explorer-gateway/geoip-config.json').is_file() else None
-    gateway = Gateway(args.rpc_port, geography, fork_schedule=fork_schedule, network=network)
+    gateway = Gateway(args.rpc_port, fork_schedule=fork_schedule, network=network)
     gateway.verify_network()
     if os.environ.get('POCOL_TX_DB'):
         # The transaction index (pocol_transactions.py): a follower thread on this host's node, its SQLite file at
@@ -688,6 +863,28 @@ if __name__ == '__main__':
         if not re.fullmatch(r'[1-9][0-9]{0,9}', rows): parser.error('POCOL_TX_MAX_ROWS: a positive integer')
         gateway.transactions = TransactionIndex(os.environ['POCOL_TX_DB'], gateway.query, gateway.network, max_rows=int(rows))
         gateway.transactions.start()
+    if os.environ.get('POCOL_HOLDERS_DB'):
+        # The holders index (pocol_holders.py): a follower thread on this host's node, its SQLite file at
+        # POCOL_HOLDERS_DB, the configured network and fork schedule.
+        if HolderIndex is None: raise RuntimeError('Holders index module is missing')
+        gateway.holders = holder_index(gateway, os.environ['POCOL_HOLDERS_DB'])
+        gateway.holders.start()
+    if pocol_geoip is not None:
+        # The miner map (MINERS-MAP-HOLDERS.md §4): the GeoIP database when its file is installed, operator node
+        # reports when the geo-reporters credential is ($CREDENTIALS_DIRECTORY/geo-reporters, the unit's
+        # LoadCredential). A damaged database or credential is named on stderr and left out (nothing located, or the
+        # report route's 503); no secret or address is printed.
+        try:
+            database = pocol_geoip.load_database(os.environ.get('POCOL_GEOIP_DB') or GEOIP_DB)
+        except (OSError, ValueError) as error:
+            print(f'GeoIP database not used: {error}', file=sys.stderr, flush=True); database = None
+        try:
+            credentials = pocol_geoip.load_credentials()
+        except (OSError, ValueError) as error:
+            print(f'Operator node reports disabled: {error}', file=sys.stderr, flush=True); credentials = None
+        gateway.miner_map = pocol_geoip.Geography(database, None, gateway.network,
+                                                  HolderMapInputs(gateway.holders) if gateway.holders is not None else None,
+                                                  gateway.observer_status, credentials=credentials)
     server = Server((args.bind, args.port), gateway, args.site_origin)
     print('PoCol explorer read-only gateway ready', flush=True)
     server.serve_forever(poll_interval=0.5)

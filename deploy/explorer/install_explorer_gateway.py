@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 """Transactional installer of the explorer gateway host (Sites W8, owner decision 9): the read-only gateway service
-(deploy/rewards/gateway.py with pocol_rewards.py, explorer_api.py and the transaction index pocol_transactions.py) on
-127.0.0.1:8088, the explorer snapshot's static
+(deploy/rewards/gateway.py with pocol_rewards.py, explorer_api.py, the transaction index pocol_transactions.py, the
+holders index pocol_holders.py and the miner map's pocol_geoip.py) on 127.0.0.1:8088, the explorer snapshot's static
 copy, and the explorer.pocol.net Caddy site that serves both (explorer_site.py). No node data, key or DNS record is
 touched.
 
     D=$(mktemp -d) && python3 deploy/websites/tools/site_snapshot.py --out "$D" \
         && sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D" --check
-    sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D"
+    sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D" [--geoip-db geoip-country.bin]
+
+The miner map (development/explorer/MINERS-MAP-HOLDERS.md §4): --geoip-db installs a GeoIP database built with
+`python3 deploy/rewards/pocol_geoip.py build` from the operator's DB-IP "IP to Country Lite" CSV (checked record by
+record first) as GEOIP_FILE; an update without the option keeps the installed one. Operator node reports need the
+reporters' keys and the network salt in /etc/pocol-explorer-gateway/geo-reporters.json (root, 0600; never in the
+repository): while that file exists the installer adds the unit drop-in GEO_DROPIN, which loads it as the systemd
+credential `geo-reporters` (LoadCredential=; systemd 247 or later); without the file there is no drop-in and the report
+route answers 503. LoadCredential= fails the service start when its file is missing, so remove the file only by
+rerunning the installer after removing it (the drop-in then goes too).
 
 The copy is built from the committed blobs into a new directory, so a failed build stops there and no older copy is
 left to install. The installer also compares it with this checkout's explorer snapshot (its include list, checked
@@ -53,7 +62,7 @@ ROOT = HERE.parents[1]
 SNAPSHOT = 'deploy/websites/explorer.pocol.net'
 INCLUDE = ROOT / 'deploy/websites/tools/explorer-s1-include.txt'
 BASE = Path('/opt/pocol-explorer-gateway')
-SOURCES = ('gateway.py', 'pocol_rewards.py', 'explorer_api.py', 'pocol_transactions.py')
+SOURCES = ('gateway.py', 'pocol_rewards.py', 'explorer_api.py', 'pocol_transactions.py', 'pocol_holders.py', 'pocol_geoip.py')
 MARKER = 'managed-by-explorer-v1'
 SERVICE = 'pocol-explorer-gateway.service'
 UNIT = Path('/etc/systemd/system') / SERVICE
@@ -74,8 +83,30 @@ ARGUMENTS = (f'--bind 127.0.0.1 --port {PORT} --rpc-port 8545 --v3-network {NETW
 # The transaction index (pocol_transactions.py) in the service's own state directory (DynamicUser: /var/lib/private,
 # reachable only by the service): its SQLite file, bounded by pocol_transactions.DEFAULT_MAX_ROWS.
 TX_DB = '/var/lib/pocol-explorer-gateway/transactions.sqlite3'
+# The holders index (pocol_holders.py) beside it, in the same state directory.
+HOLDERS_DB = '/var/lib/pocol-explorer-gateway/holders.sqlite3'
+# The miner map's GeoIP database (gateway.GEOIP_DB: BASE/geoip/dbip-country.bin), the reporters' credential
+# (CONFIG/geo-reporters.json) and its unit drop-in (UNIT's .d directory/geo-reporters.conf); functions, so they follow
+# BASE, CONFIG and UNIT.
+GEOIP_NAME, GEO_CREDENTIAL_NAME, GEO_DROPIN_NAME = 'dbip-country.bin', 'geo-reporters.json', 'geo-reporters.conf'
+def geoip_dir(): return BASE / 'geoip'
+def geoip_file(): return geoip_dir() / GEOIP_NAME
+def geo_credential(): return CONFIG / GEO_CREDENTIAL_NAME
+def geo_dropin_dir(): return UNIT.with_name(UNIT.name + '.d')
+def geo_dropin(): return geo_dropin_dir() / GEO_DROPIN_NAME
+def geo_dropin_text():
+    """The drop-in that loads the reporters' credential (written only while that file exists: LoadCredential= fails
+    the start when its file is missing). systemd reads the file as root; the service reads
+    $CREDENTIALS_DIRECTORY/geo-reporters (pocol_geoip.load_credentials)."""
+    return ('# Managed by install_explorer_gateway.py while the reporters\' credential exists (operator node reports).\n'
+            f'[Service]\nLoadCredential=geo-reporters:{geo_credential()}\n')
+# MemoryMax=256M is kept with the holders index and the miner map: measured (ru_maxrss, Python 3.11) the holders
+# snapshot publication at 100,000 accounts adds under 50 MB (a test process holding the fake node's 100,000 accounts
+# too peaked at 71 MB), the miner map answer at REG_RECORDS_MAX (24,576) records under 45 MB (65 MB with the test's own
+# data), and the GeoIP database is a read-only file mapping (DB-IP Lite country: about 10-20 MB, reclaimable page
+# cache); with the transaction index, 16 request threads and a reward snapshot the gateway stays well below 256 MB.
 UNIT_TEXT = f'''[Unit]
-Description=PoCol explorer gateway (read-only /rpc, the explorer's /api reads and the transaction index)
+Description=PoCol explorer gateway (read-only /rpc, the explorer's /api reads, the transaction and holders indexes)
 After=network.target pocol-standalone.service pocol-observer.service
 
 [Service]
@@ -84,6 +115,7 @@ DynamicUser=yes
 StateDirectory=pocol-explorer-gateway
 StateDirectoryMode=0700
 Environment=POCOL_TX_DB={TX_DB}
+Environment=POCOL_HOLDERS_DB={HOLDERS_DB}
 ExecStart=/usr/bin/python3 {BASE}/gateway.py {ARGUMENTS}
 WorkingDirectory={BASE}
 Restart=on-failure
@@ -110,8 +142,14 @@ WantedBy=multi-user.target
 
 
 NETWORK_ARGUMENT, FORKS_ARGUMENT = f'--v3-network {NETWORK} ', f'--fork-schedule {FORKS} '
-# The unit the previous release wrote (no transaction index): an update replaces it; any other text is a custom edit.
-PREVIOUS_UNIT_TEXT = (UNIT_TEXT
+# The units earlier releases wrote: an update replaces them; any other text is a custom edit. RELEASE_UNIT_TEXT is the
+# current release's (main at 04f77806: the transaction index, no holders index), PREVIOUS_UNIT_TEXT the one before it
+# (main at 1bb11f4c: no transaction index).
+RELEASE_UNIT_TEXT = (UNIT_TEXT
+                     .replace("(read-only /rpc, the explorer's /api reads, the transaction and holders indexes)",
+                              "(read-only /rpc, the explorer's /api reads and the transaction index)")
+                     .replace(f'Environment=POCOL_HOLDERS_DB={HOLDERS_DB}\n', ''))
+PREVIOUS_UNIT_TEXT = (RELEASE_UNIT_TEXT
                       .replace("(read-only /rpc, the explorer's /api reads and the transaction index)", "(read-only /rpc and the explorer's /api reads)")
                       .replace('After=network.target pocol-standalone.service pocol-observer.service', 'After=network.target pocol-standalone.service')
                       .replace(f'StateDirectory=pocol-explorer-gateway\nStateDirectoryMode=0700\nEnvironment=POCOL_TX_DB={TX_DB}\n', ''))
@@ -126,8 +164,42 @@ def unit_text(forks, text=None):
 
 
 def known_units():
-    """The unit texts an update may replace: this release's and the previous release's, with and without forks.json."""
-    return {unit_text(f, t) for f in (False, True) for t in (UNIT_TEXT, PREVIOUS_UNIT_TEXT)}
+    """The unit texts an update may replace: this release's and the two before it, with and without forks.json."""
+    return {unit_text(f, t) for f in (False, True) for t in (UNIT_TEXT, RELEASE_UNIT_TEXT, PREVIOUS_UNIT_TEXT)}
+
+
+def check_geo_credential():
+    """The reporters' credential as systemd will load it, or None when the file does not exist: a root-owned regular
+    file nobody else may read or write (it holds the reporters' keys and the network salt), valid for
+    pocol_geoip.parse_credentials (whose messages name a field, never a secret)."""
+    path = geo_credential()
+    if path.is_symlink(): raise RuntimeError(f'Unexpected symbolic link {path}; no changes made')
+    if not path.exists(): return None
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != ROOT_UID or info.st_mode & 0o077:
+        raise RuntimeError(f'{path} must be a root-owned regular file that only root may read (0600: it holds the '
+                           f'reporters\' keys), not {oct(info.st_mode & 0o777)}; no changes made')
+    import pocol_geoip
+    try:
+        pocol_geoip.parse_credentials(path.read_bytes())
+    except pocol_geoip.CredentialError as error:
+        raise RuntimeError(f'{path}: {error}; no changes made') from None
+    return path
+
+
+def check_geoip_database(path):
+    """The bytes of a built GeoIP database after pocol_geoip.GeoDatabase opened it (header, size, records digest) and
+    verify() checked every record; RuntimeError otherwise."""
+    import pocol_geoip
+    try:
+        raw = Path(path).read_bytes()
+        with pocol_geoip.GeoDatabase(path) as database:
+            database.verify()
+            release, ranges = database.release, (database.ipv4_ranges, database.ipv6_ranges)
+        if Path(path).read_bytes() != raw: raise ValueError(f'{path} changed while it was checked')
+    except (OSError, ValueError) as error:
+        raise RuntimeError(f'--geoip-db: {error}; no changes made') from None
+    return raw, release, ranges
 
 
 def check_forced_loopback():
@@ -258,8 +330,9 @@ def tls(method, path, payload=None, headers=None):
 
 def verify_https(network, files, studio_route, faucet_route=False):
     """The public routes: every static file byte for byte with the explorer's headers, /api/health.php PASS,
-    /api/rpc.php and /rpc naming the network, /health, hidden and server paths 404, and the Studio route and the faucet
-    route (/faucet/status naming the network's chain ID; never a claim) if present."""
+    /api/rpc.php and /rpc naming the network, /health, /api/holders.php and /api/miner-geography.php (their data or
+    their 503), hidden and server paths 404, and the Studio route and the faucet route (/faucet/status naming the
+    network's chain ID; never a claim) if present."""
     for name, raw in sorted(files.items()):
         status, response, body = tls('GET', '/' + name)
         if status != 200 or body != raw:
@@ -283,6 +356,17 @@ def verify_https(network, files, studio_route, faucet_route=False):
     status, _, body = tls('GET', '/health')
     if status != 200 or json.loads(body).get('service') != 'pocol-explorer-gateway':
         raise RuntimeError('HTTPS /health verification failed')
+    # The holders and miner map reads answer through the gateway with the explorer headers: their data for this network,
+    # or (while the holders index has no snapshot yet: right after a first install it indexes from genesis) the
+    # route's JSON 503.
+    for path, schema in (('/api/holders.php', 'pocol-holders-v1'), ('/api/miner-geography.php', 'pocol-miners-geography-v2')):
+        status, response, body = tls('GET', path)
+        value = json.loads(body) if status in (200, 503) else None
+        data = value.get('data') if status == 200 and isinstance(value, dict) else None
+        if (response.getheader('Content-Security-Policy') != explorer_api.CONTENT_SECURITY_POLICY or not isinstance(value, dict)
+                or (status == 200 and not (same_identity(data, network) and data.get('schema') == schema))
+                or (status == 503 and not isinstance(value.get('error'), str))):
+            raise RuntimeError(f'HTTPS {path} did not answer for the network (its data, or 503 while the holders index syncs)')
     for path in ('/SHA256SUMS.txt', '/.htaccess', '/api/config.php', '/api/lib.php', '/index.php', '/site-identity.json'):
         if tls('GET', path)[0] != 404:
             raise RuntimeError(f'HTTPS {path} is not 404')
@@ -309,8 +393,9 @@ def verify_https_with_retry(network, files, studio_route, seconds=HTTPS_WAIT, fa
         time.sleep(3)
 
 
-def rollback_install(original, previous, base_existed, new_site, old_active, old_enabled):
-    """Attempt every recovery step, even if a service command fails or times out."""
+def rollback_install(original, previous, base_existed, new_site, old_active, old_enabled, created=()):
+    """Attempt every recovery step, even if a service command fails or times out. `created`: the directories the
+    install made inside BASE or beside UNIT (removed, deepest first, once their files are restored)."""
     failures = []
     def attempt(label, action):
         try: action()
@@ -323,6 +408,8 @@ def rollback_install(original, previous, base_existed, new_site, old_active, old
             attempt('restore disabled explorer gateway boot state', lambda: command('systemctl', 'disable', SERVICE))
     for path, old in previous.items():
         attempt('restore ' + str(path), lambda p=path, raw=old: p.unlink(missing_ok=True) if raw is None else atomic_write(p, raw))
+    for folder in sorted(created, key=lambda p: len(p.parts), reverse=True):
+        attempt('remove new directory ' + str(folder), lambda f=folder: f.rmdir() if f.exists() else None)
     if new_site is not None:
         attempt('remove new site copy', lambda: shutil.rmtree(new_site))
     if not base_existed:
@@ -345,12 +432,12 @@ def prune_sites(keep):
 
 
 USAGE = ('Usage: sudo python3 deploy/explorer/install_explorer_gateway.py --site DIR [--check] [--accept-site site-<12 hex>] '
-         f'[--https-wait SECONDS ({HTTPS_WAIT_RANGE[0]}-{HTTPS_WAIT_RANGE[1]}, default {HTTPS_WAIT})]')
+         f'[--https-wait SECONDS ({HTTPS_WAIT_RANGE[0]}-{HTTPS_WAIT_RANGE[1]}, default {HTTPS_WAIT})] [--geoip-db FILE]')
 
 
 def usage(argv):
-    """(site directory, check only, the site id --accept-site names or None, the HTTPS wait in seconds); each option at
-    most once."""
+    """(site directory, check only, the site id --accept-site names or None, the HTTPS wait in seconds, the GeoIP
+    database --geoip-db names or None); each option at most once."""
     if len(argv) < 2 or argv[0] != '--site' or argv[1].startswith('--'):
         raise RuntimeError(USAGE)
     rest, options = list(argv[2:]), {}
@@ -361,8 +448,10 @@ def usage(argv):
         elif flag == '--accept-site' and rest and re.fullmatch(r'site-[0-9a-f]{12}', rest[0]): options[flag] = rest.pop(0)
         elif (flag == '--https-wait' and rest and re.fullmatch(r'[0-9]{1,5}', rest[0])
               and HTTPS_WAIT_RANGE[0] <= int(rest[0]) <= HTTPS_WAIT_RANGE[1]): options[flag] = int(rest.pop(0))
+        elif flag == '--geoip-db' and rest and rest[0] and not rest[0].startswith('--'): options[flag] = Path(rest.pop(0))
         else: raise RuntimeError(USAGE)
-    return Path(argv[1]), options.get('--check', False), options.get('--accept-site'), options.get('--https-wait', HTTPS_WAIT)
+    return (Path(argv[1]), options.get('--check', False), options.get('--accept-site'), options.get('--https-wait', HTTPS_WAIT),
+            options.get('--geoip-db'))
 
 
 def checkout_site():
@@ -400,7 +489,7 @@ def check_copy(site, files, ident, accept):
 
 
 def main(argv=None):
-    site, check_only, accept, https_wait = usage(sys.argv[1:] if argv is None else argv)
+    site, check_only, accept, https_wait, geoip_db = usage(sys.argv[1:] if argv is None else argv)
     check_forced_loopback()
     if os.geteuid() != 0: raise RuntimeError('Run with sudo')
     for utility in ('caddy', 'systemctl'):
@@ -408,7 +497,7 @@ def main(argv=None):
     sources = {}
     for name in SOURCES:
         raw = (REWARDS / name).read_bytes(); compile(raw, name, 'exec'); sources[name] = raw
-    for p in (BASE, UNIT, CADDYFILE, SITE_PARENT, CONFIG, NETWORK, FORKS):
+    for p in (BASE, UNIT, CADDYFILE, SITE_PARENT, CONFIG, NETWORK, FORKS, geoip_dir(), geoip_file(), geo_dropin_dir(), geo_dropin()):
         if p.is_symlink(): raise RuntimeError(f'Unexpected symbolic link {p}; no changes made')
     if not CADDYFILE.is_file(): raise RuntimeError('Install Caddy first (its /etc/caddy/Caddyfile is missing)')
     if command('systemctl', 'is-active', '--quiet', 'caddy', check=False).returncode:
@@ -419,6 +508,13 @@ def main(argv=None):
     unit = unit_text(forks)
     if UNIT.exists() and UNIT.read_text() not in known_units():
         raise RuntimeError('The explorer gateway service has custom edits; review before updating')
+    dropin = geo_dropin()
+    if dropin.exists() and dropin.read_text() != geo_dropin_text():
+        raise RuntimeError(f'{dropin} has custom edits; review before updating')
+    if geo_dropin_dir().exists() and not geo_dropin_dir().is_dir():
+        raise RuntimeError(f'{geo_dropin_dir()} is not a directory; no changes made')
+    credential = check_geo_credential()
+    geoip = check_geoip_database(geoip_db) if geoip_db is not None else None
     import gateway
     network = gateway.load_v3_network(NETWORK)
     if forks: gateway.load_fork_schedule(FORKS)
@@ -440,16 +536,20 @@ def main(argv=None):
         testfile = Path(tmp) / 'Caddyfile'; testfile.write_text(candidate)
         result = command('caddy', 'validate', '--config', str(testfile), '--adapter', 'caddyfile', check=False)
         if result.returncode: raise RuntimeError('Caddy candidate validation failed: ' + result.stderr.decode()[-1500:])
+    installed_geoip = geoip_file().is_file()
+    geo = ('the GeoIP database ' + (f'{geoip_db} (release {geoip[1]}, {geoip[2][0]} IPv4 and {geoip[2][1]} IPv6 ranges)'
+                                    if geoip else 'kept' if installed_geoip else 'not installed (nothing is located)')
+           + ', operator node reports ' + ('enabled (the geo-reporters credential)' if credential else 'disabled (no credential)'))
     if check_only:
         print(f'CHECK PASSED: network {network.chain_id} {network.genesis} on the node, site-{ident} ({len(files)} files, '
-              f'{origin}), the loopback port, and the candidate Caddy configuration.')
+              f'{origin}), the loopback port, and the candidate Caddy configuration; {geo}.')
         print(text, end='')
         return
     BACKUPS.mkdir(parents=True, exist_ok=True, mode=0o700)
     backup = BACKUPS / (time.strftime('%Y%m%d-%H%M%S') + '-' + str(os.getpid()))
     backup.mkdir(mode=0o700)
     (backup / 'Caddyfile.before').write_bytes(original)
-    paths = [BASE / name for name in SOURCES] + [BASE / MARKER, UNIT]
+    paths = [BASE / name for name in SOURCES] + [BASE / MARKER, UNIT, geo_dropin()] + ([geoip_file()] if geoip else [])
     previous = {p: p.read_bytes() if p.is_file() else None for p in paths}
     for i, p in enumerate(paths):
         if previous[p] is not None: (backup / f'file-{i}.before').write_bytes(previous[p])
@@ -457,14 +557,22 @@ def main(argv=None):
                                                    'previousSite': old_root, 'site': f'site-{ident}'}))
     base_existed = BASE.exists()
     make_directory(BASE)
-    new_site = None
+    new_site, created_dirs = None, []
     try:
         site_root, created = write_site(files, ident)
         new_site = site_root if created else None
         for name, raw in sources.items():
             atomic_write(BASE / name, raw)
         atomic_write(BASE / MARKER, b'PoCol explorer gateway v1\n')
+        if geoip:
+            if not geoip_dir().exists(): created_dirs.append(geoip_dir()); make_directory(geoip_dir())
+            atomic_write(geoip_file(), geoip[0])
         atomic_write(UNIT, unit.encode())
+        if credential:
+            if not geo_dropin_dir().exists(): created_dirs.append(geo_dropin_dir()); make_directory(geo_dropin_dir())
+            atomic_write(geo_dropin(), geo_dropin_text().encode())
+        else:
+            dropin.unlink(missing_ok=True)
         command('systemctl', 'daemon-reload'); command('systemctl', 'restart', SERVICE)
         last = None
         for _ in range(20):
@@ -476,7 +584,7 @@ def main(argv=None):
         verify_https_with_retry(network, files, studio_route, https_wait, faucet_route=faucet_route)
         command('systemctl', 'enable', SERVICE)
     except BaseException as exc:
-        failures = rollback_install(original, previous, base_existed, new_site, old_active, old_enabled)
+        failures = rollback_install(original, previous, base_existed, new_site, old_active, old_enabled, created_dirs)
         if failures:
             raise RuntimeError('Installation failed: ' + str(exc) + '; ROLLBACK INCOMPLETE: ' + '; '.join(failures)
                                + '; recovery backup: ' + str(backup)) from exc
@@ -485,8 +593,10 @@ def main(argv=None):
     try: removed = prune_sites(keep)
     except OSError as exc: removed = ['(not pruned: ' + str(exc) + ')']
     print(f'INSTALLED: explorer gateway on 127.0.0.1:{PORT} and the explorer site site-{ident} at https://{explorer_site.HOST}')
-    print('PASS: every static file, /api/rpc.php, /api/health.php, /rpc and /health over HTTPS with trusted certificates'
-          + (', and the Studio route' if studio_route else '') + (', and the faucet route' if faucet_route else '') + '.')
+    print('PASS: every static file, /api/rpc.php, /api/health.php, /api/holders.php, /api/miner-geography.php, /rpc and /health '
+          'over HTTPS with trusted certificates' + (', and the Studio route' if studio_route else '')
+          + (', and the faucet route' if faucet_route else '') + '.')
+    print(f'Miner map: {geo}.')
     if removed: print('Removed older site copies: ' + ', '.join(removed))
     print(f'Verify from outside: curl --fail --max-time 20 https://{explorer_site.HOST}/api/health.php')
     print('Backup: ' + str(backup))

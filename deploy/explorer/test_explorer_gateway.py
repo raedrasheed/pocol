@@ -232,13 +232,15 @@ class SiteCopyTests(unittest.TestCase):
     def test_the_committed_snapshot_is_a_valid_copy(self):
         with tempfile.TemporaryDirectory() as tmp:
             files = site.site_files(snapshot_copy(tmp))
-            self.assertEqual(len(files), 12)
+            # 14 files since the holders and miner map module (assets/pocol-insights.js and .css).
+            self.assertEqual(len(files), 14)
             self.assertIn('index.html', files)
+            self.assertIn('assets/pocol-insights.js', files); self.assertIn('assets/pocol-insights.css', files)
             self.assertFalse(any(name.startswith('api/') or name.endswith('.php') or name.startswith('.') for name in files))
             text, ident = site.manifest(files)
             self.assertRegex(ident, r'^[0-9a-f]{12}$')
             self.assertEqual(ident, hashlib.sha256(text.encode()).hexdigest()[:12])
-            self.assertEqual(len(text.splitlines()), 12)
+            self.assertEqual(len(text.splitlines()), 14)
             with patch('builtins.print') as output:
                 self.assertEqual(site.main(['manifest', '--site', str(Path(tmp) / 'explorer-site')]), 0)
             self.assertEqual(output.call_args.args[0], text + f'site-{ident}')
@@ -341,6 +343,8 @@ class InstallerTests(unittest.TestCase):
                     return 200, response, json.dumps([{'jsonrpc': '2.0', 'id': 1, 'result': params}]).encode()
                 if path == '/rpc': return 200, response, json.dumps({'jsonrpc': '2.0', 'id': 1, 'result': params}).encode()
                 if path == '/health': return 200, response, b'{"service":"pocol-explorer-gateway"}'
+                if path in ('/api/holders.php', '/api/miner-geography.php'):
+                    return 503, response, b'{"error":"The holders index has no snapshot yet."}'
                 if path == '/studio/health': return 200, response, b'{"service":"pocol-studio-gateway"}'
                 if path == '/faucet/status': return 200, response, json.dumps({'type': 'status', 'chainId': NET['chainId']}).encode()
                 return 404, response, b'Not found'
@@ -361,6 +365,24 @@ class InstallerTests(unittest.TestCase):
                 installer.verify_https(network, files, True)
         with patch.object(installer, 'tls', side_effect=answers({('GET', '/studio/health'): (502, bare, b'')})):
             installer.verify_https(network, files, False)
+        # The holders and miner map routes: their data for this network, or their JSON 503 while the index syncs;
+        # anything else (Caddy's 502, a 404, another network or schema, no explorer headers) fails the install.
+        good = SimpleNamespace(getheader=good_headers.get)
+        data = lambda schema, **kw: json.dumps({'data': dict({'schema': schema, **params}, **kw)}).encode()
+        ok = {('GET', '/api/holders.php'): (200, good, data('pocol-holders-v1')),
+              ('GET', '/api/miner-geography.php'): (200, good, data('pocol-miners-geography-v2'))}
+        with patch.object(installer, 'tls', side_effect=answers(ok)) as tls:
+            installer.verify_https(network, files, False)
+            asked = [c.args[:2] for c in tls.call_args_list]
+            self.assertIn(('GET', '/api/holders.php'), asked); self.assertIn(('GET', '/api/miner-geography.php'), asked)
+        for path, schema in (('/api/holders.php', 'pocol-holders-v1'), ('/api/miner-geography.php', 'pocol-miners-geography-v2')):
+            for answer in ((502, good, b''), (404, good, b'{"error":"Not found"}'), (503, bare, b'{"error":"x"}'),
+                           (503, good, b'{}'), (200, good, data(schema, chainId=NET['chainId'] + 1)),
+                           (200, good, data('pocol-holders-v2')), (200, good, b'{"error":"x"}')):
+                with self.subTest(path=path, answer=answer[2][:40]), \
+                        patch.object(installer, 'tls', side_effect=answers({('GET', path): answer})), \
+                        self.assertRaisesRegex(RuntimeError, 'did not answer for the network'):
+                    installer.verify_https(network, files, False)
         # The faucet route: /faucet/status names the network's chain ID; nothing is ever posted to /faucet/claim.
         with patch.object(installer, 'tls', side_effect=answers()) as tls:
             installer.verify_https(network, files, False, True)
@@ -398,7 +420,8 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(commands[-1], ('systemctl', 'daemon-reload'))
 
     def run_install(self, fail_https=False, existing=False, unit_text=None, caddy_text=None, check=False, studio_route=False, forks=False,
-                    change_copy=None, accept=None, prepare=None, umask=None, root_uid=None, https_wait=None, faucet_route=False):
+                    change_copy=None, accept=None, prepare=None, umask=None, root_uid=None, https_wait=None, faucet_route=False,
+                    geoip_db=None):
         """installer.main() on temporary host paths: (Caddyfile after, commands, printed text, root). `change_copy(dir)`
         edits the copy after it is built; `accept` is the --accept-site value (the copy's id when True); `prepare(root)`
         runs after the host paths are set up; `umask` is root's umask during main(); `root_uid` the owner the installer
@@ -421,7 +444,7 @@ class InstallerTests(unittest.TestCase):
         caddy.write_text(caddy_text)
         prior_source = b'# existing gateway preserved\n'
         if existing:
-            base.mkdir(); (base / installer.MARKER).write_bytes(b'PoCol explorer gateway v1\n'); (base / 'gateway.py').write_bytes(prior_source)
+            base.mkdir(exist_ok=True); (base / installer.MARKER).write_bytes(b'PoCol explorer gateway v1\n'); (base / 'gateway.py').write_bytes(prior_source)
             unit.write_text(unit_text or installer.UNIT_TEXT)
             prior_root.mkdir(parents=True); (prior_root / 'index.html').write_text('old')
         commands = []
@@ -436,6 +459,7 @@ class InstallerTests(unittest.TestCase):
             return real_plan(text, '/srv/pocol-explorer/' + Path(site_root).name, studio_module, faucet_module)
         argv = ['--site', str(copy)] + (['--check'] if check else []) + (['--accept-site', 'site-' + ident if accept is True else accept] if accept else [])
         argv += ['--https-wait', str(https_wait)] if https_wait else []
+        argv += ['--geoip-db', str(geoip_db(root) if callable(geoip_db) else geoip_db)] if geoip_db else []
         with patch.multiple(installer, BASE=base, UNIT=unit, CADDYFILE=caddy, SITE_PARENT=srv, BACKUPS=backups, CONFIG=config,
                             NETWORK=config / 'network.json', FORKS=config / 'forks.json',
                             ROOT_UID=os.getuid() if root_uid is None else root_uid), \
@@ -511,28 +535,53 @@ class InstallerTests(unittest.TestCase):
                      "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX\nIPAddressDeny=any\nIPAddressAllow=localhost\nMemoryMax=256M\nTasksMax=64\nUMask=0077\n\n"
                      "[Install]\nWantedBy=multi-user.target\n")
 
-    def test_the_unit_runs_the_transaction_index_in_its_state_directory(self):
-        self.assertIn('pocol_transactions.py', installer.SOURCES)
+    # The unit the current release (main at 04f77806) writes, verbatim: the transaction index, no holders index.
+    RELEASE_UNIT = ("[Unit]\nDescription=PoCol explorer gateway (read-only /rpc, the explorer's /api reads and the transaction index)\n"
+                    "After=network.target pocol-standalone.service pocol-observer.service\n\n[Service]\nType=simple\nDynamicUser=yes\n"
+                    "StateDirectory=pocol-explorer-gateway\nStateDirectoryMode=0700\nEnvironment=POCOL_TX_DB=/var/lib/pocol-explorer-gateway/transactions.sqlite3\n"
+                    "ExecStart=/usr/bin/python3 /opt/pocol-explorer-gateway/gateway.py --bind 127.0.0.1 --port 8088 --rpc-port 8545 "
+                    "--v3-network /etc/pocol-explorer-gateway/network.json --site-origin https://explorer.pocol.net\n"
+                    "WorkingDirectory=/opt/pocol-explorer-gateway\nRestart=on-failure\nRestartSec=3\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=strict\n"
+                    "ProtectHome=yes\nProtectKernelTunables=yes\nProtectKernelModules=yes\nProtectControlGroups=yes\nRestrictSUIDSGID=yes\nRestrictRealtime=yes\n"
+                    "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX\nIPAddressDeny=any\nIPAddressAllow=localhost\nMemoryMax=256M\nTasksMax=64\nUMask=0077\n\n"
+                    "[Install]\nWantedBy=multi-user.target\n")
+
+    def test_the_unit_runs_the_transaction_and_holders_indexes_in_its_state_directory(self):
+        self.assertEqual(installer.SOURCES, ('gateway.py', 'pocol_rewards.py', 'explorer_api.py', 'pocol_transactions.py',
+                                             'pocol_holders.py', 'pocol_geoip.py'))
         for forks in (False, True):
             text = installer.unit_text(forks)
             self.assertIn('StateDirectory=pocol-explorer-gateway\nStateDirectoryMode=0700\n', text)
-            self.assertIn('Environment=POCOL_TX_DB=/var/lib/pocol-explorer-gateway/transactions.sqlite3\n', text)
+            self.assertIn('Environment=POCOL_TX_DB=/var/lib/pocol-explorer-gateway/transactions.sqlite3\n'
+                          'Environment=POCOL_HOLDERS_DB=/var/lib/pocol-explorer-gateway/holders.sqlite3\n', text)
             self.assertIn('After=network.target pocol-standalone.service pocol-observer.service\n', text)
             self.assertIn('IPAddressAllow=localhost\n', text)
+            self.assertIn('MemoryMax=256M\nTasksMax=64\n', text)
+            # The credential is not in the unit (a drop-in loads it only while it exists), nor the GeoIP path (the
+            # gateway's default GEOIP_DB).
+            self.assertNotIn('Credential', text); self.assertNotIn('GEOIP', text)
+        self.assertEqual(installer.RELEASE_UNIT_TEXT, self.RELEASE_UNIT)
         self.assertEqual(installer.PREVIOUS_UNIT_TEXT, self.PREVIOUS_UNIT)
+        self.assertEqual(str(installer.geoip_file()), gateway.GEOIP_DB)
+        self.assertEqual(installer.geo_dropin(), Path('/etc/systemd/system/pocol-explorer-gateway.service.d/geo-reporters.conf'))
+        self.assertTrue(installer.geo_dropin_text().endswith(
+            '[Service]\nLoadCredential=geo-reporters:/etc/pocol-explorer-gateway/geo-reporters.json\n'))
 
-    def test_an_update_from_the_previous_release_unit_writes_this_release_unit(self):
-        for forks in (False, True):
-            with self.subTest(forks=forks):
-                root = self.run_install(existing=True, unit_text=installer.unit_text(forks, self.PREVIOUS_UNIT), forks=forks)[3]
-                self.assertEqual((root / 'gateway.service').read_text(), installer.unit_text(forks))
-                self.assertEqual((root / 'opt' / 'pocol_transactions.py').read_bytes(), (ROOT / 'deploy/rewards/pocol_transactions.py').read_bytes())
-        with self.assertRaisesRegex(RuntimeError, 'custom edits'):
-            self.run_install(existing=True, unit_text=self.PREVIOUS_UNIT.replace('TasksMax=64', 'TasksMax=640'))
-        # A failed update restores the previous release's unit.
-        root = self.run_install(existing=True, unit_text=self.PREVIOUS_UNIT, fail_https=True)[3]
-        self.assertEqual((root / 'gateway.service').read_text(), self.PREVIOUS_UNIT)
-        self.assertFalse((root / 'opt' / 'pocol_transactions.py').exists())
+    def test_an_update_from_the_earlier_release_units_writes_this_release_unit(self):
+        for earlier in (self.RELEASE_UNIT, self.PREVIOUS_UNIT):
+            for forks in (False, True):
+                with self.subTest(earlier=earlier[:80], forks=forks):
+                    root = self.run_install(existing=True, unit_text=installer.unit_text(forks, earlier), forks=forks)[3]
+                    self.assertEqual((root / 'gateway.service').read_text(), installer.unit_text(forks))
+                    for name in ('pocol_transactions.py', 'pocol_holders.py', 'pocol_geoip.py'):
+                        self.assertEqual((root / 'opt' / name).read_bytes(), (ROOT / 'deploy/rewards' / name).read_bytes())
+            with self.assertRaisesRegex(RuntimeError, 'custom edits'):
+                self.run_install(existing=True, unit_text=earlier.replace('TasksMax=64', 'TasksMax=640'))
+            # A failed update restores the earlier release's unit.
+            root = self.run_install(existing=True, unit_text=earlier, fail_https=True)[3]
+            self.assertEqual((root / 'gateway.service').read_text(), earlier)
+            for name in ('pocol_transactions.py', 'pocol_holders.py', 'pocol_geoip.py'):
+                self.assertFalse((root / 'opt' / name).exists(), name)
 
     def test_https_wait_reaches_the_https_check(self):
         self.run_install(https_wait=1800)
@@ -564,10 +613,14 @@ class InstallerTests(unittest.TestCase):
         for argv in (['--site', 'x', '--https-wait'], ['--site', 'x', '--https-wait', '59'], ['--site', 'x', '--https-wait', '3601'],
                      ['--site', 'x', '--https-wait', '-1'], ['--site', 'x', '--https-wait', '600', '--https-wait', '600']):
             with self.assertRaisesRegex(RuntimeError, 'Usage'): installer.main(argv)
+        for argv in (['--site', 'x', '--geoip-db'], ['--site', 'x', '--geoip-db', '--check'], ['--site', 'x', '--geoip-db', ''],
+                     ['--site', 'x', '--geoip-db', 'a', '--geoip-db', 'a']):
+            with self.assertRaisesRegex(RuntimeError, 'Usage'): installer.main(argv)
         self.assertEqual(installer.usage(['--site', 'x', '--accept-site', 'site-' + 'a' * 12, '--check']),
-                         (Path('x'), True, 'site-' + 'a' * 12, 600))
-        self.assertEqual(installer.usage(['--site', 'x']), (Path('x'), False, None, 600))
+                         (Path('x'), True, 'site-' + 'a' * 12, 600, None))
+        self.assertEqual(installer.usage(['--site', 'x']), (Path('x'), False, None, 600, None))
         self.assertEqual(installer.usage(['--site', 'x', '--https-wait', '1200'])[3], 1200)
+        self.assertEqual(installer.usage(['--site', 'x', '--geoip-db', 'geo.bin', '--check']), (Path('x'), True, None, 600, Path('geo.bin')))
 
     def test_the_https_check_waits_past_the_first_acme_retries(self):
         # Right after the DNS move the CA's first validation can fail; the ACME client retries after about one, then two
@@ -654,6 +707,125 @@ class InstallerTests(unittest.TestCase):
                 self.assertTrue((Path(tmp) / 'srv' / 'keep-me').exists())
                 self.assertEqual(sorted(p.name for p in (Path(tmp) / 'srv').iterdir()), sorted([path.name, 'keep-me']))
 
+
+    # ---------------- the miner map: the GeoIP database and the reporters' credential ----------------
+    CREDENTIAL = json.dumps({'salt': 'aa' * 32, 'reporters': {'founder-1': 'b1' * 32}}).encode()
+
+    @staticmethod
+    def built_database(root):
+        """A GeoIP database built from the synthetic sample (deploy/rewards/testdata/geoip-sample.csv)."""
+        import pocol_geoip
+        path = root / 'geoip-country.bin'
+        pocol_geoip.build(ROOT / 'deploy/rewards/testdata/geoip-sample.csv', '2026-11', path)
+        return path
+
+    @classmethod
+    def with_credential(cls, raw=None, mode=0o600):
+        def prepare(root):
+            path = root / 'etc' / installer.GEO_CREDENTIAL_NAME
+            path.write_bytes(cls.CREDENTIAL if raw is None else raw); os.chmod(path, mode)
+        return prepare
+
+    def test_the_geoip_database_is_checked_and_installed_and_kept_by_an_update(self):
+        _, _, printed, root, _, _ = self.run_install(geoip_db=self.built_database)
+        installed = root / 'opt' / 'geoip' / installer.GEOIP_NAME
+        self.assertEqual(installed.read_bytes(), (root / 'geoip-country.bin').read_bytes())
+        if os.name != 'nt':
+            self.assertEqual(oct(installed.stat().st_mode & 0o777), '0o644')
+            self.assertEqual(oct((root / 'opt' / 'geoip').stat().st_mode & 0o777), '0o755')
+        self.assertIn('the GeoIP database', printed); self.assertIn('release 2026-11, 11 IPv4 and 5 IPv6 ranges', printed)
+        # --check validates the file and writes nothing.
+        _, _, printed, root, _, _ = self.run_install(check=True, geoip_db=self.built_database)
+        self.assertIn('release 2026-11', printed); self.assertFalse((root / 'opt').exists())
+        # A damaged or foreign file is refused before anything changes.
+        def damaged(root):
+            path = self.built_database(root); raw = bytearray(path.read_bytes()); raw[-1] ^= 1; path.write_bytes(bytes(raw)); return path
+        def csv(root):
+            path = root / 'dbip.csv'; path.write_text('1.0.0.0,1.0.0.255,AU\n'); return path
+        for source in (damaged, csv, lambda root: root / 'missing.bin'):
+            with self.subTest(source=source), self.assertRaisesRegex(RuntimeError, '--geoip-db'):
+                self.run_install(geoip_db=source)
+        # An update without --geoip-db keeps the installed database (it is not part of what the update replaces).
+        def installed_before(root):
+            (root / 'opt' / 'geoip').mkdir(parents=True); (root / 'opt' / 'geoip' / installer.GEOIP_NAME).write_bytes(b'kept')
+        root = self.run_install(existing=True, prepare=installed_before)[3]
+        self.assertEqual((root / 'opt' / 'geoip' / installer.GEOIP_NAME).read_bytes(), b'kept')
+
+    def test_a_failed_install_removes_the_new_geoip_database_and_its_directory(self):
+        root = self.run_install(fail_https=True, existing=True, geoip_db=self.built_database)[3]
+        self.assertFalse((root / 'opt' / 'geoip').exists())
+        self.assertEqual((root / 'opt' / 'gateway.py').read_bytes(), b'# existing gateway preserved\n')
+        # An update that replaced an installed database restores the previous one.
+        def installed_before(root):
+            (root / 'opt' / 'geoip').mkdir(parents=True); (root / 'opt' / 'geoip' / installer.GEOIP_NAME).write_bytes(b'previous')
+        root = self.run_install(fail_https=True, existing=True, prepare=installed_before, geoip_db=self.built_database)[3]
+        self.assertEqual((root / 'opt' / 'geoip' / installer.GEOIP_NAME).read_bytes(), b'previous')
+
+    def test_the_credential_drop_in_follows_the_credential_file(self):
+        root = self.run_install(prepare=self.with_credential())[3]
+        dropin = root / 'gateway.service.d' / installer.GEO_DROPIN_NAME
+        self.assertEqual(dropin.read_text(), '# Managed by install_explorer_gateway.py while the reporters\' credential exists '
+                         '(operator node reports).\n[Service]\nLoadCredential=geo-reporters:' + str(root / 'etc' / 'geo-reporters.json') + '\n')
+        self.assertEqual((root / 'gateway.service').read_text(), installer.UNIT_TEXT, 'the unit text does not depend on the credential')
+        # Without the credential an update removes the drop-in (LoadCredential= would fail the start).
+        def dropin_without_credential(root):
+            folder = root / 'gateway.service.d'; folder.mkdir()
+            with patch.multiple(installer, CONFIG=root / 'etc', UNIT=root / 'gateway.service'):
+                (folder / installer.GEO_DROPIN_NAME).write_text(installer.geo_dropin_text())
+        root = self.run_install(existing=True, prepare=dropin_without_credential)[3]
+        self.assertFalse((root / 'gateway.service.d' / installer.GEO_DROPIN_NAME).exists())
+        # A failed install restores the previous state: no new drop-in, or the previous one.
+        root = self.run_install(fail_https=True, existing=True, prepare=self.with_credential())[3]
+        self.assertFalse((root / 'gateway.service.d').exists())
+        root = self.run_install(fail_https=True, existing=True, prepare=dropin_without_credential)[3]
+        self.assertTrue((root / 'gateway.service.d' / installer.GEO_DROPIN_NAME).exists())
+
+    def test_a_credential_others_could_read_or_an_invalid_one_is_refused(self):
+        cases = {'0644': self.with_credential(mode=0o644), '0640': self.with_credential(mode=0o640),
+                 'not JSON': self.with_credential(raw=b'{'), 'no reporters': self.with_credential(raw=b'{"salt": "' + b'aa' * 32 + b'"}'),
+                 'a short key': self.with_credential(raw=json.dumps({'salt': 'aa' * 32, 'reporters': {'founder-1': 'b1'}}).encode())}
+        for name, prepare in cases.items():
+            with self.subTest(name), self.assertRaisesRegex(RuntimeError, 'geo-reporters'):
+                self.run_install(check=True, prepare=prepare)
+        with self.assertRaisesRegex(RuntimeError, 'root-owned'):
+            self.run_install(check=True, prepare=self.with_credential(), root_uid=os.getuid() + 1)
+        # No secret value is ever in a message.
+        try:
+            self.run_install(check=True, prepare=self.with_credential(raw=json.dumps({'salt': 'cd' * 32, 'reporters': {'Bad Name': 'ef' * 32}}).encode()))
+        except RuntimeError as error:
+            self.assertNotIn('cd' * 32, str(error)); self.assertNotIn('ef' * 32, str(error))
+        else:
+            self.fail('an invalid reporter name was accepted')
+        self.assertIn('operator node reports enabled', self.run_install(check=True, prepare=self.with_credential())[2])
+        self.assertIn('operator node reports disabled', self.run_install(check=True)[2])
+
+    def test_a_custom_drop_in_or_a_linked_path_is_refused(self):
+        def custom(root):
+            folder = root / 'gateway.service.d'; folder.mkdir(); (folder / installer.GEO_DROPIN_NAME).write_text('[Service]\nEnvironment=X=1\n')
+        with self.assertRaisesRegex(RuntimeError, 'custom edits'):
+            self.run_install(check=True, prepare=custom)
+        if os.name != 'nt':
+            def linked(root):
+                (root / 'elsewhere.json').write_bytes(self.CREDENTIAL); (root / 'etc' / 'geo-reporters.json').symlink_to(root / 'elsewhere.json')
+            with self.assertRaisesRegex(RuntimeError, 'symbolic link'):
+                self.run_install(check=True, prepare=linked)
+
+    @unittest.skipUnless(shutil.which('systemd-analyze') and os.name != 'nt', 'needs systemd-analyze')
+    def test_systemd_loads_the_unit_and_its_credential_drop_in(self):
+        """systemd-analyze verify parses the unit with the drop-in beside it (it reads the drop-in: a misspelt key in it
+        is reported) and finds nothing to report in either."""
+        with tempfile.TemporaryDirectory() as tmp:
+            unit = Path(tmp) / installer.SERVICE
+            unit.write_text(installer.UNIT_TEXT)
+            (Path(tmp) / (installer.SERVICE + '.d')).mkdir()
+            dropin = Path(tmp) / (installer.SERVICE + '.d') / installer.GEO_DROPIN_NAME
+            def verify():
+                result = subprocess.run(['systemd-analyze', 'verify', '--man=no', str(unit)], capture_output=True, text=True, timeout=60)
+                return [line for line in result.stderr.splitlines() if tmp in line or 'LoadCredential' in line]
+            dropin.write_text(installer.geo_dropin_text())
+            self.assertEqual(verify(), [])
+            dropin.write_text(installer.geo_dropin_text().replace('LoadCredential=', 'LoadCredentialX='))
+            self.assertTrue(any('LoadCredentialX' in line for line in verify()), 'the drop-in was not read')
 
 if __name__ == '__main__':
     unittest.main()

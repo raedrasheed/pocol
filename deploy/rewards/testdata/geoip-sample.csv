@@ -1,0 +1,26 @@
+# SYNTHETIC TEST DATA for test_pocol_geoip.py and deploy/explorer/test_geo_reporter.py. It is NOT DB-IP data and
+# NOT a real geolocation: every country below is invented for the tests. The rows use DB-IP's "IP to Country Lite"
+# layout (start_ip,end_ip,country_code). Lines starting with '#' are comments the builder skips (DB-IP files have
+# none). The documentation ranges (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32) are present on
+# purpose: the public-unicast filter excludes them, so they are never looked up although the database has a row.
+0.0.0.0,0.255.255.255,ZZ
+5.0.0.0,5.0.0.255,DE
+5.0.1.0,5.0.1.255,DE
+5.0.2.0,5.0.2.255,FR
+5.0.3.0,5.0.3.255,ZZ
+9.9.9.0,9.9.9.255,US
+11.0.0.0,11.255.255.255,US
+"23.0.0.0","23.0.0.255","JP"
+45.0.0.0,45.0.0.127,BR
+45.0.0.128,45.0.0.255,AR
+192.0.2.0,192.0.2.255,US
+198.51.100.0,198.51.100.255,GB
+203.0.113.0,203.0.113.255,AU
+223.255.255.0,223.255.255.255,NZ
+2001:db8::,2001:db8:ffff:ffff:ffff:ffff:ffff:ffff,NL
+2a00:1450::,2a00:1450:ffff:ffff:ffff:ffff:ffff:ffff,IE
+2a01::,2a01:0:0:0:ffff:ffff:ffff:ffff,DE
+2a01:0:0:1::,2a01:0:0:1:ffff:ffff:ffff:ffff,DE
+2c0f:fb50::,2c0f:fb50:ffff:ffff:ffff:ffff:ffff:ffff,ZA
+2c0f:fb51::,2c0f:fb51:ffff:ffff:ffff:ffff:ffff:ffff,ZZ
+3ffe::,3ffe:ffff:ffff:ffff:ffff:ffff:ffff:ffff,CA
