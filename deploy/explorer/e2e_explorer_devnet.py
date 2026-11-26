@@ -548,16 +548,22 @@ def main():
                    'accepted': post_report(body, sent_from), 'replayed': post_report(body, sent_from)}
         ok('/api/geo-report.php: a bad signature is 401, an Origin header 400, the signed report 204, the same report again 409',
            answers == {'bad signature': 401, 'with Origin': 400, 'accepted': 204, 'replayed': 409}, json.dumps(answers))
+        report_head = json.loads(body)['head']['height']
+
         def located():
             # One answer and the observer's chain up to its window's last block, read again when the block at the
-            # answer's height is no longer canonical (a tip reorganization between the two reads).
+            # answer's height is no longer canonical (a tip reorganization between the two reads). "Connected" is
+            # measured against the index tip, which can trail node a's head under load: the answer is read again
+            # until the index tip is within pocol_geoip.CONNECTED_BLOCKS of the report's head (the report is sent
+            # once here, while an operator's reporter sends a new one every interval).
             with urllib.request.urlopen(f'http://127.0.0.1:{GW}/api/miner-geography.php', timeout=15) as r:
                 raw = r.read().decode()
             value = json.loads(raw)['data']
             chain_blocks = chain_to(OBS_RPC, value['blocksWindow']['to'])
             return (value['miners']['located'] == 1 and value['height'] == value['blocksWindow']['to']
+                    and abs(report_head - value['height']) <= pocol_geoip.CONNECTED_BLOCKS
                     and chain_blocks[value['height']]['hash'].lower() == value['blockHash'] and (value, raw, chain_blocks))
-        geo, raw_map, blocks = wait(located, 30, 'the miner map places node a\'s miner')
+        geo, raw_map, blocks = wait(located, 60, 'the miner map places node a\'s miner, its index tip within 6 blocks of the report\'s head')
         window = blocks[max(1, geo['blocksWindow']['from']):]
         a_blocks = sum(1 for b in window if b['miner'].lower() == a_id)
         fr = geo['countries'][0] if geo['countries'] else {}
