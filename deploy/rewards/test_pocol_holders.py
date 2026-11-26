@@ -1165,6 +1165,8 @@ class ChunkTests(Base):
         self.assertGreater(int(meta('chunks_next')), int(meta('chunks_end')))   # done
         by_number = chain.calls['eth_getBlockByNumber'] - before.get('eth_getBlockByNumber', 0)
         self.assertGreaterEqual(by_number, tip - 8)   # the heights below the kept window, by number
+        by_hash = chain.calls.get('eth_getBlockByHash', 0) - before.get('eth_getBlockByHash', 0)
+        self.assertGreaterEqual(by_hash, 8)           # the kept heights (recent=8), by their stored hash
         first_seen = dict(index.writer.execute('SELECT address, first_seen FROM accounts'))
         self.assertEqual(first_seen[HF.fake_chunk(b'old')[0]], 2)
         self.assertEqual(first_seen[HF.fake_chunk(b'kept')[0]], tip - 1)
@@ -1217,6 +1219,82 @@ class ChunkTests(Base):
         self.assertNotIn(HF.fake_chunk(b'gone')[0], known)
         self.assertIn(HF.fake_chunk(b'new')[0], known)
         self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+
+    def test_a_chunk_known_from_a_later_block_is_first_seen_at_its_backfilled_height(self):
+        # The same data stored again after the upgrade (store is idempotent) makes the chunk known at that later
+        # block before the walk reaches the block that created it; a reorganization that removes the later block
+        # must not remove the chunk (review finding BF-1).
+        chain = self.chain_with_writer()
+        chain.mine(txs=[self.store(b'site')])      # height 2: the chunk is created
+        chain.mine_many(6)                         # heights 3..8
+        self.old_file(chain, missing=1)
+        index = self.index(chain, commit_blocks=1)
+        chain.mine(txs=[self.store(b'site')])      # height 9: stored again, discovered by _parties
+        index.step()                               # follows 9; the walk reads height 1
+        index.step()                               # the walk reads height 2
+        address = HF.fake_chunk(b'site')[0]
+        rows = index.writer.execute('SELECT height, flags & ? FROM deltas WHERE address=? ORDER BY height',
+                                    (H.DISCOVERED, address)).fetchall()
+        self.assertEqual(rows, [(2, H.DISCOVERED), (9, 0)])
+        self.assertEqual(index.writer.execute('SELECT first_seen FROM accounts WHERE address=?', (address,)).fetchone(), (2,))
+        chain.reorg(8)
+        chain.mine_many(3)
+        v = self.settle(index, rounds=20)['verification']
+        self.assertIsNotNone(index.writer.execute('SELECT 1 FROM accounts WHERE address=?', (address,)).fetchone())
+        self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+
+    def test_blocks_a_rolled_back_gateway_followed_are_read_again(self):
+        # New gateway, then the previous one (no chunk discovery, never writes chunks_tip) for a while, then the new
+        # one again: the heights the previous one followed are read for their store calls (review finding BF-2).
+        chain = self.chain_with_writer()
+        chain.mine()
+        index = self.index(chain)
+        self.assertTrue(self.settle(index)['verification']['complete'])
+        chain.mine_many(3)                         # followed by the new gateway: not read again later
+        self.settle(index)
+        tip = index.writer.execute("SELECT value FROM meta WHERE key='chunks_tip'").fetchone()[0]
+        self.assertEqual(int(tip), chain.head)
+        index.close()
+        self.opened.remove(index)
+        chain.mine(txs=[self.store(b'rolled back')])
+        chain.mine()
+        with unittest.mock.patch.object(H, 'chunk_arguments', lambda data: []), \
+                unittest.mock.patch.object(H.HolderIndex, '_plan_chunk_backfill', lambda self: None), \
+                unittest.mock.patch.object(H.HolderIndex, '_backfill_chunks', lambda self: None):
+            old = self.index(chain)
+            self.assertEqual(self.settle(old)['verification']['accountsMissing'], 1)
+            old.close()
+            self.opened.remove(old)
+        conn = sqlite3.connect(self.path)   # the previous gateway does not write chunks_tip
+        conn.execute("UPDATE meta SET value=? WHERE key='chunks_tip'", (tip,))
+        conn.commit()
+        conn.close()
+        again = self.index(chain)
+        meta = lambda key: int(again.writer.execute('SELECT value FROM meta WHERE key=?', (key,)).fetchone()[0])
+        self.assertEqual((meta('chunks_next'), meta('chunks_end')), (int(tip) + 1, chain.head))
+        v = self.settle(again)['verification']
+        self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+
+    def test_a_kept_block_answered_with_another_hash_is_refused(self):
+        chain = self.chain_with_writer()
+        chain.mine(txs=[self.store(b'kept')])
+        chain.mine()
+        self.old_file(chain, missing=1, recent=8)
+        real = chain.query
+        def query(method, params, deadline=None):
+            answer = real(method, params, deadline)
+            if method == 'eth_getBlockByHash' and len(params) > 1 and params[1] is True and answer.get('result'):
+                answer = {**answer, 'result': {**answer['result'], 'hash': '0x' + 'ee' * 32}}
+            return answer
+        chain.query = query
+        index = self.index(chain, recent=8)
+        with self.assertLogs('pocol_holders', 'WARNING') as logs:
+            index.step()
+        self.assertTrue(any('another block' in line for line in logs.output), logs.output)
+        self.assertEqual(index.writer.execute("SELECT value FROM meta WHERE key='chunks_next'").fetchone()[0], '1')
+        self.assertIsNone(index.writer.execute('SELECT 1 FROM accounts WHERE address=?',
+                                               (HF.fake_chunk(b'kept')[0],)).fetchone())
+
 
     def test_a_new_file_and_a_file_indexed_again_have_nothing_to_read_again(self):
         chain = self.chain_with_writer()

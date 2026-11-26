@@ -514,7 +514,7 @@ PAGE_SQL = {
 META_DEFAULTS = {'rewards_state': 'none', 'rewards_from': '-1', 'rewards_to': '-1', 'refreshed': '-1', 'full': '0',
                  'residual': '0', 'rescan_at': '0', 'covered_from': '-1', 'final': '-1', 'full_at': '0',
                  'scan_at': '-1', 'scan_full': '0', 'discovery': '1', 'chunks_next': '1', 'chunks_end': '0',
-                 'found': '0'}
+                 'found': '0', 'chunks_tip': '0'}
 
 
 def default_rewards(query, network, fork_schedule=DEFAULT_FORK_SCHEDULE):
@@ -631,11 +631,22 @@ class HolderIndex:
         conn = self.writer
         conn.execute('BEGIN IMMEDIATE')
         try:
+            tip = self.tip(conn)
+            height = 0 if tip is None else tip[0]
             if self._meta(conn, 'discovery') != DISCOVERY:
-                tip = self.tip(conn)
                 self._set(conn, 'chunks_next', 1)
-                self._set(conn, 'chunks_end', 0 if tip is None else tip[0])
+                self._set(conn, 'chunks_end', height)
                 self._set(conn, 'discovery', DISCOVERY)
+            else:
+                # chunks_tip: the highest height this code followed (an older gateway never writes it). Heights above
+                # it were followed without chunk discovery (a rollback to the previous gateway, then this code
+                # again): they are read again too.
+                seen = int(self._meta(conn, 'chunks_tip'))
+                if height > seen:
+                    if int(self._meta(conn, 'chunks_next')) > int(self._meta(conn, 'chunks_end')):
+                        self._set(conn, 'chunks_next', seen + 1)
+                    self._set(conn, 'chunks_end', height)
+            self._set(conn, 'chunks_tip', height)
             conn.execute('COMMIT')
         except BaseException:
             conn.execute('ROLLBACK')
@@ -880,9 +891,19 @@ class HolderIndex:
                 # A block removed by a reorganization lies above the lowered end; one gone from the kept window since
                 # the reads was pruned, not replaced, and stays canonical.
                 kept = conn.execute('SELECT hash FROM blocks WHERE height=?', (height,)).fetchone()
+                # (Defensive: the follower thread is the only writer, so neither can change between the reads and here.)
                 if height <= end and (height not in stored or kept is None or kept[0] == stored[height]):
-                    if conn.execute('SELECT 1 FROM accounts WHERE address=?', (address,)).fetchone() is None:
+                    row = conn.execute('SELECT first_seen FROM accounts WHERE address=?', (address,)).fetchone()
+                    if row is None:
                         self._set(conn, 'found', 1)   # a new address: a snapshot at this height is due to count it
+                    elif row[0] > height:
+                        # Known only from a later block (followed since the upgrade, e.g. the same data stored again):
+                        # first seen here, so an undo removes it only with this block, never with the later one.
+                        conn.execute('UPDATE accounts SET first_seen=? WHERE address=?', (height, address))
+                        conn.execute('UPDATE deltas SET flags=flags&? WHERE height=? AND address=?',
+                                     (~DISCOVERED, row[0], address))
+                        self._account_change(conn, height, address, 0, 0, DISCOVERED)
+                        continue
                     self._account_change(conn, height, address, 0, 0, 0)
             self._set(conn, 'chunks_next', last + 1)
             conn.execute('COMMIT')
@@ -921,6 +942,7 @@ class HolderIndex:
                 if block['final']:
                     self._set(conn, 'final', height)
             newest = pending[-1][0]['height']
+            self._set(conn, 'chunks_tip', newest)   # followed with chunk discovery up to here
             for table in ('blocks', 'deltas', 'reward_flows'):
                 conn.execute(f'DELETE FROM {table} WHERE height<=?', (newest - self.recent,))
             conn.execute('DELETE FROM recent WHERE height<=?', (newest - RECENT_KEEP,))
@@ -1027,6 +1049,8 @@ class HolderIndex:
                 if int(self._meta(conn, 'chunks_end')) > fork:
                     # The removed blocks are followed again, with chunk discovery: the backfill ends at the fork.
                     self._set(conn, 'chunks_end', fork)
+                if int(self._meta(conn, 'chunks_tip')) > fork:
+                    self._set(conn, 'chunks_tip', fork)
             conn.execute('COMMIT')
         except BaseException:
             conn.execute('ROLLBACK')

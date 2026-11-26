@@ -506,17 +506,27 @@ def main():
         chunk_tx = send('holder-x', 1, pocol_holders.CHUNK_FACTORY, 0, store_input, 300000)
         stored = wait(lambda: rpc(8540, 'eth_getTransactionReceipt', [chunk_tx]), 120, 'the ChunkFactory store call')
         chunk = pocol_holders.chunk_address(chunk_data)
+        code = '0x00' + chunk_data.hex()
+        # The observer gets node a's blocks by gossip, and a devnet often reorganizes its tip: wait for the chunk there.
+        wait(lambda: rpc(OBS_RPC, 'eth_getCode', [chunk, 'latest']).lower() == code, 120, 'the observer has the chunk')
         ok('the store call created its chunk inside the call: the node has 0x00 || data at the index\'s CREATE2 address, and no receipt field or log names it',
-           stored['status'] == '0x1' and rpc(OBS_RPC, 'eth_getCode', [chunk, 'latest']).lower() == '0x00' + chunk_data.hex()
-           and stored.get('contractAddress') is None and stored['logs'] == [], json.dumps({'status': stored['status'], 'chunk': chunk}))
+           stored['status'] == '0x1' and stored.get('contractAddress') is None and stored['logs'] == [],
+           json.dumps({'status': stored['status'], 'chunk': chunk}))
         def counted():
             st, value = get('/api/holders-stats.php')
-            if st != 200 or value['data']['snapshot']['height'] < int(stored['blockNumber'], 16):
+            if st != 200:
+                return None
+            snap = value['data']['snapshot']
+            # The snapshot's own block must be canonical on the observer and hold the chunk (a receipt height from
+            # node a can be stale after a tip reorganization), and only a snapshot whose pocol_getCaps answer was
+            # for its own block compares the count (else null).
+            if rpc(OBS_RPC, 'eth_getBlockByNumber', [hex(snap['height']), False])['hash'].lower() != snap['hash'].lower():
+                return None
+            if rpc(OBS_RPC, 'eth_getCode', [chunk, hex(snap['height'])]).lower() != code:
                 return None
             v = value['data']['verification']
-            # Only a snapshot whose pocol_getCaps answer was for its own block compares the count (else null).
             return v['accountsOnChain'] is not None and v
-        v = wait(counted, 120, 'a snapshot past the store call with the account count compared')
+        v = wait(counted, 120, 'a snapshot whose own state holds the chunk, with the account count compared')
         ok('holders: the chunk is a discovered account, so the found accounts equal pocol_getCaps\' count and the verification is complete',
            v['complete'] is True and v['accountsMissing'] == 0 and v['unlocatedWei'] == '0', json.dumps(v))
         # Paging: two pages of 25, the second pinned to the first page's snapshot while newer snapshots are published.
