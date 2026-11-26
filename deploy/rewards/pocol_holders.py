@@ -36,11 +36,16 @@ the gateway's loopback `query` (Gateway.query: 127.0.0.1 only) and keeps one SQL
   with the snapshot, so stats() is one row read.
 
 Addresses are discovered from top-level transactions (sender, recipient, created contract), the addresses a top-level
-MinerRegistry call names in its input (register, setRewardAddress, registerReplacing, removeInactive), each followed
-reward flow's miner ID and reward address, the registry at each snapshot, the genesis founders and the system
+MinerRegistry call names in its input (register, setRewardAddress, registerReplacing, removeInactive), the chunk a
+top-level ChunkFactory store(bytes) call creates (its CREATE2 address, from the calldata alone: chunk_arguments), each
+followed reward flow's miner ID and reward address, the registry at each snapshot, the genesis founders and the system
 addresses. Not discoverable over RPC (stated, never estimated): an address that only received PCOL by an internal call
-of a non-system contract, or a reward address set by a contract's internal call to the Registry that left the registry
-before the index followed one of its flows. Such value shows as verification.unlocatedWei. While a difference is
+of a non-system contract, a reward address set by a contract's internal call to the Registry that left the registry
+before the index followed one of its flows, or a contract created inside a call of a non-system contract (a CREATE or
+CREATE2 by a user contract, or a chunk stored through a contract's internal call to the ChunkFactory). Such value
+shows as verification.unlocatedWei, and such an account as verification.accountsMissing. An index written before chunk
+discovery reads the blocks it already holds once more, in the background, for their ChunkFactory calls
+(_backfill_chunks); until that walk ends its published difference may include those chunks. While a difference is
 published, every known address is read again every RESCAN_MIN_SECONDS, so a published balance lags by about that
 plus one snapshot's duration; at most one full rescan, of either cause, runs per RESCAN_MIN_SECONDS (one clock,
 full_at). A node behind the index on the same chain (a resync or restore) is waited for: nothing is removed and the
@@ -112,6 +117,14 @@ LABELS = {REGISTRY: 'MinerRegistry', ESCROW: 'RewardEscrow', LEDGER: 'ShareLedge
 # The accounts pocol_getCaps' count leaves out (state_summary.rs is_system: the five programs C0C001..C0C005 only).
 PROGRAMS = frozenset((REGISTRY, ESCROW, LEDGER, CAPS, CHUNK_FACTORY))
 ZERO_ADDRESS = '0x' + '00' * 20
+# ChunkFactory.store(bytes) (prototypes/lp4-execution/contracts/ChunkFactory.sol, M1 storage.md D27): the selector, the
+# chunk size bounds the contract enforces (BadChunk), and the initcode prefix and suffix (site.rs chunk_initcode).
+CHUNK_STORE = 'b374012b'
+CHUNK_MAX = 24575
+CHUNK_INIT = bytes.fromhex('80600a5f395ff300')
+WORD_MAX64 = (1 << 64) - 1
+# The discovery version of an index file (meta 'discovery'): 2 adds the ChunkFactory chunks.
+DISCOVERY = '2'
 # Delta flags of one address in one block.
 SENT, RECEIVED, CREATED, MINED, DISCOVERED = 1, 2, 4, 8, 16
 # Balance buckets by Total in PCOL (§5.2): [0,1), [1,10), ..., [1M, infinity).
@@ -391,6 +404,40 @@ def registry_arguments(data):
     return out
 
 
+def chunk_address(data):
+    """The CREATE2 address at which ChunkFactory.store(data) creates the chunk of `data` (site.rs chunk_address)."""
+    init = b'\x61' + (1 + len(data)).to_bytes(2, 'big') + CHUNK_INIT + data
+    digest = keccak256(b'\xff' + bytes.fromhex(CHUNK_FACTORY[2:]) + keccak256(data) + keccak256(init))
+    return '0x' + digest[12:].hex()
+
+
+def chunk_arguments(data):
+    """The chunk a top-level ChunkFactory store(bytes) call's input creates, or none: the bytes argument decoded as
+    Solidity 0.8.28's ABI decoder does for `bytes calldata` (head word, offset and length words within 64 bits, the
+    data inside the calldata; trailing bytes allowed) and the contract's size rule (1..CHUNK_MAX bytes, else BadChunk).
+    The chunk exists from then on whether this call created it or found it (store is idempotent). Whether the call
+    succeeded does not matter: an address is only made known (its state is then read at each snapshot and counted only
+    if it exists), never counted as a transaction party."""
+    if not isinstance(data, str) or not DATA.fullmatch(data) or len(data) < 10 or data[2:10].lower() != CHUNK_STORE:
+        return []
+    raw = bytes.fromhex(data[2:])
+    end = len(raw)
+    if end - 4 < 32:
+        return []
+    offset = int.from_bytes(raw[4:36], 'big')
+    if offset > WORD_MAX64:
+        return []
+    position = 4 + offset
+    if not position + 0x1f < end:
+        return []
+    length = int.from_bytes(raw[position:position + 32], 'big')
+    if length > WORD_MAX64 or position + 32 + length > end:
+        return []
+    if not 1 <= length <= CHUNK_MAX:
+        return []
+    return [chunk_address(raw[position + 32:position + 32 + length])]
+
+
 def reward_flows(answer, height, block_hash):
     """Block `height`'s executed reward flows from a pocol-block-reward-v3 answer for that block: one (miner ID, reward
     address, amount paid, bond accrued) per block.beneficiaries entry (pocol_rewards._entries)."""
@@ -466,7 +513,8 @@ PAGE_SQL = {
 }
 META_DEFAULTS = {'rewards_state': 'none', 'rewards_from': '-1', 'rewards_to': '-1', 'refreshed': '-1', 'full': '0',
                  'residual': '0', 'rescan_at': '0', 'covered_from': '-1', 'final': '-1', 'full_at': '0',
-                 'scan_at': '-1', 'scan_full': '0'}
+                 'scan_at': '-1', 'scan_full': '0', 'discovery': '1', 'chunks_next': '1', 'chunks_end': '0',
+                 'found': '0'}
 
 
 def default_rewards(query, network, fork_schedule=DEFAULT_FORK_SCHEDULE):
@@ -522,6 +570,7 @@ class HolderIndex:
         self.writer = self._open()
         try:
             self._check_identity_meta()
+            self._plan_chunk_backfill()
         except BaseException:
             self.writer.close()  # a refused file is not left open (Windows cannot move or delete an open file)
             raise
@@ -570,6 +619,23 @@ class HolderIndex:
             elif stored[0] != mine:
                 raise RuntimeError(f'{self.path} is the holders index of another network or version; '
                                    'move it away to index this network')
+            conn.execute('COMMIT')
+        except BaseException:
+            conn.execute('ROLLBACK')
+            raise
+
+    def _plan_chunk_backfill(self):
+        """A file written before chunk discovery (meta 'discovery' below DISCOVERY) has its stored history, heights
+        1..tip, read once more for ChunkFactory store calls (_backfill_chunks); a new or empty file has nothing to read
+        again. Blocks followed from here on are read with chunk discovery."""
+        conn = self.writer
+        conn.execute('BEGIN IMMEDIATE')
+        try:
+            if self._meta(conn, 'discovery') != DISCOVERY:
+                tip = self.tip(conn)
+                self._set(conn, 'chunks_next', 1)
+                self._set(conn, 'chunks_end', 0 if tip is None else tip[0])
+                self._set(conn, 'discovery', DISCOVERY)
             conn.execute('COMMIT')
         except BaseException:
             conn.execute('ROLLBACK')
@@ -691,6 +757,11 @@ class HolderIndex:
         if not self._follow(head, limit):
             return False
         self._follow_rewards(head['height'])
+        try:
+            # Before the snapshot, so the chunks one slice finds are read and counted at this height.
+            self._backfill_chunks()
+        except Exception as error:  # retried at the next round; following and snapshots go on meanwhile
+            LOG.warning('holders index: chunk backfill: %s', error)
         if self._snapshot_due():
             self._snapshot()
         return True
@@ -762,7 +833,62 @@ class HolderIndex:
                 # stays discoverable after it left the registry.
                 for address in registry_arguments(tx.get('input')):
                     add(address, 0)
+            elif to == CHUNK_FACTORY and tx.get('to') is not None:
+                # The chunk a store call creates inside the call (CREATE2): no receipt field or log names it.
+                for address in chunk_arguments(tx.get('input')):
+                    add(address, 0)
         return parties
+
+    def _backfill_chunks(self):
+        """Up to commit_blocks heights of the history stored before chunk discovery, [chunks_next, chunks_end], read
+        again for their top-level ChunkFactory store calls (chunk_arguments): each chunk is made known at its block's
+        height, as _parties now does for a new block. A height still kept is read by its stored hash (the block the
+        index holds); an older one by number. A block the node does not have is passed over with a warning (its chunks
+        stay undiscovered, so the published difference shows them). Runs once the history is at the head."""
+        conn = self.writer
+        first, end = int(self._meta(conn, 'chunks_next')), int(self._meta(conn, 'chunks_end'))
+        if first > end:
+            return
+        last = min(end, first + self.commit_blocks - 1)
+        stored = dict(conn.execute('SELECT height, hash FROM blocks WHERE height>=? AND height<=?', (first, last)))
+        heights = list(range(first, last + 1))
+        answers = self._read_many([('eth_getBlockByHash', [stored[h], True]) if h in stored
+                                   else ('eth_getBlockByNumber', [hex(h), True]) for h in heights])
+        found = []
+        for height, value in zip(heights, answers):
+            if value is None:
+                LOG.warning('holders index: chunk backfill: the node has no block %d', height)
+                continue
+            if not isinstance(value, dict) or _qty(value.get('number'), 'block number', 63) != height:
+                raise NodeAnswerInvalid('Block at another height')
+            if height in stored and _hash(value.get('hash'), 'block hash') != stored[height]:
+                raise NodeAnswerInvalid('Block by hash is another block')
+            txs = value.get('transactions')
+            if not isinstance(txs, list) or len(txs) > MAX_TXS_PER_BLOCK:
+                raise NodeAnswerInvalid('Malformed block transactions')
+            for tx in txs:
+                if not isinstance(tx, dict):
+                    raise NodeAnswerInvalid('Malformed block transactions')
+                if tx.get('to') is not None and _address(tx.get('to'), 'recipient') == CHUNK_FACTORY:
+                    found += [(height, address) for address in chunk_arguments(tx.get('input'))]
+        conn.execute('BEGIN IMMEDIATE')
+        try:
+            if int(self._meta(conn, 'chunks_next')) != first:
+                raise RuntimeError('The chunk backfill moved')
+            end = int(self._meta(conn, 'chunks_end'))   # lowered by a reorganization since the reads
+            for height, address in found:
+                # A block removed by a reorganization lies above the lowered end; one gone from the kept window since
+                # the reads was pruned, not replaced, and stays canonical.
+                kept = conn.execute('SELECT hash FROM blocks WHERE height=?', (height,)).fetchone()
+                if height <= end and (height not in stored or kept is None or kept[0] == stored[height]):
+                    if conn.execute('SELECT 1 FROM accounts WHERE address=?', (address,)).fetchone() is None:
+                        self._set(conn, 'found', 1)   # a new address: a snapshot at this height is due to count it
+                    self._account_change(conn, height, address, 0, 0, 0)
+            self._set(conn, 'chunks_next', last + 1)
+            conn.execute('COMMIT')
+        except BaseException:
+            conn.execute('ROLLBACK')
+            raise
 
     def _store(self, pending):
         """Blocks with their deltas and undo rows in one write transaction, then the windows."""
@@ -872,6 +998,7 @@ class HolderIndex:
                               'rewards_miner', 'snapshots', 'holders', 'stage', 'history', 'dirty', 'scan'):
                     conn.execute(f'DELETE FROM {table}')
                 conn.execute("DELETE FROM meta WHERE key!='network'")
+                self._set(conn, 'discovery', DISCOVERY)   # every block is followed again, with chunk discovery
             else:
                 for height, address, txs, mined, flags in conn.execute(
                         'SELECT height, address, txs, mined, flags FROM deltas WHERE height>?', (fork,)).fetchall():
@@ -897,6 +1024,9 @@ class HolderIndex:
                 if int(self._meta(conn, 'scan_at')) > fork:
                     # A snapshot's reads in progress were (partly) at removed heights: its scan starts again.
                     self._clear_scan(conn)
+                if int(self._meta(conn, 'chunks_end')) > fork:
+                    # The removed blocks are followed again, with chunk discovery: the backfill ends at the fork.
+                    self._set(conn, 'chunks_end', fork)
             conn.execute('COMMIT')
         except BaseException:
             conn.execute('ROLLBACK')
@@ -1028,7 +1158,8 @@ class HolderIndex:
         if tip is None or self.clock() < self.next_snapshot:
             return False
         row = self.writer.execute('SELECT height FROM snapshots ORDER BY id DESC LIMIT 1').fetchone()
-        return row is None or tip[0] > row[0] or self._meta(self.writer, 'full') == '1'
+        return (row is None or tip[0] > row[0] or self._meta(self.writer, 'full') == '1'
+                or self._meta(self.writer, 'found') == '1')
 
     def _snapshot(self):
         """One tip snapshot at the history tip h (the node's head): reads pinned to h, the block re-read, the supply
@@ -1390,6 +1521,7 @@ class HolderIndex:
                       snap))
         self._retain(conn, now)
         self._set(conn, 'full', 0)
+        self._set(conn, 'found', 0)
         self._set(conn, 'residual', unlocated)
         if full:
             self._set(conn, 'full_at', now)

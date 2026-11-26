@@ -262,7 +262,10 @@ lists accounts and state is served only for the newest 32 blocks, so the index b
 
 Holder counts, concentration and balance ranges leave the system accounts out. Completeness is verified, not
 guaranteed: an address that only received PCOL through an internal call of a non-system contract cannot be
-discovered over RPC; such value is published as the difference `verification.unlocatedWei`, never hidden.
+discovered over RPC, nor a contract created inside a call of a non-system contract; such value is published as the
+difference `verification.unlocatedWei` and such an account in `verification.accountsMissing`, never hidden. The
+chunks top-level ChunkFactory `store` calls create are discovered from their calldata; an index file written before
+that is read again once, in the background, when the new gateway starts.
 
 Bounds and measurements (`deploy/rewards/test_pocol_holders.py` ScaleTests, Python 3.11, a fake node with 100,000
 accounts): publishing a snapshot of them took 1.4-1.6 s (tests require under 120 s); a page 0.4-0.6 ms at any depth,
