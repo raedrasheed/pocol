@@ -16,7 +16,8 @@ must be the same V, owner decision 2026-11-16, or nothing is assembled):
 It refuses an extension version that is not V (before the identity switch package.json still says 0.4.1, so no
 release is assembled), an `-unsigned` APK name, an APK without an APK Signing Block at its place (the 16-byte magic
 `APK Sig Block 42` just before the ZIP central directory, with matching size fields and a v2 or v3 signature), an
-extension zip whose manifest is not the release build's (a [REHEARSAL] or fault build), an invitation that is not
+extension zip whose manifest is not the release build's (a [REHEARSAL] or fault build) or that has a carriage
+return in a text member (a CRLF checkout's package, not the CI build), an invitation that is not
 the mainnet's (package.py --network's checks: schema pocol-network-v2, the node's consensus rules, a spec-2 genesis,
 deploy/mainnet/v3-profile.json's chain ID, not the placeholder and not a retired network), duplicates, unknown names
 and an existing non-empty DIR. It copies the files, writes SHA256SUMS (sorted, LF) and prints the next step. It signs
@@ -183,6 +184,14 @@ def check_extension(path, root=ROOT):
         raise Refused(f'{path.name}: manifest name {manifest.get("name")!r} is not the release build ({release_name(root)!r})')
     if manifest.get('version') != extension_version(root):
         raise Refused(f'{path.name}: manifest version {manifest.get("version")!r} is not package.json\'s')
+    # The CI build has LF only. A package made from a CRLF checkout (Git for Windows' core.autocrlf=true) is another
+    # file than the one CI reproduces: the first 0.5.0 package published (f947c019...) was the CI build (6e38e72f...)
+    # with CRLF in 52 text files. The PNG icons are its only binary members.
+    with zipfile.ZipFile(path) as z:
+        crlf = sorted(i.filename for i in z.infolist() if not i.filename.endswith('.png') and b'\r' in z.read(i))
+    if crlf:
+        raise Refused(f'{path.name}: {len(crlf)} member(s) have carriage returns (a CRLF checkout), e.g. {crlf[0]}: '
+                      'sign the CI build, or package from a checkout with LF line endings')
 
 
 def assemble(out, files, root=ROOT):

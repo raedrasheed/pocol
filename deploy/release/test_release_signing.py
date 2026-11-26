@@ -494,13 +494,26 @@ class Assembler(unittest.TestCase):
         path.write_bytes(data)
         return path
 
-    def extension(self, name=None, version=None):
+    def extension(self, name=None, version=None, members=()):
         self.count = getattr(self, 'count', 0) + 1
         path = self.base / f'ext{self.count}' / f'PoCol-Studio-IDE-Viewer-{VERSION}.zip'
         path.parent.mkdir()
         with zipfile.ZipFile(path, 'w') as z:
             z.writestr('manifest.json', json.dumps({'name': name or ar.release_name(), 'version': version or VERSION}))
+            for member, data in members:
+                z.writestr(member, data)
         return path
+
+    def test_an_extension_package_from_a_crlf_checkout_is_refused(self):
+        # The first 0.5.0 package published (f947c019...) was the CI build with CRLF in 52 text files.
+        for member in ('sw.js', 'LICENSE', 'tools/Export-Studio-Wallet.ps1', 'lib/rlp.js'):
+            with self.subTest(member=member):
+                ext = self.extension(members=[(member, b'export const a = 1;\r\nexport const b = 2;\r\n')])
+                self.refuses([ext], f'have carriage returns (a CRLF checkout), e.g. {member}')
+        # A lone CR is refused too; a 0x0D byte in a PNG icon is binary, not a line ending.
+        self.refuses([self.extension(members=[('lib/rlp.js', b'x\r')])], 'have carriage returns')
+        names, _ = self.assemble([self.extension(members=[('icons/pocol-16.png', b'\x89PNG\r\n\x1a\n'), ('sw.js', b'ok\n')])])
+        self.assertEqual(names, [f'PoCol-Studio-IDE-Viewer-{VERSION}.zip'])
 
     def assemble(self, files, root=None):
         out = self.base / f'out{getattr(self, "count", 0)}-{len(files)}'
