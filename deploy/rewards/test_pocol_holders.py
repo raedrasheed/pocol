@@ -1036,6 +1036,489 @@ class DiscoveryTests(Base):
             self.assertEqual(H.registry_arguments(bad), [], bad)
 
 
+# PoCol Mainnet block 32477, transaction 0x4b394466...ece01: a top-level ChunkFactory store(bytes) call of 83 bytes (a site
+# manifest). The real ChunkFactory created its chunk at MAINNET_CHUNK (eth_getCode there: 84 bytes, 0x00 || the data,
+# nonce 1, balance 0) and no receipt field or log names it.
+MAINNET_STORE = '0xb374012b00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000053f8510180f84df84b8b2f696e6465782e68746d6c01821398a074076667fb52b17bd9cbf70756045efda51987d70628156ee255d6afd7e30a6bd9d894bd3157db014bebe8c7c838a5a2eabd18d5811ced82139800000000000000000000000000'
+MAINNET_CHUNK = '0x380e4ad7a04c2ad85cbc3a2bc839739cefe4783e'
+
+
+class ChunkTests(Base):
+    """Contracts created inside a call (PoCol Mainnet, 2026-11-26: complete false, unlocatedWei 0, accountsMissing 2,
+    the two chunks a site publication stored through top-level ChunkFactory calls): the chunk a store call creates is
+    discovered from the calldata, an index file written before that is read again once, and a contract created inside
+    a user contract's call stays a published difference."""
+    WRITER = wallet(7)
+
+    @staticmethod
+    def word(n):
+        return n.to_bytes(32, 'big').hex()
+
+    def store(self, data):
+        return tx(self.WRITER, H.CHUNK_FACTORY, 0, input=HF.store_input(data), stores=[data], gas=100000)
+
+    def chain_with_writer(self):
+        chain = HF.FakeHolderChain()
+        chain.mine(txs=[tx(RW1, self.WRITER, 10 * PCOL)])
+        return chain
+
+    def test_the_chunk_address_is_the_one_the_mainnet_chunkfactory_created(self):
+        self.assertEqual(H.chunk_arguments(MAINNET_STORE), [MAINNET_CHUNK])
+        data = bytes.fromhex(MAINNET_STORE[2:])[68:68 + 83]
+        self.assertEqual(H.chunk_address(data), MAINNET_CHUNK)
+        self.assertEqual(HF.fake_chunk(data)[0], MAINNET_CHUNK)   # the fake's own derivation agrees
+        self.assertEqual(H.chunk_arguments(HF.store_input(data)), [MAINNET_CHUNK])
+
+    def test_the_calldata_is_decoded_as_the_contract_decodes_it(self):
+        sel = '0x' + H.CHUNK_STORE
+        data = b'\xaa' * 40
+        chunk = [H.chunk_address(data)]
+        body = self.word(len(data)) + data.hex()
+        cases = {
+            'canonical': (HF.store_input(data), chunk),
+            'no padding after the data': (sel + self.word(32) + body, chunk),
+            'trailing bytes after the data': (HF.store_input(data) + 'ff' * 7, chunk),
+            'a non-canonical offset (0x40, a gap word)': (sel + self.word(64) + '00' * 32 + body, chunk),
+            'an upper-case hex selector': ('0x' + H.CHUNK_STORE.upper() + HF.store_input(data)[10:], chunk),
+            'the largest chunk': (HF.store_input(b'\x01' * H.CHUNK_MAX), [H.chunk_address(b'\x01' * H.CHUNK_MAX)]),
+            'an empty chunk (BadChunk)': (sel + self.word(32) + self.word(0), []),
+            'one byte over the largest (BadChunk)': (HF.store_input(b'\x01' * (H.CHUNK_MAX + 1)), []),
+            'the data cut short': (sel + self.word(32) + self.word(len(data)) + data.hex()[:-2], []),
+            'no head word': (sel + '00' * 31, []),
+            'the offset past the calldata': (sel + self.word(4096) + body, []),
+            'the offset over 64 bits': (sel + self.word(1 << 64) + body, []),
+            'the length over 64 bits': (sel + self.word(32) + self.word(1 << 64) + data.hex(), []),
+            'the length word cut short': (sel + self.word(32) + '00' * 31, []),
+            'another selector': ('0xdeadbeef' + HF.store_input(data)[10:], []),
+            'not hex': (sel + 'zz' * 64, []),
+            'no input': (None, []),
+        }
+        for name, (value, expected) in cases.items():
+            with self.subTest(name):
+                self.assertEqual(H.chunk_arguments(value), expected)
+
+    def test_a_chunk_stored_by_a_top_level_call_is_found_and_the_count_matches(self):
+        chain = self.chain_with_writer()
+        first, second = b'manifest', b'\x00\x01' * 300
+        chain.mine(txs=[self.store(first), self.store(second)])
+        chain.mine(txs=[self.store(first)])   # stored again: the same chunk, found again, counted once
+        chain.mine()
+        index = self.index(chain)
+        v = self.settle(index)['verification']
+        self.assertEqual((v['complete'], v['unlocatedWei'], v['accountsMissing']), (True, '0', 0), v)
+        self.assertEqual(v['accountsIndexed'], chain.existing_accounts(chain.states[chain.head]))
+        stored = dict(index.writer.execute('SELECT address, txs FROM accounts'))
+        for data in (first, second):
+            self.assertEqual(stored[HF.fake_chunk(data)[0]], 0)   # known, never a transaction party
+        self.assertNotIn(HF.fake_chunk(first)[0], {r['address'] for r in self.rows(index)})   # no balance, no row
+
+    def test_a_contract_created_inside_a_user_contracts_call_is_still_published_as_missing(self):
+        chain = self.chain_with_writer()
+        factory, child = '0x' + 'fa' * 20, '0x' + 'cd' * 20
+        chain.mine(txs=[tx(self.WRITER, None, 0, creates=factory, gas=100000)])
+        chain.mine(txs=[tx(self.WRITER, factory, 0, input='0x12345678', inside=[child], gas=100000),
+                        self.store(b'kept')])
+        chain.mine()
+        index = self.index(chain)
+        v = self.settle(index)['verification']
+        # Nothing names the child: the comparison stays strict and publishes it.
+        self.assertEqual((v['complete'], v['unlocatedWei'], v['accountsMissing']), (False, '0', 1), v)
+        self.assertEqual(v['accountsOnChain'], v['accountsIndexed'] + 1)
+
+    def test_without_chunk_discovery_the_mainnet_difference_comes_back(self):
+        # The regression the fix closes: an index that does not read store calls publishes both chunks as missing.
+        chain = self.chain_with_writer()
+        chain.mine(txs=[self.store(b'one'), self.store(b'two')])
+        chain.mine()
+        with unittest.mock.patch.object(H, 'chunk_arguments', lambda data: []):
+            index = self.index(chain)
+            v = self.settle(index)['verification']
+        self.assertEqual((v['complete'], v['unlocatedWei'], v['accountsMissing']), (False, '0', 2), v)
+
+    def old_file(self, chain, missing=2, **kw):
+        """An index file written before chunk discovery: followed without it, its meta without the discovery keys."""
+        with unittest.mock.patch.object(H, 'chunk_arguments', lambda data: []):
+            index = self.index(chain, **kw)
+            v = self.settle(index)['verification']
+        self.assertEqual(v['accountsMissing'], missing)
+        index.close()
+        self.opened.remove(index)
+        conn = sqlite3.connect(self.path)
+        conn.execute("DELETE FROM meta WHERE key IN ('discovery', 'chunks_next', 'chunks_end')")
+        conn.commit()
+        conn.close()
+
+    def test_a_file_written_before_chunk_discovery_is_read_again_once(self):
+        chain = self.chain_with_writer()
+        chain.mine(txs=[self.store(b'old')])            # height 2: past the kept window below
+        chain.mine_many(12)
+        chain.mine(txs=[self.store(b'kept')])           # still kept: read by its stored hash
+        chain.mine()
+        self.old_file(chain, recent=8)
+        tip = chain.head
+        index = self.index(chain, recent=8)
+        meta = lambda key: index.writer.execute('SELECT value FROM meta WHERE key=?', (key,)).fetchone()[0]
+        self.assertEqual((meta('discovery'), meta('chunks_next'), meta('chunks_end')), (H.DISCOVERY, '1', str(tip)))
+        before = dict(chain.calls)
+        v = self.settle(index)['verification']
+        self.assertEqual((v['complete'], v['unlocatedWei'], v['accountsMissing']), (True, '0', 0), v)
+        self.assertGreater(int(meta('chunks_next')), int(meta('chunks_end')))   # done
+        by_number = chain.calls['eth_getBlockByNumber'] - before.get('eth_getBlockByNumber', 0)
+        self.assertGreaterEqual(by_number, tip - 8)   # the heights below the kept window, by number
+        by_hash = chain.calls.get('eth_getBlockByHash', 0) - before.get('eth_getBlockByHash', 0)
+        self.assertGreaterEqual(by_hash, 8)           # the kept heights (recent=8), by their stored hash
+        first_seen = dict(index.writer.execute('SELECT address, first_seen FROM accounts'))
+        self.assertEqual(first_seen[HF.fake_chunk(b'old')[0]], 2)
+        self.assertEqual(first_seen[HF.fake_chunk(b'kept')[0]], tip - 1)
+        # Once: reopened, nothing is read again.
+        index.close()
+        self.opened.remove(index)
+        again = self.index(chain, recent=8)
+        before = chain.calls.get('eth_getBlockByNumber', 0)
+        self.settle(again)
+        self.assertLessEqual(chain.calls['eth_getBlockByNumber'] - before, 4)
+
+    def test_the_backfill_goes_in_slices_and_new_blocks_are_followed_meanwhile(self):
+        chain = self.chain_with_writer()
+        chain.mine_many(10)
+        chain.mine(txs=[self.store(b'a')])
+        chain.mine(txs=[self.store(b'b')])
+        self.old_file(chain)
+        index = self.index(chain, commit_blocks=5)
+        index.step()
+        self.assertEqual(index.writer.execute("SELECT value FROM meta WHERE key='chunks_next'").fetchone()[0], '6')
+        chain.mine(txs=[self.store(b'c')])   # a new block: discovered by _parties, not by the backfill
+        meta = lambda key: int(index.writer.execute('SELECT value FROM meta WHERE key=?', (key,)).fetchone()[0])
+        self.assertEqual(meta('chunks_end'), 13)   # the heights the old file held (its tip), not the new block
+        steps = 1
+        while meta('chunks_next') <= meta('chunks_end'):
+            v = index.step() and index.stats()['verification']
+            steps += 1
+            if meta('chunks_next') <= 11:
+                self.assertEqual(v['accountsMissing'], 2, v)   # published as it stands until the walk gets there
+        self.assertEqual(steps, 3)   # 13 heights in slices of 5
+        v = self.settle(index)['verification']
+        self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+
+    def test_a_reorganization_during_the_backfill_ends_it_at_the_fork(self):
+        chain = self.chain_with_writer()
+        chain.mine_many(6)
+        chain.mine(txs=[self.store(b'gone')])     # height 8: replaced by the new branch
+        chain.mine_many(3)
+        self.old_file(chain, missing=1)
+        index = self.index(chain, commit_blocks=3)
+        index.step()                               # the backfill has read heights 1..3
+        chain.reorg(6)
+        chain.mine(txs=[self.store(b'new')])
+        chain.mine_many(4)
+        v = self.settle(index, rounds=10)['verification']
+        meta = lambda key: int(index.writer.execute('SELECT value FROM meta WHERE key=?', (key,)).fetchone()[0])
+        self.assertEqual(meta('chunks_end'), 6)
+        self.assertGreater(meta('chunks_next'), 6)
+        known = {a for (a,) in index.writer.execute('SELECT address FROM accounts')}
+        self.assertNotIn(HF.fake_chunk(b'gone')[0], known)
+        self.assertIn(HF.fake_chunk(b'new')[0], known)
+        self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+
+    def test_a_chunk_known_from_a_later_block_is_first_seen_at_its_backfilled_height(self):
+        # The same data stored again after the upgrade (store is idempotent) makes the chunk known at that later
+        # block before the walk reaches the block that created it; a reorganization that removes the later block
+        # must not remove the chunk (review finding BF-1).
+        chain = self.chain_with_writer()
+        chain.mine(txs=[self.store(b'site')])      # height 2: the chunk is created
+        chain.mine_many(6)                         # heights 3..8
+        self.old_file(chain, missing=1)
+        index = self.index(chain, commit_blocks=1)
+        chain.mine(txs=[self.store(b'site')])      # height 9: stored again, discovered by _parties
+        index.step()                               # follows 9; the walk reads height 1
+        index.step()                               # the walk reads height 2
+        address = HF.fake_chunk(b'site')[0]
+        rows = index.writer.execute('SELECT height, flags & ? FROM deltas WHERE address=? ORDER BY height',
+                                    (H.DISCOVERED, address)).fetchall()
+        self.assertEqual(rows, [(2, H.DISCOVERED), (9, 0)])
+        self.assertEqual(index.writer.execute('SELECT first_seen FROM accounts WHERE address=?', (address,)).fetchone(), (2,))
+        chain.reorg(8)
+        chain.mine_many(3)
+        v = self.settle(index, rounds=20)['verification']
+        self.assertIsNotNone(index.writer.execute('SELECT 1 FROM accounts WHERE address=?', (address,)).fetchone())
+        self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+
+    def test_blocks_a_rolled_back_gateway_followed_are_read_again(self):
+        # New gateway, then the previous one (no chunk discovery, never writes chunks_tip) for a while, then the new
+        # one again: the heights the previous one followed are read for their store calls (review finding BF-2).
+        chain = self.chain_with_writer()
+        chain.mine()
+        index = self.index(chain)
+        self.assertTrue(self.settle(index)['verification']['complete'])
+        chain.mine_many(3)                         # followed by the new gateway: not read again later
+        self.settle(index)
+        tip = index.writer.execute("SELECT value FROM meta WHERE key='chunks_tip'").fetchone()[0]
+        self.assertEqual(int(tip), chain.head)
+        index.close()
+        self.opened.remove(index)
+        chain.mine(txs=[self.store(b'rolled back')])
+        chain.mine()
+        with unittest.mock.patch.object(H, 'chunk_arguments', lambda data: []), \
+                unittest.mock.patch.object(H.HolderIndex, '_plan_chunk_backfill', lambda self: None), \
+                unittest.mock.patch.object(H.HolderIndex, '_backfill_chunks', lambda self: None):
+            old = self.index(chain)
+            self.assertEqual(self.settle(old)['verification']['accountsMissing'], 1)
+            old.close()
+            self.opened.remove(old)
+        conn = sqlite3.connect(self.path)   # the previous gateway does not write chunks_tip
+        conn.execute("UPDATE meta SET value=? WHERE key='chunks_tip'", (tip,))
+        conn.commit()
+        conn.close()
+        again = self.index(chain)
+        meta = lambda key: int(again.writer.execute('SELECT value FROM meta WHERE key=?', (key,)).fetchone()[0])
+        self.assertEqual((meta('chunks_next'), meta('chunks_end')), (int(tip) + 1, chain.head))
+        v = self.settle(again)['verification']
+        self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+
+    def test_a_kept_block_answered_with_another_hash_is_refused(self):
+        chain = self.chain_with_writer()
+        chain.mine(txs=[self.store(b'kept')])
+        chain.mine()
+        self.old_file(chain, missing=1, recent=8)
+        real = chain.query
+        def query(method, params, deadline=None):
+            answer = real(method, params, deadline)
+            if method == 'eth_getBlockByHash' and len(params) > 1 and params[1] is True and answer.get('result'):
+                answer = {**answer, 'result': {**answer['result'], 'hash': '0x' + 'ee' * 32}}
+            return answer
+        chain.query = query
+        index = self.index(chain, recent=8)
+        with self.assertLogs('pocol_holders', 'WARNING') as logs:
+            index.step()
+        self.assertTrue(any('another block' in line for line in logs.output), logs.output)
+        self.assertEqual(index.writer.execute("SELECT value FROM meta WHERE key='chunks_next'").fetchone()[0], '1')
+        self.assertIsNone(index.writer.execute('SELECT 1 FROM accounts WHERE address=?',
+                                               (HF.fake_chunk(b'kept')[0],)).fetchone())
+
+
+    # ---------------- the backfill under restarts, failures, repetition and reorganizations ----------------
+    def full_reads(self, chain):
+        return chain.calls.get('full-block', 0)
+
+    def counting(self, chain):
+        """Counts the full-block reads (the backfill's) separately in chain.calls['full-block']."""
+        real = chain.query
+        def query(method, params, deadline=None):
+            if method in ('eth_getBlockByNumber', 'eth_getBlockByHash') and len(params) > 1 and params[1] is True:
+                chain.calls['full-block'] = chain.calls.get('full-block', 0) + 1
+            return real(method, params, deadline)
+        chain.query = query
+
+    @staticmethod
+    def dump(index, *tables):
+        return {t: sorted(index.writer.execute(f'SELECT * FROM {t}').fetchall(), key=repr) for t in tables}
+
+    def test_a_restart_during_the_walk_resumes_where_it_stopped(self):
+        chain = self.chain_with_writer()
+        chain.mine_many(3)
+        chain.mine(txs=[self.store(b'early')])     # height 5
+        chain.mine_many(19)
+        chain.mine(txs=[self.store(b'late')])      # height 25
+        chain.mine_many(5)                         # tip 30
+        self.old_file(chain)
+        self.counting(chain)
+        index = self.index(chain, commit_blocks=4)
+        index.step()
+        index.step()                               # heights 1..8 read
+        meta = lambda i, key: int(i.writer.execute('SELECT value FROM meta WHERE key=?', (key,)).fetchone()[0])
+        self.assertEqual(meta(index, 'chunks_next'), 9)
+        index.close()                              # a gateway restart
+        self.opened.remove(index)
+        again = self.index(chain, commit_blocks=4)
+        self.assertEqual((meta(again, 'chunks_next'), meta(again, 'chunks_end')), (9, 30))   # not planned again
+        while meta(again, 'chunks_next') <= meta(again, 'chunks_end'):
+            again.step()
+        self.assertEqual(self.full_reads(chain), 30)   # every height read exactly once across the restart
+        v = self.settle(again)['verification']
+        self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+
+    def test_a_failed_read_during_a_slice_changes_nothing_and_the_walk_goes_on(self):
+        chain = self.chain_with_writer()
+        chain.mine(txs=[self.store(b'one')])       # height 2
+        chain.mine_many(40)
+        chain.mine(txs=[self.store(b'two')])       # height 43
+        self.old_file(chain)
+        index = self.index(chain)                  # one slice of 200 heights: three batches of READ_BATCH
+        real_batch, real_query, batches = chain.batch, chain.query, []
+        down = [True]
+        def batch(calls):
+            if any(len(p) > 1 and p[1] is True for _, p in calls):
+                batches.append(len(calls))
+                if len(batches) == 2:
+                    raise OSError('node read failed')
+            return real_batch(calls)
+        def query(method, params, deadline=None):
+            if down[0] and method in ('eth_getBlockByNumber', 'eth_getBlockByHash') and params[1:] == [True]:
+                raise OSError('node down')         # the one-by-one reads fail too
+            return real_query(method, params, deadline)
+        index.batch, index.query = batch, query
+        before = self.dump(index, 'accounts', 'deltas')
+        with self.assertLogs('pocol_holders', 'WARNING') as logs:
+            index.step()
+        self.assertTrue(any('one by one' in line for line in logs.output), logs.output)
+        self.assertEqual(self.dump(index, 'accounts', 'deltas'), before)   # the first batch's chunk is not written
+        self.assertEqual(index.writer.execute("SELECT value FROM meta WHERE key='chunks_next'").fetchone()[0], '1')
+        down[0] = False
+        v = self.settle(index)['verification']
+        self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+
+    def test_a_batch_of_full_blocks_too_large_for_one_answer_is_read_one_block_at_a_time(self):
+        # Review finding (Codex P2): a batch whose answer exceeds the gateway's or the node's bound, although every
+        # block fits alone, must not stall the walk.
+        chain = self.chain_with_writer()
+        chain.mine_many(5)
+        chain.mine(txs=[self.store(b'big block')])
+        chain.mine_many(30)
+        self.old_file(chain, missing=1)
+        index = self.index(chain)
+        real = chain.batch
+        def batch(calls):
+            if sum(1 for _, p in calls if len(p) > 1 and p[1] is True) > 1:
+                raise RuntimeError('Node batch read failed')   # the answer bound, for any batch of full blocks
+            return real(calls)
+        index.batch = batch
+        with self.assertLogs('pocol_holders', 'WARNING'):
+            v = self.settle(index)['verification']
+        self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+        meta = lambda key: int(index.writer.execute('SELECT value FROM meta WHERE key=?', (key,)).fetchone()[0])
+        self.assertGreater(meta('chunks_next'), meta('chunks_end'))
+
+    def test_walking_again_changes_nothing(self):
+        chain = self.chain_with_writer()
+        chain.mine(txs=[self.store(b'a'), self.store(b'b')])
+        chain.mine_many(5)
+        chain.mine(txs=[self.store(b'a')])         # the same chunk stored again
+        self.old_file(chain)
+        index = self.index(chain)
+        first = self.settle(index)['verification']
+        tables = ('accounts', 'deltas', 'blocks', 'snapshots', 'holders', 'rewards_address', 'rewards_miner',
+                  'reward_flows', 'history')
+        before = self.dump(index, *tables)
+        index.writer.execute("UPDATE meta SET value='1' WHERE key='chunks_next'")
+        index.writer.execute("UPDATE meta SET value=? WHERE key='chunks_end'", (str(chain.head),))
+        index.step()                               # the whole walk again, at the same tip
+        self.assertEqual(self.dump(index, *tables), before)
+        self.assertEqual(index.stats()['verification'], first)
+
+    def test_the_backfill_keeps_blocks_snapshots_history_and_rewards(self):
+        chain = self.chain_with_writer()
+        chain.mine_many(4)
+        chain.mine(txs=[self.store(b'kept data')])
+        chain.mine_many(4)
+        with unittest.mock.patch.object(H, 'chunk_arguments', lambda data: []):
+            old = self.index(chain)
+            for _ in range(3):                     # several snapshots and history points, rewards followed
+                self.settle(old)
+                self.now[0] += H.HISTORY_SECONDS
+                chain.mine()
+            self.settle(old)
+        rewards_from = old.writer.execute("SELECT value FROM meta WHERE key='rewards_from'").fetchone()[0]
+        kept = ('blocks', 'rewards_address', 'rewards_miner', 'reward_flows', 'history')
+        before = self.dump(old, *kept, 'snapshots', 'holders', 'accounts')
+        old.close()
+        self.opened.remove(old)
+        conn = sqlite3.connect(self.path)
+        conn.execute("DELETE FROM meta WHERE key IN ('discovery', 'chunks_next', 'chunks_end', 'chunks_tip')")
+        conn.commit()
+        conn.close()
+        index = self.index(chain)
+        index._backfill_chunks()                   # the walk alone (one slice covers this file)
+        self.assertGreater(int(index.writer.execute("SELECT value FROM meta WHERE key='chunks_next'").fetchone()[0]),
+                           chain.head)
+        after = self.dump(index, *kept, 'snapshots', 'holders', 'accounts')
+        for table in (*kept, 'snapshots'):
+            self.assertEqual(after[table], before[table], table)   # every row as it was
+        old_accounts = {r[0]: r[1:] for r in before['accounts']}
+        new_accounts = {r[0]: r[1:] for r in after['accounts']}
+        self.assertEqual({a: new_accounts[a] for a in old_accounts}, old_accounts)
+        self.assertEqual(set(new_accounts) - set(old_accounts), {HF.fake_chunk(b'kept data')[0]})   # only the chunk
+        self.assertEqual(index.writer.execute("SELECT value FROM meta WHERE key='rewards_from'").fetchone()[0], rewards_from)
+        # Then the next snapshot counts it (and the usual retention applies to the published snapshots).
+        v = self.settle(index)['verification']
+        self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+        self.assertEqual(index.writer.execute("SELECT value FROM meta WHERE key='rewards_from'").fetchone()[0], rewards_from)
+
+    def test_random_restarts_reorganizations_and_stores_during_the_walk(self):
+        import random
+        for seed in range(12):
+            with self.subTest(seed=seed):
+                rng = random.Random(seed)
+                self.now[0] = float(TIME0)
+                path = os.path.join(self.dir.name, f'random-{seed}.sqlite3')
+                chain = self.chain_with_writer()
+                datas = [b'chunk-%d' % i for i in range(6)]
+                for n in range(rng.randrange(20, 50)):
+                    chain.mine(txs=[self.store(rng.choice(datas))] if rng.random() < 0.15 else [])
+                with unittest.mock.patch.object(H, 'chunk_arguments', lambda data: []):
+                    old = self.index(chain, path=path)
+                    self.settle(old)
+                    old.close()
+                    self.opened.remove(old)
+                conn = sqlite3.connect(path)
+                conn.execute("DELETE FROM meta WHERE key IN ('discovery', 'chunks_next', 'chunks_end', 'chunks_tip')")
+                conn.commit()
+                conn.close()
+                index = self.index(chain, path=path, commit_blocks=rng.choice([1, 3, 7]))
+                for _ in range(rng.randrange(5, 25)):
+                    action = rng.random()
+                    if action < 0.2:
+                        index.close()
+                        self.opened.remove(index)
+                        index = self.index(chain, path=path, commit_blocks=rng.choice([1, 3, 7]))
+                    elif action < 0.35 and chain.head > 10:
+                        chain.reorg(chain.head - rng.randrange(1, 6))
+                        chain.mine(txs=[self.store(rng.choice(datas))] if rng.random() < 0.5 else [])
+                    elif action < 0.55:
+                        chain.mine(txs=[self.store(rng.choice(datas))] if rng.random() < 0.4 else [])
+                    index.step()
+                meta = lambda key: int(index.writer.execute('SELECT value FROM meta WHERE key=?', (key,)).fetchone()[0])
+                for _ in range(200):
+                    if meta('chunks_next') > meta('chunks_end'):
+                        break
+                    index.step()
+                v = self.settle(index)['verification']
+                existing = {HF.fake_chunk(d)[0] for d in datas} & set(chain.states[chain.head].accounts)
+                known = {a for (a,) in index.writer.execute('SELECT address FROM accounts')}
+                self.assertTrue(existing <= known, existing - known)
+                self.assertEqual((v['complete'], v['unlocatedWei'], v['accountsMissing']), (True, '0', 0), v)
+                index.close()
+                self.opened.remove(index)
+
+    def test_a_new_file_and_a_file_indexed_again_have_nothing_to_read_again(self):
+        chain = self.chain_with_writer()
+        chain.mine(txs=[self.store(b'x')])
+        index = self.index(chain)
+        meta = lambda key: index.writer.execute('SELECT value FROM meta WHERE key=?', (key,)).fetchone()[0]
+        self.assertEqual((meta('discovery'), meta('chunks_end')), (H.DISCOVERY, '0'))
+        self.assertTrue(self.settle(index)['verification']['complete'])
+        index._truncate(None)
+        self.assertEqual(meta('discovery'), H.DISCOVERY)
+        self.assertGreater(int(H.META_DEFAULTS['chunks_next']), int(H.META_DEFAULTS['chunks_end']))
+
+    def test_a_block_the_node_lacks_is_passed_over_and_the_difference_stays_published(self):
+        chain = self.chain_with_writer()
+        chain.mine(txs=[self.store(b'lost')])
+        chain.mine_many(3)
+        self.old_file(chain, missing=1, recent=2)
+        real = chain.query
+        def query(method, params, deadline=None):
+            if method == 'eth_getBlockByNumber' and params[0] == hex(2) and len(params) > 1 and params[1] is True:
+                chain.calls[method] = chain.calls.get(method, 0) + 1
+                return {'jsonrpc': '2.0', 'id': 1, 'result': None}
+            return real(method, params, deadline)
+        chain.query = query
+        index = self.index(chain, recent=2)
+        with self.assertLogs('pocol_holders', 'WARNING') as logs:
+            v = self.settle(index)['verification']
+        self.assertTrue(any('no block 2' in line for line in logs.output), logs.output)
+        self.assertEqual((v['complete'], v['accountsMissing']), (False, 1), v)
+
+
 class RescanScheduleTests(Base):
     """Full rescans while a difference is published (ACCT-2) and their rate (H-7)."""
     C, Y = '0x' + 'cc' * 20, '0x' + 'de' * 20

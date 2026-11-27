@@ -61,10 +61,13 @@ All amounts are integers in wei, carried as decimal strings, formatted with BigI
 
 Completeness check (shown, never hidden): the index can discover addresses only from transactions (from, to, created
 contracts), the addresses a top-level MinerRegistry call names in its input (`register`, `setRewardAddress`,
-`registerReplacing`, `removeInactive`), each followed reward flow's miner ID and reward address, the registry at each
-snapshot (IDs, reward addresses), the genesis founders and the system addresses. An address that only ever received
-PCOL by an internal call of a non-system contract cannot be discovered over RPC, nor can a reward address that a
-contract's internal call to the Registry set and that left the registry before the index followed one of its flows. Each snapshot therefore
+`registerReplacing`, `removeInactive`), the chunk a top-level ChunkFactory `store(bytes)` call creates (its CREATE2
+address follows from the calldata: no receipt field or log names it), each followed reward flow's miner ID and reward
+address, the registry at each snapshot (IDs, reward addresses), the genesis founders and the system addresses. An
+address that only ever received PCOL by an internal call of a non-system contract cannot be discovered over RPC, nor
+can a reward address that a contract's internal call to the Registry set and that left the registry before the index
+followed one of its flows, nor a contract created inside a call of a non-system contract (a user contract's CREATE or
+CREATE2, or a chunk stored through a contract's internal call to the ChunkFactory). Each snapshot therefore
 checks Σ discovered balances(h) against G − F and the discovered existing accounts against `pocol_getCaps.accounts`,
 and publishes `verification.complete` with any difference (`unlocatedWei`, `accountsMissing`).
 

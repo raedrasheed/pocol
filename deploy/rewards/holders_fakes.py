@@ -54,6 +54,22 @@ def bhash(branch, n):
     return '0x' + f'{branch:02x}' + f'{n:062x}'
 
 
+def store_input(data):
+    """The canonical calldata of ChunkFactory.store(data): selector, offset 0x20, length, the bytes padded to words."""
+    pad = b'\0' * (-len(data) % 32)
+    return ('0x' + R.keccak256(b'store(bytes)')[:4].hex() + (32).to_bytes(32, 'big').hex()
+            + len(data).to_bytes(32, 'big').hex() + (data + pad).hex())
+
+
+def fake_chunk(data):
+    """The chunk ChunkFactory.store(data) creates (ChunkFactory.sol, D27), written here from the contract and not from
+    the index: its CREATE2 address, and its account (nonce 1, code 0x00 || data, no balance)."""
+    init = bytes([0x61]) + (len(data) + 1).to_bytes(2, 'big') + bytes([0x80, 0x60, 0x0a, 0x5f, 0x39, 0x5f, 0xf3, 0x00]) + data
+    factory = bytes.fromhex('0000000000000000000000000000000000c0c005')
+    address = '0x' + R.keccak256(b'\xff' + factory + R.keccak256(data) + R.keccak256(init))[12:].hex()
+    return address, [0, 1, '0x00' + data.hex()]
+
+
 def word(value):
     return '0x' + value.to_bytes(32, 'big').hex()
 
@@ -131,7 +147,8 @@ class FakeHolderChain:
 
     def mine(self, txs=(), miner=None, base_fee=10 ** 9, flows=None, internal=(), burn=0, mutate=None, ts=None):
         """Block n = head + 1: issuance to Escrow; the transactions ({from, to|None, value, gas, tip, creates,
-        undecoded}); the reward flows [(minerId, rewardAddress, paid, accrued)] (default: 90 % of the issuance to the
+        undecoded, stores, inside}: `stores` the chunks a ChunkFactory call creates, as data bytes (fake_chunk), and
+        `inside` the contracts the call creates inside it at the given addresses, which no receipt names); the reward flows [(minerId, rewardAddress, paid, accrued)] (default: 90 % of the issuance to the
         winner's reward address); `internal` transfers (from, to, amount) no transaction shows; `burn` added to
         burnedTotal inside Escrow; `mutate(state, n)` for registry changes."""
         n = len(self.blocks)
@@ -159,6 +176,12 @@ class FakeHolderChain:
                 account[0] += value
                 if tx.get('to') is None:
                     account[1], account[2] = 1, '0x6080'
+            for data in tx.get('stores', ()):
+                address, account = fake_chunk(data)
+                if state.accounts.get(address, [0, 0, '0x'])[2] == '0x':   # store is idempotent
+                    state.accounts[address] = account
+            for address in tx.get('inside', ()):
+                state.account(address)[1:] = [1, '0x6080']
             full.append(tx)
         if flows is None:
             flows = [(miner, state.records[miner]['reward'], issued * 9 // 10, 0)] if issued else []
@@ -204,6 +227,10 @@ class FakeHolderChain:
         return sum(a[0] for a in state.accounts.values()) + sum(self.static.values())
 
     def existing_accounts(self, state):
+        """pocol_getCaps' count (state_summary.rs user_accounts): every account the node keeps outside the five
+        programs. pocold removes every account a transaction or system call leaves empty (EIP-161, user_phase.rs
+        commit_tx_on), and genesis has no empty account, so a kept account is one with a balance, a nonce or code;
+        whether the index knows its address plays no part (a chunk, a contract created inside a call)."""
         count = sum(1 for a, v in state.accounts.items() if a not in H.PROGRAMS and (v[0] or v[1] or v[2] != '0x'))
         return count + sum(1 for a, v in self.static.items() if v and a not in state.accounts)
 
@@ -238,6 +265,8 @@ class FakeHolderChain:
             n = self.head if params[0] == 'latest' else int(params[0], 16)
             if not 0 <= n <= self.head:
                 return ok(None)
+            if len(params) > 1 and params[1] is True:
+                return ok({**{k: v for k, v in self.blocks[n].items() if k != 'full'}, 'transactions': self.blocks[n]['full']})
             return ok({k: v for k, v in self.blocks[n].items() if k != 'full'})
         if method == 'eth_getBlockByHash':
             b = next((b for b in self.blocks if b['hash'] == params[0]), self.extra.get(params[0]))
