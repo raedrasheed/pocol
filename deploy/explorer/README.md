@@ -299,8 +299,9 @@ Sources, each labelled in the answer:
    miners, and they are never counted as miners.
 2. Operator node reports (Operator node reporter, below): none until the owner installs a reporter.
 
-Countries come from DB-IP's "IP to Country Lite" database (CC BY 4.0, attribution "IP Geolocation by DB-IP",
-https://db-ip.com), installed by the operator as a file on the gateway (`--geoip-db`) and looked up locally; nothing
+Countries come from DB-IP's "IP to Country Lite" database (CC BY 4.0; the map's attribution, in both languages:
+"IP Geolocation by DB-IP" linked to https://db-ip.com, "CC BY 4.0" linked to https://creativecommons.org/licenses/by/4.0/,
+and a notice that the database was converted to PoCol's internal format), installed by the operator as a file on the gateway (`--geoip-db`) and looked up locally; nothing
 contacts a geolocation service. Without the file nothing is located and the answer's `database` is null. Only public
 unicast addresses are looked up (private, loopback, link-local, CGNAT, documentation and reserved ranges count as not
 locatable). Each address is replaced at once, in memory, by a keyed id (`HMAC-SHA256(network salt, IP)`, first 24 hex

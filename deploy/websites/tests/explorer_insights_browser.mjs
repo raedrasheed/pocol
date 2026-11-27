@@ -115,10 +115,11 @@ const COUNTRIES = [
 ];
 function geography(state) {
   // state.extra: countries a test adds to the fixture (same columns as COUNTRIES), e.g. between two refreshes.
-  const window = 8640, rows = (state.reporters ? COUNTRIES : COUNTRIES.map(([c, , , , , n]) => [c, 0, 0, 0, 0, n, 0])).concat(state.extra || []);
+  // state.noDatabase: the gateway has no GeoIP database (database null, nothing located, no operator report).
+  const window = 8640, rows = state.noDatabase ? [] : (state.reporters ? COUNTRIES : COUNTRIES.map(([c, , , , , n]) => [c, 0, 0, 0, 0, n, 0])).concat(state.extra || []);
   const located = rows.reduce((a, r) => a + r[1], 0), blocks = rows.reduce((a, r) => a + r[6], 0), nodes = rows.reduce((a, r) => a + r[5], 0);
   return { schema: 'pocol-miners-geography-v2', ...identity, generatedAt: NOW, height: window, blockHash: hash('b', window),
-    database: { provider: 'DB-IP Lite', release: '2026-11', license: 'CC BY 4.0' },
+    database: state.noDatabase ? null : { provider: 'DB-IP Lite', release: '2026-11', license: 'CC BY 4.0' },
     miners: { registered: 10, active: 8, inactive: 2, exited: 1, punished: 1, located, unknown: 10 - located, connected: state.reporters ? 4 : 0, thetaInact: 360 },
     nodes: { observed: nodes + 2, located: nodes, unlocated: 2 },
     sources: [{ kind: 'observer', name: 'explorer', fresh: true, reportedAt: NOW - 4 },
@@ -170,6 +171,17 @@ async function serve(state) {
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   return { origin: `http://127.0.0.1:${server.address().port}`, close: () => new Promise((r) => server.close(r)) };
 }
+// The attribution as rendered: its text, and each link's text and href attribute (the page under test, a selector).
+const ATTRIBUTION_EN = 'Map: Natural Earth · IP Geolocation by DB-IP, licensed under CC BY 4.0 and converted to PoCol’s internal format';
+const ATTRIBUTION_AR = 'الخريطة: Natural Earth · IP Geolocation by DB-IP، مرخّصة بموجب CC BY 4.0 ومحوّلة إلى صيغة PoCol الداخلية';
+const ATTRIBUTION_LINKS = [['Natural Earth', 'https://www.naturalearthdata.com/'], ['IP Geolocation by DB-IP', 'https://db-ip.com'],
+  ['CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/']];
+const attributionOf = (page, root) => page.evaluate((r) => {
+  const el = document.querySelector(r + ' .map-attribution'), dd = [...document.querySelectorAll(r + ' .pocol-facts dd')].find((x) => /DB-IP|GeoIP/.test(x.textContent));
+  const links = (x) => (x ? [...x.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href'), a.getAttribute('target'), a.getAttribute('rel')]) : null);
+  return { text: el ? el.textContent : null, links: links(el), sources: dd ? dd.textContent : null, sourceLinks: links(dd) };
+}, root);
+const linksAre = (got, want) => JSON.stringify(got) === JSON.stringify(want.map(([t, h]) => [t, h, '_blank', 'noreferrer']));
 function newState(extra = {}) {
   return { snapshots: [snapshotOf(HEAD - 2, 0)], complete: true, historyPoints: 30, reporters: true, asked: [], busyHolders: 0, ...extra };
 }
@@ -451,7 +463,12 @@ try {
     const table = await page.evaluate(() => [...document.querySelectorAll('#pocol-miners-map .pocol-country-table tbody tr')].map((r) => r.innerText.replace(/\s+/g, ' ')));
     check('the country table has every country and Unknown as its own row, with % of registered miners', table.length === COUNTRIES.length + 1 && /^US United States of America 3 30.00%/.test(table[0]) && /^Unknown \(no operator report\) 3 30.00%/.test(table.at(-1)), JSON.stringify(table));
     check('the sources list the observer and each operator with freshness; the database and window are named', /Observer node of this explorer/.test(text) && /founder-1/.test(text) && /Not fresh/.test(text) && /No report yet/.test(text) && /DB-IP Lite 2026-11 · CC BY 4.0/.test(text), text.slice(-900));
-    check('the attribution and the stated limits are shown', /Map: Natural Earth · IP Geolocation by DB-IP/.test(text.replace(/\s+/g, ' ')) && /known only for miners whose node runs an operator reporter/.test(text) && /VPN exits, NAT and hosting providers/.test(text), text.slice(text.indexOf('Active, sharing'), text.indexOf('Active, sharing') + 700));
+    const at = await attributionOf(page, '#pocol-miners-map');
+    check('the attribution gives DB-IP\'s wording linked to db-ip.com, the CC BY 4.0 licence linked and the conversion notice',
+      at.text === ATTRIBUTION_EN && linksAre(at.links, ATTRIBUTION_LINKS), JSON.stringify(at));
+    check('the Data sources panel links the database to db-ip.com and its licence, and says it was converted',
+      at.sources === 'DB-IP Lite 2026-11 · CC BY 4.0 · converted to PoCol’s internal format' && linksAre(at.sourceLinks, [['DB-IP Lite 2026-11', 'https://db-ip.com'], ['CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/']]), JSON.stringify(at));
+    check('the attribution and the stated limits are shown', /Map: Natural Earth · IP Geolocation by DB-IP, licensed under CC BY 4.0 and converted to PoCol’s internal format/.test(text.replace(/\s+/g, ' ')) && /known only for miners whose node runs an operator reporter/.test(text) && /VPN exits, NAT and hosting providers/.test(text), text.slice(text.indexOf('Active, sharing'), text.indexOf('Active, sharing') + 700));
     await page.click('#pocol-miners-map .pocol-segmented button[data-layer="nodes"]');
     const nodes = await page.evaluate(() => [...document.querySelectorAll('#pocol-miners-map .pocol-marker')].map((m) => m.getAttribute('data-codes')).join(' '));
     check('the Network nodes layer places nodes (the Netherlands too) and leaves out a country without a shape', nodes.includes('NL') && !nodes.includes('GI'), nodes);
@@ -461,6 +478,11 @@ try {
     await page.click('#pocol-miners-map .pocol-lang button[data-lang="ar"]');
     await until(page, () => document.querySelector('#pocol-miners-map .pocol-insights')?.getAttribute('dir') === 'rtl' && document.querySelectorAll('#pocol-miners-map .pocol-marker').length > 0, 10000, 'the Arabic map');
     check('the Arabic map names countries in Arabic', /الولايات المتحدة/.test(await page.evaluate(() => document.querySelector('#pocol-miners-map').innerText)));
+    const atAr = await attributionOf(page, '#pocol-miners-map');
+    check('the Arabic attribution keeps DB-IP\'s wording and both links, with the licence and the conversion notice in Arabic',
+      atAr.text === ATTRIBUTION_AR && linksAre(atAr.links, ATTRIBUTION_LINKS)
+      && atAr.sources === 'DB-IP Lite 2026-11 · CC BY 4.0 · محوّلة إلى صيغة PoCol الداخلية' && atAr.sourceLinks.length === 2, JSON.stringify(atAr));
+    check('the attribution links keep their left-to-right text in the Arabic view', await page.evaluate(() => [...document.querySelectorAll('#pocol-miners-map .map-attribution a, #pocol-miners-map .pocol-facts dd a')].every((a) => a.getAttribute('dir') === 'ltr')));
     await shot(page, 'map-ar-1440');
     await page.click('#pocol-miners-map .pocol-lang button[data-lang="en"]');
     await close();
@@ -470,10 +492,20 @@ try {
     check('without operator reports every miner is Unknown, the page says so and opens on the nodes layer',
       /No operator node reports a miner yet, so every registered miner is Unknown/.test(t2) && (await none.page.evaluate(() => document.querySelector('#pocol-miners-map .pocol-segmented [aria-pressed="true"]').dataset.layer)) === 'nodes', t2.slice(0, 500));
     await none.close();
+    // Without a GeoIP database: only the map's own source is credited; no DB-IP or licence link is shown.
+    const nodb = await open(newState({ reporters: false, noDatabase: true }), { hash: '#page=Miner%20map' });
+    await until(nodb.page, () => /No GeoIP database is installed on the gateway/.test(document.querySelector('#pocol-miners-map')?.innerText || ''), 20000, 'the map without a database');
+    const atNo = await attributionOf(nodb.page, '#pocol-miners-map');
+    check('without a GeoIP database the attribution names only Natural Earth, and no DB-IP or licence link is shown',
+      atNo.text === 'Map: Natural Earth' && linksAre(atNo.links, ATTRIBUTION_LINKS.slice(0, 1))
+      && !(await nodb.page.evaluate(() => [...document.querySelectorAll('#pocol-miners-map a')].some((a) => /db-ip\.com|creativecommons\.org/.test(a.getAttribute('href') || '')))), JSON.stringify(atNo));
+    await nodb.close();
     // The Overview card.
     const ov = await open(newState());
     const card = await until(ov.page, () => document.querySelector('#pocol-miners-map-compact .pocol-compact')?.innerText.includes('10 registered miners') && document.querySelector('#pocol-miners-map-compact').innerText, 20000, 'the Overview card');
     check('the Overview card summarises the map', /7 located · 3 Unknown/.test(card), card.slice(0, 300));
+    const atOv = await attributionOf(ov.page, '#pocol-miners-map-compact');
+    check('the Overview card carries the same attribution, licence link and conversion notice', atOv.text === ATTRIBUTION_EN && linksAre(atOv.links, ATTRIBUTION_LINKS), JSON.stringify(atOv));
     await shot(ov.page, 'overview-en-1440');
     await ov.page.click('#pocol-miners-map-compact button.secondary');
     await until(ov.page, () => document.querySelector('h1')?.textContent === 'Miner map' && !!document.querySelector('#pocol-miners-map'), 10000, 'the map page');

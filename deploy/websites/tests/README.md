@@ -117,7 +117,9 @@ checks `privacy.html` against `privacy.js` (English static text, Arabic for ever
 link on every page) and each statement of the policy against the code it describes; since 2026-11-25 that includes the
 Miners map item (`test_the_miner_map_geoip_statement_is_what_the_code_does`: only public addresses are looked up, in a
 local file, each replaced by its keyed id, the report's source after its signature, no write but the database build,
-no network import in `pocol_geoip.py`, an exact-key public answer, the DB-IP attribution in both languages). `browser_security.mjs` renders the
+no network import in `pocol_geoip.py`, an exact-key public answer, the DB-IP attribution in both languages). `explorer_insights_browser.mjs` checks the map's
+attribution in English and Arabic and on the Overview card: DB-IP's wording linked to db-ip.com, CC BY 4.0 linked to the
+licence, the conversion notice, and only Natural Earth without a database. `browser_security.mjs` renders the
 policy in both languages at 390 px. `api_security.php` counts HELD (1) and ACCRUING (4) members as eligible miners. Its reward vectors each balance (paid,
 bond and beneficiary count agree), so only the check a vector names refuses it; `reward_check_mutants.py` removes each
 `reward.php` refusal check alone (duplicate pair, empty beneficiary, explicit zero bond fill, a final block's
