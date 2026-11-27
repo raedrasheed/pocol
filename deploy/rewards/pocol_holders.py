@@ -863,8 +863,21 @@ class HolderIndex:
         last = min(end, first + self.commit_blocks - 1)
         stored = dict(conn.execute('SELECT height, hash FROM blocks WHERE height>=? AND height<=?', (first, last)))
         heights = list(range(first, last + 1))
-        answers = self._read_many([('eth_getBlockByHash', [stored[h], True]) if h in stored
-                                   else ('eth_getBlockByNumber', [hex(h), True]) for h in heights])
+        calls = [('eth_getBlockByHash', [stored[h], True]) if h in stored else ('eth_getBlockByNumber', [hex(h), True])
+                 for h in heights]
+        try:
+            answers = self._read_many(calls)
+        except Exception as error:
+            # A batch of full blocks can exceed the gateway's or the node's batch answer bound where every block fits
+            # alone (blocks full of calldata): the slice is read again one block at a time, so it never stalls the
+            # walk. A read that fails alone too (the node down) ends the round; the slice is retried at the next.
+            LOG.warning('holders index: chunk backfill: a batch of full blocks failed (%s); reading them one by one',
+                        error)
+            answers = []
+            for method, params in calls:
+                answers.append(self._read(method, params))
+                if self.stop_event.is_set():
+                    raise RuntimeError('Stopping')
         found = []
         for height, value in zip(heights, answers):
             if value is None:

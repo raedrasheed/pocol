@@ -1344,22 +1344,49 @@ class ChunkTests(Base):
         chain.mine(txs=[self.store(b'two')])       # height 43
         self.old_file(chain)
         index = self.index(chain)                  # one slice of 200 heights: three batches of READ_BATCH
-        real, batches = chain.batch, []
+        real_batch, real_query, batches = chain.batch, chain.query, []
+        down = [True]
         def batch(calls):
             if any(len(p) > 1 and p[1] is True for _, p in calls):
                 batches.append(len(calls))
                 if len(batches) == 2:
                     raise OSError('node read failed')
-            return real(calls)
-        index.batch = batch
+            return real_batch(calls)
+        def query(method, params, deadline=None):
+            if down[0] and method in ('eth_getBlockByNumber', 'eth_getBlockByHash') and params[1:] == [True]:
+                raise OSError('node down')         # the one-by-one reads fail too
+            return real_query(method, params, deadline)
+        index.batch, index.query = batch, query
         before = self.dump(index, 'accounts', 'deltas')
         with self.assertLogs('pocol_holders', 'WARNING') as logs:
             index.step()
-        self.assertTrue(any('chunk backfill' in line for line in logs.output), logs.output)
+        self.assertTrue(any('one by one' in line for line in logs.output), logs.output)
         self.assertEqual(self.dump(index, 'accounts', 'deltas'), before)   # the first batch's chunk is not written
         self.assertEqual(index.writer.execute("SELECT value FROM meta WHERE key='chunks_next'").fetchone()[0], '1')
+        down[0] = False
         v = self.settle(index)['verification']
         self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+
+    def test_a_batch_of_full_blocks_too_large_for_one_answer_is_read_one_block_at_a_time(self):
+        # Review finding (Codex P2): a batch whose answer exceeds the gateway's or the node's bound, although every
+        # block fits alone, must not stall the walk.
+        chain = self.chain_with_writer()
+        chain.mine_many(5)
+        chain.mine(txs=[self.store(b'big block')])
+        chain.mine_many(30)
+        self.old_file(chain, missing=1)
+        index = self.index(chain)
+        real = chain.batch
+        def batch(calls):
+            if sum(1 for _, p in calls if len(p) > 1 and p[1] is True) > 1:
+                raise RuntimeError('Node batch read failed')   # the answer bound, for any batch of full blocks
+            return real(calls)
+        index.batch = batch
+        with self.assertLogs('pocol_holders', 'WARNING'):
+            v = self.settle(index)['verification']
+        self.assertEqual((v['complete'], v['accountsMissing']), (True, 0), v)
+        meta = lambda key: int(index.writer.execute('SELECT value FROM meta WHERE key=?', (key,)).fetchone()[0])
+        self.assertGreater(meta('chunks_next'), meta('chunks_end'))
 
     def test_walking_again_changes_nothing(self):
         chain = self.chain_with_writer()
