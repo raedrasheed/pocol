@@ -91,7 +91,8 @@ test('index.html loads the module and stylesheet by content version; the S1 list
   }
   assert.doesNotMatch(SOURCE, /innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function|import\(/, 'no HTML from strings, no code from strings');
   const hosts = new Set([...SOURCE.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1]));
-  assert.deepEqual([...hosts].sort(), ['db-ip.com', 'www.naturalearthdata.com', 'www.w3.org'], 'only the attribution links (and the SVG namespace)');
+  assert.deepEqual([...hosts].sort(), ['creativecommons.org', 'db-ip.com', 'www.naturalearthdata.com', 'www.w3.org'], 'only the attribution and licence links (and the SVG namespace)');
+  assert.match(SOURCE, /const DBIP_URL = 'https:\/\/db-ip\.com', LICENSE_URL = 'https:\/\/creativecommons\.org\/licenses\/by\/4\.0\/';/);
   assert.deepEqual([...SOURCE.matchAll(/getData\(API\.(\w+)/g)].map((m) => m[1]).sort(), ['geography', 'holders', 'stats']);
   assert.match(SOURCE, /holders: '\/api\/holders\.php', stats: '\/api\/holders-stats\.php', geography: '\/api\/miner-geography\.php'/);
   for (const m of SOURCE.matchAll(/localStorage/g)) assert.match(SOURCE.slice(SOURCE.lastIndexOf('\n', m.index), m.index), /try \{/, 'storage only inside try');
@@ -284,7 +285,10 @@ test('the language: stored choice first, else the browser\'s; every text in both
   assert.doesNotMatch(arabic, /[٠-٩]/, 'Western digits only');
   // The stated limits (§7) are in both languages.
   assert.equal(M.TEXTS.en.mapNotes.length, 4); assert.equal(M.TEXTS.en.notes.length, 5);
-  assert.match(M.TEXTS.en.attribution.join(''), /^Map: Natural Earth · IP Geolocation by DB-IP$/);
+  // DB-IP's own link-back wording (verbatim in both languages), the CC BY 4.0 licence and the conversion notice (§3(a)).
+  assert.equal(M.TEXTS.en.attribution.join(''), 'Map: Natural Earth · IP Geolocation by DB-IP, licensed under CC BY 4.0 and converted to PoCol’s internal format');
+  assert.equal(M.TEXTS.ar.attribution.join(''), 'الخريطة: Natural Earth · IP Geolocation by DB-IP، مرخّصة بموجب CC BY 4.0 ومحوّلة إلى صيغة PoCol الداخلية');
+  for (const lang of ['en', 'ar']) assert.deepEqual([1, 3, 5].map((i) => M.TEXTS[lang].attribution[i]), ['Natural Earth', 'IP Geolocation by DB-IP', 'CC BY 4.0'], lang);
 });
 
 test('the Websites workflow runs on a change of what its publisher step builds and runs, on pull requests and pushes alike', () => {

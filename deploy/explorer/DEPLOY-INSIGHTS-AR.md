@@ -207,7 +207,7 @@ sudo cp -a /srv/pocol-explorer/site-1c9ec5374487 /var/backups/pocol-explorer-gat
 
 **البوابة:** سطر `BUILT ...` في القسم 1 مع بصمة SHA-256 المسجّلة عند التنزيل؛ وسطر `CHECK PASSED` في القسم 2 يذكر القاعدة
 (release YYYY-MM مع عدد نطاقات IPv4 وIPv6)؛ وسطر `Miner map:` في القسم 3 يذكرها؛ والقسم 4 مع `database.release` بالشهر
-المبني، وظهور «IP Geolocation by DB-IP» في الخريطة مع رابط https://db-ip.com، وبقاء المعدّنين «غير معروفين» (`located`
+المبني، وظهور «IP Geolocation by DB-IP» في الخريطة مع رابط https://db-ip.com، و«CC BY 4.0» مع رابط https://creativecommons.org/licenses/by/4.0/، وإشعار تحويل القاعدة إلى صيغة PoCol الداخلية، وبقاء المعدّنين «غير معروفين» (`located`
 صفر بلا أداة تقارير).
 
 **الاسترجاع:** ليس في المثبّت خيار يحذف قاعدة GeoIP: التثبيت بلا `--geoip-db` يُبقي القاعدة المثبّتة (`Miner map: the GeoIP
@@ -312,7 +312,8 @@ ps -o pid,rss,pcpu,etime,cmd -C pocold
 
 1. على جهاز يختاره المالك، نزّل ملف CSV لقاعدة DB-IP «IP to Country Lite» للشهر الحالي من صفحة التنزيل
    (https://db-ip.com/db/download/ip-to-country-lite). ترخيصها CC BY 4.0: تعرض الخريطة «IP Geolocation by DB-IP» مع
-   رابط https://db-ip.com كلما كانت القاعدة مثبّتة. سجّل بصمة SHA-256 للملف (`sha256sum`).
+   رابط https://db-ip.com، و«CC BY 4.0» مع رابط الترخيص https://creativecommons.org/licenses/by/4.0/، وإشعار تحويل القاعدة إلى
+   صيغة PoCol الداخلية، كلما كانت القاعدة مثبّتة. سجّل بصمة SHA-256 للملف (`sha256sum`).
 2. انسخه إلى خادم البوابة وابنِ القاعدة الثنائية من نسخة الإصدار (دون اتصال بالشبكة؛ يُفحص الملف سطرًا سطرًا ويتحقق
    `build` من النتيجة):
 

@@ -125,7 +125,8 @@ reorganizations, and Windows-safe connection handling.
 
 ## 4. Geography (`deploy/rewards/pocol_geoip.py`, `deploy/explorer/pocol_geo_reporter.py`)
 
-GeoIP: DB-IP **IP to Country Lite** (CC BY 4.0, attribution "IP Geolocation by DB-IP" with a link to db-ip.com),
+GeoIP: DB-IP **IP to Country Lite** (CC BY 4.0; attribution "IP Geolocation by DB-IP" linked to db-ip.com, "CC BY 4.0"
+linked to the licence, and a notice that the database was converted to PoCol's internal format),
 installed by the operator as a monthly CSV and converted by `pocol_geoip.py build` into a compact sorted binary file
 (IPv4 and IPv6 ranges, two-letter country codes, release month and source SHA-256 in its header); lookups by binary
 search on a memory map. No network access at run time; tests use a synthetic CSV. Only public unicast addresses are
@@ -268,7 +269,8 @@ The old `/api/miner-locations.php` (schema v1) stays as it is (503), so older cl
   distance-based clustering at the current zoom with counts, active (blue) versus inactive (grey) segments, zoom
   (wheel, pinch, buttons, keyboard) and pan, a layer switch (Miners / Network nodes), auto-refresh every 30 s, a
   country panel on click, the statistics cards, a country table with counts and percentages (Unknown included as its
-  own row), the data sources and their freshness, and the attribution "Map: Natural Earth · IP Geolocation by DB-IP".
+  own row), the data sources and their freshness, and the attribution "Map: Natural Earth · IP Geolocation by DB-IP, licensed under CC BY 4.0 and converted to PoCol's
+  internal format" (in Arabic, DB-IP's wording kept, with the licence and the notice in Arabic).
 - Charts follow the explorer's palette (blue series on the explorer's greys), thin marks, a legend for two series,
   hover tooltips, and a table view; no simulated data.
 - Every answer is validated (schema, chain identity from `PocolExplorerShared`, shapes, integer strings) before it

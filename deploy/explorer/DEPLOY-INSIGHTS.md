@@ -217,7 +217,7 @@ already has, and reloads Caddy.
 
 **Gate:** section 1's `BUILT ...` line with the SHA-256 recorded at download; section 2's `CHECK PASSED` naming the
 database (release YYYY-MM, N IPv4 and M IPv6 ranges); section 3's `Miner map:` line naming it; section 4 with
-`database.release` the month built, the map showing "IP Geolocation by DB-IP" linked to https://db-ip.com, and the
+`database.release` the month built, the map showing "IP Geolocation by DB-IP" linked to https://db-ip.com, "CC BY 4.0" linked to https://creativecommons.org/licenses/by/4.0/ and the notice that the database was converted to PoCol's internal format, and the
 miners still Unknown (`located` 0 without a reporter).
 
 **Rollback:** the installer has no option that removes a GeoIP database: an install without `--geoip-db` keeps the
@@ -326,7 +326,7 @@ Without it the update still works: nothing is located and the map says that no G
 
 1. On a machine of the owner's choice, download DB-IP's "IP to Country Lite" CSV file of the current month from
    DB-IP's download page (https://db-ip.com/db/download/ip-to-country-lite). Its licence is CC BY 4.0: the map shows
-   "IP Geolocation by DB-IP" with a link to https://db-ip.com whenever a database is installed. Record the file's
+   "IP Geolocation by DB-IP" linked to https://db-ip.com, "CC BY 4.0" linked to https://creativecommons.org/licenses/by/4.0/ and the notice that the database was converted to PoCol's internal format whenever a database is installed. Record the file's
    SHA-256 (`sha256sum`).
 2. Copy it to the gateway host and build the binary database from the release checkout (no network access; the file
    is checked row by row, and `build` verifies the result):

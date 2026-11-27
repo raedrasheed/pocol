@@ -105,7 +105,7 @@ const TEXT = {
     legActive: 'Active, sharing', legInactive: (t) => `Inactive (no share for ${fmtInt(t)} blocks)`, legOther: 'Located, not active',
     legNodes: 'Network nodes', legCluster: 'Countries close together: zoom in', legScaleMiners: 'Located miners per country',
     legScaleNodes: 'Network nodes per country',
-    attribution: ['Map: ', 'Natural Earth', ' · IP Geolocation by ', 'DB-IP'],
+    attribution: ['Map: ', 'Natural Earth', ' · ', 'IP Geolocation by DB-IP', ', licensed under ', 'CC BY 4.0', ' and converted to PoCol’s internal format'],
     zoomIn: 'Zoom in', zoomOut: 'Zoom out', zoomReset: 'Show the whole world',
     mapAria: 'World map. Use + and − to zoom, the arrow keys to pan and 0 to show the whole world.',
     marker: (name, n, a, i) => `${name}: ${fmtInt(n)} located miners, ${fmtInt(a)} active and sharing, ${fmtInt(i)} inactive`,
@@ -123,7 +123,8 @@ const TEXT = {
     tUnknown: 'Unknown (no operator report)', tSelect: (name) => `Show ${name} on the map`, tEmpty: 'No country is known for any miner or node yet.',
     sTitle: 'Data sources', sObserver: 'Observer node of this explorer', sOperator: 'Operator node report',
     sFresh: 'Fresh', sStale: 'Not fresh', sNever: 'No report yet', sAge: (s) => `${fmtInt(s)} s before this answer`,
-    sDb: (p, r, l) => `${p} ${r} · ${l}`, sNoDb: 'No GeoIP database is installed on the gateway, so no country can be determined.',
+    sDb: (p, r) => `${p} ${r}`, sDbConverted: 'converted to PoCol’s internal format',
+    sNoDb: 'No GeoIP database is installed on the gateway, so no country can be determined.',
     sDbLabel: 'Country database', sWindow: 'Block window', sWindowValue: (a, b, n) => `#${fmtInt(a)}–#${fmtInt(b)} (${fmtInt(n)} blocks)`,
     sAnswer: 'Answer', sAnswerValue: (h, t) => `Block #${fmtInt(h)} · ${t}`, sSource: 'Source', sKind: 'Kind', sStatus: 'Status', sLast: 'Last report',
     noReporter: 'No operator node reports a miner yet, so every registered miner is Unknown. The Network nodes layer shows the nodes the explorer’s own node is connected to.',
@@ -212,7 +213,7 @@ const TEXT = {
     legActive: 'نشط ويشارك', legInactive: (t) => `غير نشط (لا مشاركة منذ ${fmtInt(t)} كتلة)`, legOther: 'معروف الموقع، غير نشط في السجل',
     legNodes: 'عقد الشبكة', legCluster: 'دول متقاربة: كبّر الخريطة', legScaleMiners: 'المعدّنون معروفو الموقع لكل دولة',
     legScaleNodes: 'عقد الشبكة لكل دولة',
-    attribution: ['الخريطة: ', 'Natural Earth', ' · تحديد الموقع الجغرافي عبر IP من ', 'DB-IP'],
+    attribution: ['الخريطة: ', 'Natural Earth', ' · ', 'IP Geolocation by DB-IP', '، مرخّصة بموجب ', 'CC BY 4.0', ' ومحوّلة إلى صيغة PoCol الداخلية'],
     zoomIn: 'تكبير', zoomOut: 'تصغير', zoomReset: 'اعرض العالم كله',
     mapAria: 'خريطة العالم. استخدم + و− للتكبير والتصغير، ومفاتيح الأسهم للتحريك، و0 لعرض العالم كله.',
     marker: (name, n, a, i) => `${name}: ${fmtInt(n)} معدّن معروف الموقع، ${fmtInt(a)} نشط ويشارك، ${fmtInt(i)} غير نشط`,
@@ -230,7 +231,8 @@ const TEXT = {
     tUnknown: 'غير معروف (لا تقرير من مشغّل)', tSelect: (name) => `اعرض ${name} على الخريطة`, tEmpty: 'لا تُعرف بعد دولة أي معدّن أو عقدة.',
     sTitle: 'مصادر البيانات', sObserver: 'عقدة المراقبة لهذا المستكشف', sOperator: 'تقرير عقدة مشغّل',
     sFresh: 'حديث', sStale: 'غير حديث', sNever: 'لا تقرير بعد', sAge: (s) => `قبل هذا الرد بـ ${fmtInt(s)} ث`,
-    sDb: (p, r, l) => `${p} ${r} · ${l}`, sNoDb: 'لا توجد قاعدة بيانات GeoIP مثبّتة على البوابة، فلا يمكن تحديد أي دولة.',
+    sDb: (p, r) => `${p} ${r}`, sDbConverted: 'محوّلة إلى صيغة PoCol الداخلية',
+    sNoDb: 'لا توجد قاعدة بيانات GeoIP مثبّتة على البوابة، فلا يمكن تحديد أي دولة.',
     sDbLabel: 'قاعدة بيانات الدول', sWindow: 'نافذة الكتل', sWindowValue: (a, b, n) => `#${fmtInt(a)}–#${fmtInt(b)} (${fmtInt(n)} كتلة)`,
     sAnswer: 'الرد', sAnswerValue: (h, t) => `الكتلة #${fmtInt(h)} · ${t}`, sSource: 'المصدر', sKind: 'النوع', sStatus: 'الحالة', sLast: 'آخر تقرير',
     noReporter: 'لا تبلّغ أي عقدة مشغّل عن معدّن بعد، لذا فكل المعدّنين المسجّلين غير معروفي الموقع. تعرض طبقة «عقد الشبكة» العقد المتصلة بعقدة المستكشف نفسه.',
@@ -643,6 +645,9 @@ function icon(name, size = 16, extra = '') {
   ICONS[name].map((d) => s('path', { d })));
 }
 const bdi = (text, cls) => h('bdi', { class: cls || null, dir: 'ltr', text });
+// The GeoIP database's attribution (DB-IP's own link-back wording) and its licence (CC BY 4.0, section 3(a)): fixed
+// links, shown only when the answer names the one database the gateway accepts (DB-IP Lite, CC BY 4.0).
+const DBIP_URL = 'https://db-ip.com', LICENSE_URL = 'https://creativecommons.org/licenses/by/4.0/';
 function amount(wei, frac = 4, unit = 'PCOL') {
   const f = formatPcol(wei, frac);
   return h('span', { class: 'amount', title: `${f.full} ${unit}` }, bdi(f.text), unit ? h('small', { text: unit }) : null);
@@ -1509,9 +1514,11 @@ class MapView extends View {
     if (!compact) items.push(h('span', {}, h('b', { 'aria-hidden': 'true', text: '2' }), this.t('legCluster')));
     if (m.levels.length && !compact) items.push(h('span', { class: 'pocol-scale' }, h('span', { text: this.t(this.layer === 'miners' ? 'legScaleMiners' : 'legScaleNodes') }),
       m.levels.map((l) => h('span', { class: 'pocol-scale-step' }, h('i', { class: 'pocol-lv' + l.level, 'aria-hidden': 'true' }), bdi(l.lo === l.hi ? fmtInt(l.lo) : `${fmtInt(l.lo)}–${fmtInt(l.hi)}`)))));
-    const [a, ne, b, db] = this.t('attribution');
-    items.push(h('span', { class: 'map-attribution' }, a, h('a', { href: 'https://www.naturalearthdata.com/', target: '_blank', rel: 'noreferrer', text: ne }),
-      d.database ? [b, h('a', { href: 'https://db-ip.com', target: '_blank', rel: 'noreferrer', text: db })] : null));
+    const [a, ne, sep, dbip, licensed, license, converted] = this.t('attribution');
+    items.push(h('span', { class: 'map-attribution' }, a, h('a', { href: 'https://www.naturalearthdata.com/', target: '_blank', rel: 'noreferrer', dir: 'ltr', text: ne }),
+      // One inline run (the legend items are flex boxes): the sentence keeps its own spacing and punctuation.
+      d.database ? h('span', {}, sep, h('a', { href: DBIP_URL, target: '_blank', rel: 'noreferrer', dir: 'ltr', text: dbip }), licensed,
+        h('a', { href: LICENSE_URL, target: '_blank', rel: 'noreferrer', dir: 'ltr', text: license }), converted) : null));
     return h('div', { class: 'map-legend' }, items);
   }
   renderPanel() {
@@ -1577,11 +1584,12 @@ class MapView extends View {
       h('td', {}, h('span', { class: 'badge ' + (x.fresh ? 'success' : 'neutral'), text: x.reportedAt === null ? this.t('sNever') : x.fresh ? this.t('sFresh') : this.t('sStale') })),
       h('td', { text: x.reportedAt === null ? '—' : `${timeText(this.lang, x.reportedAt)} · ${this.t('sAge', Math.max(0, d.generatedAt - x.reportedAt))}` })));
     const facts = [[this.t('sAnswer'), this.t('sAnswerValue', d.height, timeText(this.lang, d.generatedAt, true))],
-      [this.t('sDbLabel'), d.database ? this.t('sDb', d.database.provider, d.database.release, d.database.license) : this.t('sNoDb')],
+      [this.t('sDbLabel'), d.database ? [h('a', { href: DBIP_URL, target: '_blank', rel: 'noreferrer', dir: 'ltr', text: this.t('sDb', d.database.provider, d.database.release) }),
+        ' · ', h('a', { href: LICENSE_URL, target: '_blank', rel: 'noreferrer', dir: 'ltr', text: d.database.license }), ' · ', this.t('sDbConverted')] : this.t('sNoDb')],
       [this.t('sWindow'), this.t('sWindowValue', d.window.from, d.window.to, d.window.blocks)]];
     return h('section', { class: 'panel pocol-sources', 'aria-labelledby': 'pocol-sources-title' },
       h('div', { class: 'panel-heading' }, h('div', {}, h('h2', { id: 'pocol-sources-title' }, icon('server', 18), this.t('sTitle')))),
-      h('dl', { class: 'pocol-facts' }, facts.map(([k, v]) => h('div', {}, h('dt', { text: k }), h('dd', { text: v })))),
+      h('dl', { class: 'pocol-facts' }, facts.map(([k, v]) => h('div', {}, h('dt', { text: k }), typeof v === 'string' ? h('dd', { text: v }) : h('dd', {}, v)))),
       h('div', { class: 'table-wrap' }, h('table', {}, h('caption', { class: 'sr-only', text: this.t('sTitle') }),
         h('thead', {}, h('tr', {}, [this.t('sSource'), this.t('sKind'), this.t('sStatus'), this.t('sLast')].map((c) => h('th', { scope: 'col', text: c })))),
         h('tbody', {}, rows))));
