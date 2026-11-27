@@ -289,6 +289,11 @@ try {
     check('a 429 with Retry-After is retried and then the page shows its rows', !/busy/.test(text));
     check('complete:false shows the completeness notice with the unlocated PCOL and the missing accounts', /Completeness check: a difference is published/.test(text) && /3 PCOL of the expected balance sum/.test(text) && /2 accounts on chain are not in the index/.test(text)
       && /the known balances are read again every minute, so one may be up to a minute old/.test(text), text.slice(0, 600));
+    check('the notice names both kinds of account the index can miss: PCOL received only through internal calls, and a contract created inside another contract\'s call that may hold no PCOL',
+      /an address that received PCOL only through internal calls of contracts, and a contract created inside another contract's call, which may hold no PCOL at all/.test(text)
+      && /The PCOL of the first kind is the balance difference; accounts of both kinds count among those not in the index/.test(text)
+      && !/Such accounts received PCOL only through internal calls/.test(text), text.slice(0, 900));
+    check('the notes state the same limits', /a contract created inside another contract's call, which may hold no PCOL at all\. Any difference is published above/.test(text));
     check('one history point is an empty state naming its block, never a one-point line', /One point so far \(block #8\)/.test(text) && !(await page.evaluate(() => !!document.querySelector('[data-chart="history"] path.pocol-line'))));
     await close();
     const wrong = await open(newState({ wrongChain: true }), { hash: '#page=Holders' });
@@ -304,11 +309,24 @@ try {
     const ar = await until(page, () => { const r = document.querySelector('#pocol-holders .pocol-insights'); return r?.getAttribute('dir') === 'rtl' && r.getAttribute('lang') === 'ar' && document.querySelectorAll('#pocol-holders tbody tr').length === 25 && r.innerText; }, 10000, 'Arabic');
     check('Arabic sets lang="ar" dir="rtl" on the new view only; the explorer stays English and left to right', /حائزو PCOL/.test(ar) && await page.evaluate(() => document.documentElement.lang === 'en' && !document.documentElement.dir && document.querySelector('.sidebar').innerText.includes('Holders')));
     check('Arabic keeps Western digits', /الصفحة 1 من 6/.test(ar) && !/[٠-٩]/.test(ar), ar.slice(-200));
+    check('the Arabic notes name both kinds of account the index can miss', /عنوانٌ تلقى PCOL عبر استدعاء داخلي لعقد فقط، وعقدٌ أُنشئ داخل استدعاء عقد آخر، وقد لا يحمل أي PCOL/.test(ar), ar.slice(-600));
     check('the choice is stored under pocol-explorer-language', (await page.evaluate(() => localStorage.getItem('pocol-explorer-language'))) === 'ar');
     await shot(page, 'holders-ar-1440');
     await page.reload();
     await until(page, () => document.querySelector('#pocol-holders .pocol-insights')?.getAttribute('dir') === 'rtl', 15000, 'Arabic after a reload');
     check('the language survives a reload', true);
+    await close();
+  }
+  // ---- 3a. The Arabic completeness notice ----
+  {
+    const { page, close } = await open(newState({ complete: false }), { hash: '#page=Holders' });
+    await until(page, () => document.querySelectorAll('#pocol-holders tbody tr').length === 25, 20000, 'the holders page');
+    await page.click('#pocol-holders .pocol-lang button[data-lang="ar"]');
+    const ar = await until(page, () => { const r = document.querySelector('#pocol-holders .pocol-insights'); return r?.getAttribute('dir') === 'rtl' && /فحص الاكتمال/.test(r.innerText) && r.innerText; }, 10000, 'the Arabic notice');
+    check('the Arabic notice names both kinds of account the index can miss, and that such a contract may hold no PCOL',
+      /قد يفوت الفهرسَ عبر RPC نوعان من الحسابات: عنوان تلقى PCOL عبر استدعاءات داخلية لعقود فقط، وعقد أُنشئ داخل استدعاء عقد آخر، وقد لا يحمل هذا العقد أي PCOL/.test(ar)
+      && /رصيد النوع الأول هو فرق الأرصدة، وحسابات النوعين كليهما تُعدّ ضمن الحسابات غير الموجودة في الفهرس/.test(ar)
+      && !/هذه الحسابات تلقت PCOL عبر استدعاءات داخلية لعقود فقط/.test(ar), ar.slice(0, 900));
     await close();
   }
   // ---- 3b. Keyboard focus through refreshes and keyboard actions (F1) ----
