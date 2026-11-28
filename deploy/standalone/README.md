@@ -362,7 +362,7 @@ with mining off). A registered identity that switches to wallet only earns no mi
 rewards and, once every seat is taken, can be replaced as an inactive member; the
 engine's `roleWarning` says so on the wallet card and in Settings → Device role,
 since wallet only has no Mining tab.
-Server miners (`pocol start`) are not affected.
+Server miners (`pocol start`) are not affected; a new server identity registers with `pocol register` (*Linux server miners* below).
 
 **Mining:** off by default in the wallet-and-miner role too, including after restart. The four
 founders (the three server keys and the ceremony PC's key) are genesis miners. Any other
@@ -437,6 +437,58 @@ and that it may register again. The status fields `seatsFull`, `removableSeats` 
 until one is. A member out of the active set while the set is full (replaced, or exited) cannot
 reactivate (the Registry refuses it): the wallet shows "wait for the bond refund at block
 `dueHeight`, then register again" and offers no rejoin.
+
+**Linux server miners (`pocol register`):** `pocol start` and `pocol-standalone.service` always mine with the
+home's identity, and the node mines as soon as that identity holds an eligible record. A genesis founder already
+holds one. A new identity registers once with `pocol register`, beside the running service, with no restart and
+no wallet. Run it as the service user, because the home is that user's mode-0700 directory:
+
+```sh
+sudo runuser -u pocol-standalone -- /opt/pocol-standalone/pocol register status --home /var/lib/pocol-standalone
+sudo runuser -u pocol-standalone -- /opt/pocol-standalone/pocol register quote --home /var/lib/pocol-standalone
+sudo runuser -u pocol-standalone -- /opt/pocol-standalone/pocol register confirm --home /var/lib/pocol-standalone
+```
+
+- **status** and **quote** read only.
+- **confirm** builds a fresh quote from the current head (at a full set it may draw another member than an
+  earlier `quote`), prints it, signs only after you type `yes` within 60 seconds, sends the transaction through the
+  node and waits up to 3 minutes for its receipt. It never sends a transaction twice.
+- The transaction is the one the wallets' **Review mining registration** signs:
+  - `register(address)` with 400,000 gas below a full set;
+  - at a full set, `registerReplacing(reward, victim)` with 500,000 gas, the victim drawn at random from
+    `pocol_getRemovable` (leaving out the members its `pendingVictims` already name) and confirmed by the
+    Registry's `removalStatus` view.
+- The fee is the wallets': a 1 gwei tip and a maximum fee of twice the next base fee plus the tip.
+- Options:
+  - `--bond PCOL` (default 0: the bond fills from rewards);
+  - `--reward-address 0x...` (default: the identity itself). Another account must already be one the Registry pays:
+    it has sent a transaction or holds code (PAY-02; a founder's genesis reward address is). A new, never-used
+    address is refused before signing, because the Registry would revert with `RewardNotDurable`. Zero, precompile
+    and system addresses are refused too.
+  - `--rpc 127.0.0.1:PORT` (default 127.0.0.1:8545, loopback only). The chain id and genesis hash must match the
+    home's network file, and B_reg, M_max and the inactivity windows come from that file. Balance, nonce, base fee
+    and seats are the node's answers, trusted as this host's own node.
+  - `--key-credential NAME` (confirm only) for a key held in an encrypted systemd credential (see below). systemd
+    then decrypts the credential the service uses, for this command alone, while the service keeps running:
+
+    ```sh
+    sudo systemd-run --pipe --wait -p User=pocol-standalone \
+      -p LoadCredentialEncrypted=pocol-identity:/etc/credstore.encrypted/pocol-identity \
+      /opt/pocol-standalone/pocol register confirm --home /var/lib/pocol-standalone --key-credential pocol-identity
+    ```
+- The command reads the home without its lock and writes nothing in it. It refuses before signing in these cases:
+  - a node on another chain or genesis than the home's network file;
+  - an identity that already has a record (registration is never repeated);
+  - a bond above 20 PCOL, or a balance below the bond plus the maximum fee;
+  - a reward address the Registry would not pay yet;
+  - a node with no peers, or a head older than 180 s;
+  - a transaction of this identity already pending;
+  - a full set with no removable member, or one whose members are all already pending replacements;
+  - an unfinished key restore.
+- The Registry judges the transaction again at inclusion. If the per-block registration limit is reached, or a
+  replaced member mines or is taken first, the transaction reverts and only the fee is spent.
+- The fee faucet's 0.002 PCOL covers `register` while the base fee is below 2 gwei, and `registerReplacing`
+  while it is below 1.5 gwei.
 
 There is no creation fee (FN-2a): a transfer to a new address is an ordinary 21,000-gas transfer.
 

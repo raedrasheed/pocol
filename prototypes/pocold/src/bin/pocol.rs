@@ -47,7 +47,16 @@ fn command() -> Result<(), String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let command = args.first().map(String::as_str).unwrap_or("start");
     let rest = args.get(1..).unwrap_or_default();
+    // `pocol register ACTION [options]`: the action comes before the option pairs.
+    let (action, rest) = if command == "register" { (rest.first().map(String::as_str), rest.get(1..).unwrap_or_default()) } else { (None, rest) };
     let allowed: &[&str] = match command {
+        // Stage 4 PR A1: registration beside the running node (status and quote read only; confirm signs after a typed yes).
+        "register" => match action {
+            Some("status") => &["--home", "--rpc"],
+            Some("quote") => &["--home", "--rpc", "--bond", "--reward-address"],
+            Some("confirm") => &["--home", "--rpc", "--bond", "--reward-address", "--key-credential"],
+            _ => return Err(REGISTER_USAGE.into()),
+        },
         // --key-credential NAME (K1, Linux servers): the key is the systemd credential NAME in $CREDENTIALS_DIRECTORY
         // (LoadCredentialEncrypted=), never the plaintext key file (deploy/standalone/encrypt-server-key.sh).
         "identity" => &["--home", "--key-credential"], "start" => &["--home", "--network", "--listen", "--rpc", "--peer", "--key-credential"],
@@ -60,7 +69,7 @@ fn command() -> Result<(), String> {
         // This device's mining rate (R25d input for the genesis ceremony's -HashesPerSecond); reads and writes nothing.
         "hashrate" => &["--seconds"],
         "build-info" => { println!("{}", pocold::readiness::build_info()); return Ok(()); }
-        _ => return Err("usage: pocol identity [--home DIR] [--key-credential NAME] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] [--peer IP:PORT]... [--key-credential NAME] | network --from GENESIS_DIR --seed IP:PORT... [--bootstrap IP:PORT]... [--seeds-retired true|false] --out FILE | inspect --network FILE | hashrate [--seconds 1..600] | upgrade [--home DIR] --network FILE [--key-credential NAME] | inspect-upgrade [--home DIR] --network FILE [--key-credential NAME] | export-key [--home DIR] --out FILE [--key-credential NAME] | inspect-key-backup [--home DIR] --backup FILE | import-key [--home DIR] --backup FILE [--replace CURRENT_ADDRESS] (key backup passphrases are read from stdin: export-key reads it twice; --key-credential NAME reads the key from the systemd credential NAME in $CREDENTIALS_DIRECTORY, never from the key file)".into()),
+        _ => return Err("usage: pocol identity [--home DIR] [--key-credential NAME] | register status|quote|confirm [options] (pocol register for details) | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] [--peer IP:PORT]... [--key-credential NAME] | network --from GENESIS_DIR --seed IP:PORT... [--bootstrap IP:PORT]... [--seeds-retired true|false] --out FILE | inspect --network FILE | hashrate [--seconds 1..600] | upgrade [--home DIR] --network FILE [--key-credential NAME] | inspect-upgrade [--home DIR] --network FILE [--key-credential NAME] | export-key [--home DIR] --out FILE [--key-credential NAME] | inspect-key-backup [--home DIR] --backup FILE | import-key [--home DIR] --backup FILE [--replace CURRENT_ADDRESS] (key backup passphrases are read from stdin: export-key reads it twice; --key-credential NAME reads the key from the systemd credential NAME in $CREDENTIALS_DIRECTORY, never from the key file)".into()),
     };
     let mut values = std::collections::BTreeMap::<String, Vec<String>>::new();
     if rest.len() % 2 != 0 {
@@ -123,6 +132,27 @@ fn command() -> Result<(), String> {
         .map(PathBuf::from)
         .map(Ok)
         .unwrap_or_else(launcher::default_home)?;
+    if command == "register" {
+        // Linux server miners (the Windows and Android wallets register through Review mining registration). Beside the
+        // running node: the home is read without its lock and nothing in it is written (HomeReader).
+        if !cfg!(unix) {
+            return Err("pocol register is for Linux server miners; on this device use the wallet's Review mining registration".into());
+        }
+        let home = launcher::HomeReader::open(&home_path)?;
+        let home = match get("--key-credential") {
+            Some(name) => home.with_key_credential(name, std::env::var_os("CREDENTIALS_DIRECTORY").map(PathBuf::from))?,
+            None => home,
+        };
+        let options = pocold::wallet::register::Options {
+            rpc: pocold::wallet::register::parse_rpc(get("--rpc"))?,
+            bond: pocold::wallet::register::parse_bond(get("--bond"))?,
+            reward: get("--reward-address").map(pocold::wallet::register::parse_reward).transpose()?,
+            answer: &confirmation,
+            out: &|v| println!("{v}"),
+            stop: &|| STOP.load(Ordering::Relaxed),
+        };
+        return pocold::wallet::register::run(&home, action.unwrap_or_default(), &options);
+    }
     if command == "upgrade" || command == "inspect-upgrade" {
         let network = Path::new(need("--network")?);
         let home = keyed(Home::open_existing(&home_path, command)?)?;
@@ -208,6 +238,29 @@ fn command() -> Result<(), String> {
     })
 }
 
+const REGISTER_USAGE: &str = "usage: pocol register status [--home DIR] [--rpc 127.0.0.1:PORT] | quote [--home DIR] [--rpc 127.0.0.1:PORT] [--bond PCOL] [--reward-address 0x...] | confirm [--home DIR] [--rpc 127.0.0.1:PORT] [--bond PCOL] [--reward-address 0x...] [--key-credential NAME]. Run it as the user the node runs as, beside the running node (pocol start or pocol-standalone.service): status and quote read only; confirm prints the quote, then signs and sends only after you type yes. The bond defaults to 0 PCOL (filled from mining rewards); rewards go to the identity unless --reward-address names another account.";
+/// `pocol register confirm`'s answer: one line from stdin, read on its own thread so that Ctrl-C (STOP) cancels while
+/// it waits. None on end of input or Ctrl-C.
+fn confirmation() -> Result<Option<String>, String> {
+    eprint!("Type yes to sign and send: ");
+    let (tx, rx) = std::sync::mpsc::channel();
+    pocold::threads::spawn("register-answer", pocold::threads::IO_STACK, move || {
+        let mut line = String::new();
+        let read = std::io::stdin().read_line(&mut line);
+        let _ = tx.send(read.map(|n| (n > 0).then_some(line)));
+    })
+    .map_err(|e| e.to_string())?;
+    loop {
+        if STOP.load(Ordering::Relaxed) {
+            return Ok(None);
+        }
+        match rx.recv_timeout(Duration::from_millis(100)) {
+            Ok(answer) => return answer.map_err(|e| e.to_string()),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            Err(_) => return Ok(None),
+        }
+    }
+}
 /// One passphrase line from stdin (`keyfile::prompt::passphrase`: echo off on a terminal, refused when it cannot be
 /// switched off). Ctrl-C cancels the prompt. The Windows wallet writes the line through a pipe instead.
 fn passphrase(prompt: &str) -> Result<zeroize::Zeroizing<Vec<u8>>, String> {

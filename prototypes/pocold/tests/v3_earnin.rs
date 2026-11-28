@@ -271,6 +271,12 @@ mod on_chain {
         while net.chain.head().height < 6 { let _ = next(&mut net, one, vec![]); }
         assert_eq!((removable(&net), removal_code(&net, two)), (vec![], 2), "two of three seats: nobody is removable");
         listing_matches_the_registry(&net);
+        // Below a full set no replacement can land: pendingVictims names none even with one pending, and the pool is not
+        // scanned (PR A1).
+        let pool = [replacing_tx(&net, &carol, two, 0)];
+        let j = wallet::removable_json_pending(&net.chain, pool.iter().map(|r| r.as_slice())).unwrap();
+        assert_eq!((j["full"].as_bool(), j["pendingVictims"].clone()), (Some(false), serde_json::json!([])));
+        assert_eq!(wallet::pending_victims(&net.chain, pool.iter().map(|r| r.as_slice())), vec![two], "the pool does name it");
         let t = remove_tx(&net, &bob, two);
         let _ = next(&mut net, one, vec![t]);
         assert_eq!(receipts_status(&net), vec![Vec::<u8>::new()], "removeInactive below a full set reverts");
@@ -299,10 +305,16 @@ mod on_chain {
         // A replacement already pending in the node's pool takes its victim out of the next quote's draw.
         let pending = vec![replacing_tx(&net, &bob, alice.address(), B), tx(&net, &carol, vec![1, 2, 3], U256::ZERO)];
         assert_eq!(wallet::pending_victims(&net.chain, pending.iter().map(|r| r.as_slice())), vec![alice.address()]);
+        // pocol_getRemovable's pendingVictims (pocol register's draw, PR A1): the same victims, beside the same listing.
+        let j = wallet::removable_json_pending(&net.chain, pending.iter().map(|r| r.as_slice())).unwrap();
+        assert_eq!(j["pendingVictims"], serde_json::json!([format!("{:#x}", alice.address())]));
+        assert_eq!(j["removable"], wallet::removable_json(&net.chain).unwrap()["removable"]);
+        assert_eq!(wallet::removable_json_pending(&net.chain, std::iter::empty()).unwrap()["pendingVictims"], serde_json::json!([]));
         let other = wallet::replace_plan_excluding(&net.chain, carol.address(), U256::ZERO, &[alice.address()], |n| { assert_eq!(n, 1); 0 }).unwrap().unwrap();
         assert_eq!(other.victim, two, "alice is named by the pending replacement: the draw is among the others");
         assert!(wallet::replace_plan_excluding(&net.chain, carol.address(), U256::ZERO, &[alice.address(), two], |_| 0).unwrap_err().contains("pending replacement"));
         let mut reg = keccak256("register(address)")[..4].to_vec(); reg.extend_from_slice(bob.address().into_word().as_slice());
+        assert_eq!(wallet::register_calldata(bob.address()).to_vec(), reg);
         let txs = vec![replacing_tx(&net, &bob, one, B), tx(&net, &carol, wallet::replacing_calldata(carol.address(), plan.victim).to_vec(), U256::ZERO),
             tx_at(&net, &bob, reg, U256::from(B), 1)];
         let _ = next(&mut net, one, txs);

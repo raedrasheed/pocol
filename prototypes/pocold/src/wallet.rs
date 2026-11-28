@@ -43,6 +43,8 @@
 //! rewards and can be replaced. Miner mode is the earlier behaviour: mining still starts off and the user enables it.
 //! A device-local client setting only: no block, rule or registry record changes.
 use crate::{launcher::Home,node::Node,types};
+/// `pocol register` (Stage 4 PR A1): registration for a Linux server miner over its node's local RPC.
+pub mod register;
 use pocol_lp4_execution::{apply,txsign::{Key,Tx},view::View};
 use revm::primitives::{Address,B256,Bytes,U256,keccak256};
 use serde::Deserialize;
@@ -129,7 +131,7 @@ const REGISTRY_CALL_GAS:u64=1_000_000;
 /// measures on the V3 programs (lp4-execution tests/v3_contracts.rs
 /// `wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set`; 194,172 on the earn-in programs phase 6a
 /// deleted), so 0.002 PCOL (the rehearsal fee faucet's amount, or any first transfer on mainnet) covers its maximum fee.
-const EARNIN_REGISTER_GAS:u64=400_000;
+pub const EARNIN_REGISTER_GAS:u64=400_000;
 /// FN-2b C4 registerReplacing: about 2x the largest replacement measured (217,381 gas, the victim in the middle of the
 /// active list with a full-bond newcomer; lp4-execution tests/v3_contracts.rs replacing_write_ceilings_gas_and_user_sys_keys),
 /// so that a zero-bond newcomer's 0.002 PCOL first fee (the rehearsal faucet's amount) covers its maximum fee while the base fee stays below 1.5 gwei
@@ -294,6 +296,10 @@ fn step_json(step:RejoinStep)->Value{
     }
 }
 fn selector(signature:&str)->Bytes{keccak256(signature)[..4].to_vec().into()}
+/// register(address reward): the registration both wallets and `pocol register` sign below a full set.
+pub fn register_calldata(reward:Address)->Bytes{
+    let mut d=keccak256("register(address)")[..4].to_vec();d.extend_from_slice(reward.into_word().as_slice());d.into()
+}
 /// FN-2b C4 registerReplacing(reward, victim): the account registers with itself as the reward address, as
 /// quote_register does.
 pub fn replacing_calldata(reward:Address,victim:Address)->Bytes{
@@ -323,6 +329,16 @@ pub fn removable_json(chain:&crate::chain::Chain)->Result<Value,String>{
     let list=removable_members(chain,state.v(),head.height+1,&head_credited(chain));
     Ok(json!({"height":head.height+1,"active":active,"seats":chain.spec.cp().M_max,"full":active>=u64::from(chain.spec.cp().M_max),
         "removable":list.iter().map(|a|format!("{a:#x}")).collect::<Vec<_>>()}))
+}
+/// `removable_json` with `pendingVictims`: at a full set, the members already named by registerReplacing transactions
+/// among `raw` (the node's pool, `pending_victims`), which a newcomer leaves out of its draw as the wallets do (`pocol
+/// register`, PR A1); below a full set none (the pool is not scanned).
+pub fn removable_json_pending<'b>(chain:&crate::chain::Chain,raw:impl Iterator<Item=&'b [u8]>)->Result<Value,String>{
+    let mut out=removable_json(chain)?;
+    // Below a full set no replacement can land (registerReplacing refuses every victim), so the pool is not scanned.
+    let victims=if out["full"].as_bool()==Some(true){pending_victims(chain,raw)}else{vec![]};
+    out["pendingVictims"]=json!(victims.iter().map(|a|format!("{a:#x}")).collect::<Vec<_>>());
+    Ok(out)
 }
 /// FN-2b C4: the registry's removalStatus(victim) view, run on `state` (a head state) at height `next` with timestamp `ts`,
 /// as an eth_call would run it: the program's own rule (0 removable; 1 not a live active record; 2 the set not full; 3 no
@@ -355,7 +371,9 @@ pub fn replace_plan(chain:&crate::chain::Chain,me:Address,value:U256,pick:impl F
 /// them out, so that it does not name a member another pending replacement already takes (that transaction would revert).
 pub fn pending_victims<'b>(chain:&crate::chain::Chain,raw:impl Iterator<Item=&'b [u8]>)->Vec<Address>{
     let sel=&keccak256("registerReplacing(address,address)")[..4];
-    raw.filter_map(|r|pocol_lp4_execution::wire::decode_for_profile(r,chain.spec.profile()).ok()).filter_map(|e|{
+    // RLP keeps the call data contiguous, so a transaction whose bytes never hold the selector is not decoded (and its
+    // signature not recovered): pocol_getRemovable answers this for any caller, over a pool of up to 32 MiB.
+    raw.filter(|r|r.windows(4).any(|w|w==sel)).filter_map(|r|pocol_lp4_execution::wire::decode_for_profile(r,chain.spec.profile()).ok()).filter_map(|e|{
         let t=e.tx_env();
         (t.transact_to==revm::primitives::TxKind::Call(apply::program_address(0))&&t.data.len()==68&&&t.data[..4]==sel).then(||Address::from_slice(&t.data[48..68]))
     }).collect()
@@ -664,8 +682,7 @@ impl<'a> Wallet<'a>{
                     q["bondTarget"]=json!(coins(full));q["probation"]=json!(value<full);
                     return Ok(q)
                 }
-                let mut data=keccak256("register(address)")[..4].to_vec();data.extend_from_slice(self.key.address().into_word().as_slice());
-                let mut q=self.quote(n,"registration",apply::program_address(0),value,data.into(),EARNIN_REGISTER_GAS)?;
+                let mut q=self.quote(n,"registration",apply::program_address(0),value,register_calldata(self.key.address()),EARNIN_REGISTER_GAS)?;
                 q["bondTarget"]=json!(coins(full));q["probation"]=json!(value<full);
                 Ok(q)
             },

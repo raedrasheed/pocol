@@ -65,6 +65,12 @@ jobs:
       - name: Earn-in through the real wallet (fee faucet, zero-bond registration, probation mining, top-up)
         shell: bash
         run: python3 -B deploy/standalone/test_wallet_earnin.py
+      - name: Linux miner registration beside the running node (pocol register status, quote, confirm; register and registerReplacing)
+        shell: bash
+        run: python3 -B deploy/standalone/test_register.py
+      - name: Linux miner registration with the key in an encrypted systemd credential (real installer and encrypt-server-key.sh, root on the runner)
+        shell: bash
+        run: sudo -E env "PATH=$PATH" python3 -B deploy/standalone/test_register_credential.py
       - name: RPC security controls (RpcGuard on loopback sockets, the Studio and rewards gateways, the fee faucet)
         shell: bash
         run: |
