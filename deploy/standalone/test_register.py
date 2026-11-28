@@ -20,12 +20,14 @@ from test_launcher import BIN, EXE, call, identity, port, rpc
 
 PCOL = 10**18
 CHAIN = 777936
+OUTPUTS = []  # every `pocol register` stdout and stderr, searched for the secret keys at the end
 
 def register(home, action, *args, answer=None, ok=True, rpc_port):
     """One `pocol register` run; its JSON lines and stderr. `answer` is what is typed (None: stdin closed); `ok` True
     requires success, False failure, None either."""
     p = subprocess.run([str(BIN / ('pocol' + EXE)), 'register', action, '--home', str(home), '--rpc', f'127.0.0.1:{rpc_port}', *map(str, args)],
                        input=answer if answer is not None else '', capture_output=True, text=True, encoding='utf-8', timeout=300)
+    OUTPUTS.append(p.stdout + p.stderr)
     lines = [json.loads(line) for line in p.stdout.splitlines() if line.strip()]
     if ok and p.returncode:
         raise AssertionError(f'register {action} failed: {p.stderr}\n{p.stdout}')
@@ -146,6 +148,11 @@ def run():
             record = [m for m in rpc(api[4], 'pocol_getMiners') if m['id'].lower() == victim][0]
             assert record['status'] != 1, ('the replaced member left the active set', record)
             replaced = until(lambda: register(B, 'status', rpc_port=api[4])[0][0], lambda v: v['record']['lastShare'] > v['record']['registeredAt'], 900)
+            # No secret key reaches any output: the key files hold the 32 raw secret bytes.
+            text = '\n'.join(OUTPUTS).lower()
+            for home in (A, B):
+                secret = (home / 'identity.pocol-key').read_bytes()
+                assert len(secret) == 32 and secret.hex() not in text, 'a secret key appears in pocol register output'
             print(json.dumps({'result': 'PASS', 'scope': 'five local native pocol start processes on a v3 devnet (M_max 4); pocol register status, quote and confirm beside the running nodes: refusals, a 0.002 PCOL first-transaction register, mining without restart, a full-set registerReplacing',
                               'physicalDevicesTested': False, 'replacedAtBlock': receipt['block'], 'aLastShare': mined['record']['lastShare'],
                               'victim': victim, 'replacementRetries': retries, 'bLastShare': replaced['record']['lastShare']}))

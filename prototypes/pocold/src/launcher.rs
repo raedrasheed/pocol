@@ -1920,9 +1920,12 @@ pub(crate) mod key_backup_tests {
         assert!(reader.invitation().unwrap_err().contains("no network file"));
         assert!(Home::open(&home.path).is_err(), "the node's lock is still held");
         assert_eq!(files(&home.path), before, "nothing written");
-        // A credential is the key's only source once named: an unset $CREDENTIALS_DIRECTORY is refused, never the key file.
+        // A credential is the key's only source once named: an unset $CREDENTIALS_DIRECTORY is refused, never the key file
+        // (Linux); a platform without systemd credentials refuses every credential (`keyfile::load_credential`).
         let credential = HomeReader::open(&home.path).unwrap().with_key_credential("pocol-identity", None).unwrap();
-        assert!(credential.key().err().unwrap().contains("CREDENTIALS_DIRECTORY"));
+        let refused = credential.key().err().unwrap();
+        let expected = if cfg!(unix) { "needs $CREDENTIALS_DIRECTORY" } else { "supported on Linux only" };
+        assert!(refused.contains(expected), "{refused}");
         // A key that is not the marker's account is refused, and a missing key is never generated.
         let other = t.home("other");
         other.key().unwrap();
