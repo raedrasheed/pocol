@@ -220,6 +220,20 @@ To bring the founder back, make a new identity and register it again:
 
    `SIGNED_TRANSACTION` is the line `pocol-sign` printed. `eth_getTransactionReceipt` shows its status; `pocol_getMiners`
    then lists the new id with status 1.
+   `pocol register` does this step and the next with the wallets' gas and fee rule, beside the running service, and
+   checks the chain, the record, the balance and the seats before it signs (`deploy/standalone/README.md`, *Linux
+   server miners*). It does not need the 0.04 PCOL above; it needs the bond plus its quoted maximum fee:
+
+   ```sh
+   sudo runuser -u pocol-standalone -- /opt/pocol-standalone/pocol register quote --home /var/lib/pocol-standalone \
+     --bond BOND_PCOL --reward-address 0xREWARD_ADDRESS
+   sudo runuser -u pocol-standalone -- /opt/pocol-standalone/pocol register confirm --home /var/lib/pocol-standalone \
+     --bond BOND_PCOL --reward-address 0xREWARD_ADDRESS
+   ```
+
+   `confirm` signs only after you type `yes`; `pocol register status` then shows the record. The reward address must be
+   one the Registry pays (it has sent a transaction or holds code; a genesis reward address is), or the command
+   refuses it before signing.
 4. **At a full set** `register` reverts with `Capacity`. Register by replacement instead, as the wallets do:
    `pocol_getRemovable` lists the removable members (`full`, `removable`), and `registerReplacing(reward, victim)` takes
    calldata `0x5326ca0b` followed by the reward word and the victim word. The wallets reserve 500,000 gas for it

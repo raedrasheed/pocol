@@ -4,6 +4,7 @@
 //! runtime schedule accepts can be appended (future-only, append-only). No other schema is accepted.
 use crate::{identity, keyfile, keyfile::backup, node, testnet, types};
 use pocol_lp4_execution::txsign::Key;
+use revm::primitives::Address;
 use zeroize::Zeroizing;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -183,6 +184,13 @@ impl Invitation {
     /// seeds are retired.
     fn new_v2(seeds: Vec<SocketAddr>, bootstrap: Vec<SocketAddr>, seeds_retired: bool, files: BTreeMap<String, String>) -> Self {
         Self { schema: SCHEMA_V2.into(), consensus_rules_version: identity::CONSENSUS_RULES_VERSION, seeds, files, bootstrap, seeds_retired }
+    }
+    /// The network's genesis specification (the bytes of `genesis.spec.hex`), which fixes its chain id, genesis hash and
+    /// consensus parameters (`pocol register` reads B_reg, M_max and the inactivity windows from it).
+    pub fn genesis_spec(&self) -> Result<Vec<u8>, String> {
+        let bytes = types::unhex(self.files.get("genesis.spec.hex").map_or("", |s| s.trim()))?;
+        if bytes.len() > crate::genesis_spec::MAX_SPEC_BYTES { return Err("genesis specification exceeds its bound".into()) }
+        Ok(bytes)
     }
     /// D17: the advisory bootstrap addresses.
     pub fn bootstrap(&self) -> &[SocketAddr] { &self.bootstrap }
@@ -516,6 +524,96 @@ fn set_marker(dir: &Path, address: &str) -> Result<(), String> {
     write_new(&temp, address.as_bytes())?;
     fs::rename(&temp, &marker).map_err(|e| e.to_string())
 }
+/// The key of the credential `credential` for the home at `home` ([`Home::with_key_credential`]): its address marker must
+/// exist and name the credential's account. Nothing is generated or written, and the key file is never opened, so an
+/// interrupted key restore (which `finish_restore` completes from the key file) is refused.
+fn credential_key_in(home: &Path, credential: &Credential) -> Result<Key, String> {
+    if fs::symlink_metadata(home.join(RESTORE_RECORD)).is_ok() {
+        return Err("a key restore is unfinished in this home; finish it with its key file (without --key-credential) first".into());
+    }
+    let key = keyfile::load_credential(credential.dir.as_deref(), &credential.name)?;
+    let marker = home.join(ADDRESS_FILE);
+    if fs::symlink_metadata(&marker).is_err() {
+        return Err("a key credential serves an existing home only: this home has no identity address marker".into());
+    }
+    if read_marker(&marker)? != format!("{:#x}", key.address()) {
+        return Err("key credential does not match this home's original public identity".into());
+    }
+    Ok(key)
+}
+/// An existing home read beside the node that runs it (`pocol register`, Stage 4 PR A1): `pocol start` and the Linux
+/// service hold `launcher.lock` while they run, so this view takes no lock. It creates, repairs and writes nothing: it
+/// never generates a key, never writes the address marker and never finishes an interrupted key restore (it refuses
+/// one, which the node or `pocol identity` finishes). It checks the home as [`Home::open`] does (a real directory owned
+/// by this user, mode 0700), so it reads another user's home only as that user.
+pub struct HomeReader {
+    pub path: PathBuf,
+    credential: Option<Credential>,
+}
+impl HomeReader {
+    pub fn open(path: &Path) -> Result<Self, String> {
+        let meta = fs::symlink_metadata(path).map_err(|_| format!("{} is not an existing PoCol home", path.display()))?;
+        if !meta.is_dir() || meta.file_type().is_symlink() {
+            return Err("home must be a real directory".into());
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            if meta.uid() != unsafe { libc::geteuid() } || meta.mode() & 0o077 != 0 {
+                return Err("PoCol home must be owned by this user, mode 0700 (run the command as the user the node runs as)".into());
+            }
+        }
+        Ok(Self { path: path.to_path_buf(), credential: None })
+    }
+    /// As [`Home::with_key_credential`]: the key is the systemd credential `name` in `dir`, never the key file.
+    pub fn with_key_credential(mut self, name: &str, dir: Option<PathBuf>) -> Result<Self, String> {
+        keyfile::credential_name(name)?;
+        self.credential = Some(Credential { dir, name: name.into() });
+        Ok(self)
+    }
+    fn no_restore(&self) -> Result<(), String> {
+        if [RESTORE_RECORD, STAGED_KEY].iter().any(|name| fs::symlink_metadata(self.path.join(name)).is_ok()) {
+            return Err("a key restore is unfinished in this home; start the node (or run pocol identity) once to finish it, then try again".into());
+        }
+        Ok(())
+    }
+    /// The home's public address, from its identity marker alone (no key is read).
+    pub fn address(&self) -> Result<Address, String> {
+        self.no_restore()?;
+        let marker = self.path.join(ADDRESS_FILE);
+        if fs::symlink_metadata(&marker).is_err() {
+            return Err("this home has no identity yet; run pocol identity (or start the node) first".into());
+        }
+        read_marker(&marker)?.parse().map_err(|_| "invalid identity address marker".into())
+    }
+    /// The home's key (its key file, or its credential), which must belong to the address marker's account.
+    pub fn key(&self) -> Result<Key, String> {
+        let address = self.address()?;
+        let key = match &self.credential {
+            Some(credential) => credential_key_in(&self.path, credential)?,
+            None => {
+                let path = self.path.join(KEY_FILE);
+                if fs::symlink_metadata(&path).is_err() {
+                    return Err("this home's key file is missing (a key held in a systemd credential is read with --key-credential NAME)".into());
+                }
+                keyfile::load(&path)?
+            }
+        };
+        if key.address() != address {
+            return Err("key does not match this home's original public identity".into());
+        }
+        Ok(key)
+    }
+    /// The network this home is bound to (its saved `network.pocol.json`), checked as `pocol start` checks it.
+    pub fn invitation(&self) -> Result<Invitation, String> {
+        let saved = self.path.join("network.pocol.json");
+        if fs::symlink_metadata(&saved).is_err() {
+            return Err("this home has no network file yet; start the node once first".into());
+        }
+        real_file(&saved)?;
+        Invitation::parse(&read_bounded(&saved)?)
+    }
+}
 impl Home {
     /// [`Home::open`] for a command that must never create a wallet: `path` must already be a directory, so a
     /// mistyped `--home` creates no directory and no lock file.
@@ -581,18 +679,7 @@ impl Home {
     /// marker must exist and name the credential's account, and nothing is generated or written. The key file is
     /// never opened, so an interrupted key restore (which `finish_restore` completes from the key file) is refused.
     fn credential_key(&self, credential: &Credential) -> Result<Key, String> {
-        if fs::symlink_metadata(self.path.join(RESTORE_RECORD)).is_ok() {
-            return Err("a key restore is unfinished in this home; finish it with its key file (without --key-credential) first".into());
-        }
-        let key = keyfile::load_credential(credential.dir.as_deref(), &credential.name)?;
-        let marker = self.path.join(ADDRESS_FILE);
-        if fs::symlink_metadata(&marker).is_err() {
-            return Err("a key credential serves an existing home only: this home has no identity address marker".into());
-        }
-        if read_marker(&marker)? != format!("{:#x}", key.address()) {
-            return Err("key credential does not match this home's original public identity".into());
-        }
-        Ok(key)
+        credential_key_in(&self.path, credential)
     }
     /// Commands that rewrite or inspect the key file have no credential form.
     fn no_credential(&self, command: &str) -> Result<(), String> {
@@ -1811,6 +1898,66 @@ pub(crate) mod key_backup_tests {
         let path = target.path.clone();
         drop(target);
         (current, restored, Home::open(&path).unwrap(), t)
+    }
+    /// Every file under `dir` and its bytes, `launcher.lock` by length only (see `upgrade_tests::snapshot`).
+    fn files(dir: &Path) -> BTreeMap<String, Vec<u8>> {
+        fs::read_dir(dir).unwrap().map(|e| e.unwrap()).filter(|e| e.path().is_file()).map(|e| {
+            let name = e.file_name().into_string().unwrap();
+            let bytes = if name == "launcher.lock" { e.metadata().unwrap().len().to_be_bytes().to_vec() } else { fs::read(e.path()).unwrap() };
+            (name, bytes)
+        }).collect()
+    }
+    #[test]
+    fn a_home_reader_reads_beside_the_running_node_and_writes_nothing() {
+        // PR A1: `pocol register` reads the home the node holds locked; it takes no lock and changes no file.
+        let t = Scratch::new();
+        let home = t.home("home");
+        let address = home.address().unwrap();
+        let before = files(&home.path);
+        let reader = HomeReader::open(&home.path).unwrap();
+        assert_eq!(format!("{:#x}", reader.address().unwrap()), address);
+        assert_eq!(format!("{:#x}", reader.key().unwrap().address()), address);
+        assert!(reader.invitation().unwrap_err().contains("no network file"));
+        assert!(Home::open(&home.path).is_err(), "the node's lock is still held");
+        assert_eq!(files(&home.path), before, "nothing written");
+        // A credential is the key's only source once named: an unset $CREDENTIALS_DIRECTORY is refused, never the key file.
+        let credential = HomeReader::open(&home.path).unwrap().with_key_credential("pocol-identity", None).unwrap();
+        assert!(credential.key().err().unwrap().contains("CREDENTIALS_DIRECTORY"));
+        // A key that is not the marker's account is refused, and a missing key is never generated.
+        let other = t.home("other");
+        other.key().unwrap();
+        fs::copy(other.path.join(KEY_FILE), home.path.join(KEY_FILE)).unwrap();
+        assert!(reader.key().err().unwrap().contains("does not match"));
+        fs::remove_file(home.path.join(KEY_FILE)).unwrap();
+        assert!(reader.key().err().unwrap().contains("key file is missing"));
+        assert!(!home.path.join(KEY_FILE).exists(), "no key generated");
+        fs::remove_file(home.path.join(ADDRESS_FILE)).unwrap();
+        assert!(reader.address().unwrap_err().contains("no identity yet"));
+        assert!(!home.path.join(ADDRESS_FILE).exists(), "no marker written");
+        // No home, or one that is not this user's 0700 directory, is refused and nothing is created.
+        let absent = t.0.join("absent");
+        assert!(HomeReader::open(&absent).is_err());
+        assert!(!absent.exists());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&other.path, fs::Permissions::from_mode(0o750)).unwrap();
+            assert!(HomeReader::open(&other.path).err().unwrap().contains("mode 0700"));
+        }
+    }
+    #[test]
+    fn a_home_reader_refuses_an_unfinished_key_restore_and_leaves_it_for_the_node() {
+        let (current, restored, home, _t) = crash_restore(3, false);
+        let path = home.path.clone();
+        drop(home);
+        let before = files(&path);
+        assert!(path.join(RESTORE_RECORD).exists());
+        let reader = HomeReader::open(&path).unwrap();
+        assert!(reader.address().unwrap_err().contains("key restore is unfinished"));
+        assert!(reader.key().err().unwrap().contains("key restore is unfinished"));
+        assert_eq!(files(&path), before, "the restore is neither finished nor undone");
+        assert_ne!(restored, current);
+        assert_eq!(Home::open(&path).unwrap().address().unwrap(), restored, "the node's next open finishes it");
     }
     #[test]
     fn a_restore_interrupted_after_the_swap_is_finished_on_the_next_open() {

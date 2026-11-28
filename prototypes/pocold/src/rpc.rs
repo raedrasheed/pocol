@@ -1134,7 +1134,8 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
             json!({"id":format!("{id:#x}"),"status":r.status,"tomb":r.tomb,"bondState":r.bond_state,"lastShare":r.last_share,"bond":qty256(r.bond),"registeredAt":r.registered_at,"reward":format!("{:#x}",r.reward),"rewardBalance":qty256(s.account(&r.reward).map(|a|a.info.balance).unwrap_or_default())})}).collect::<Vec<_>>()))}
         // FN-2b C4: the members the registry could remove as inactive at the next block (full set only),
         // which a newcomer's registerReplacing names (wallet.rs removable_members); heavy lane (one entry per removable member).
-        "pocol_getRemovable"=>crate::wallet::removable_json(&n.chain).map_err(|e|Fail::from((-32001,e))),
+        // pendingVictims: the members pending registerReplacing transactions in the pool already name (PR A1).
+        "pocol_getRemovable"=>crate::wallet::removable_json_pending(&n.chain,n.pool.txs.iter().map(|(_,raw)|raw.as_slice())).map_err(|e|Fail::from((-32001,e))),
         "pocol_getTemplate"=>Ok(n.template_json()),
         // V3-30 S2: the local work interface, only with a work port (otherwise as an unknown method); ORIGIN_DENY and
         // `handle_from` keep sites and the main port out before this runs.

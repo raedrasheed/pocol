@@ -61,3 +61,4 @@ UNIT
 systemctl daemon-reload
 systemctl enable pocol-standalone.service
 echo 'Installed. Save the public address above. After installing the shared network file in /opt/pocol-standalone/, start pocol-standalone.service.'
+echo 'A genesis founder mines at once. A new identity mines once registered: as pocol-standalone, run /opt/pocol-standalone/pocol register status|quote|confirm --home /var/lib/pocol-standalone (README.md, Linux server miners).'
